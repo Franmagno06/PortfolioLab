@@ -52,6 +52,28 @@ Para inspecionar o banco visualmente: `npm run db:studio`.
 
 > **Nota sobre imports:** o projeto usa ES Modules com `moduleResolution: NodeNext`, então imports relativos levam extensão `.js` mesmo em arquivos `.ts` (ex: `import { app } from "./app.js"`). É o comportamento padrão do Node moderno.
 
+## Endpoints da API
+
+Rotas com 🔒 exigem login (cookie de sessão). Teste com o Thunder Client no VS Code.
+
+| Método | Rota | Descrição |
+|--------|------|-----------|
+| GET | `/health` | Status da API |
+| POST | `/auth/register` | Criar conta (`name`, `email`, `password`) |
+| POST | `/auth/login` | Login — grava cookie HttpOnly |
+| POST | `/auth/logout` | Sai da sessão |
+| GET 🔒 | `/auth/me` | Perfil do usuário logado |
+| GET 🔒 | `/assets` | Lista os ativos disponíveis |
+| GET 🔒 | `/assets/:ticker` | Busca ativo por ticker |
+| POST 🔒 | `/transactions` | Registrar compra/venda (`ticker`, `kind`, `quantity`, `unitPrice`, `fee?`, `executedAt`) |
+| GET 🔒 | `/transactions` | Histórico de transações |
+| DELETE 🔒 | `/transactions/:id` | Apagar transação |
+| POST 🔒 | `/dividends` | Registrar provento (`ticker`, `amount`, `paidAt`) |
+| GET 🔒 | `/dividends` | Histórico de proventos |
+| DELETE 🔒 | `/dividends/:id` | Apagar provento |
+| GET 🔒 | `/portfolio` | Posição consolidada: quantidade, preço médio, lucro por ativo |
+| GET 🔒 | `/portfolio/summary` | Patrimônio total, lucro e alocação % por classe |
+
 ## Documentação
 
 - [Roadmap de desenvolvimento](docs/roadmap.md) — plano completo em 8 sprints

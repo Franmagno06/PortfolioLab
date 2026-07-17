@@ -32,9 +32,12 @@ Plano em 8 sprints (1 semana cada), do banco de dados ao módulo de IA. Os itens
 
 **Objetivo:** consultar a posição consolidada calculada a partir das transações.
 
-- [ ] CRUD de `Transaction` (compra/venda) e `Dividend`
-- [ ] `PortfolioService`: preço médio ponderado, quantidade atual, valor aplicado, lucro/prejuízo
-- [ ] `GET /portfolio/summary` — patrimônio total e alocação atual por classe
+- [x] CRUD de `Transaction` (compra/venda) e `Dividend`
+- [x] Validação de venda: não é possível vender mais do que se possui
+- [x] `PortfolioService`: preço médio ponderado, quantidade atual, valor aplicado, lucro/prejuízo
+- [x] `GET /portfolio/summary` — patrimônio total e alocação atual por classe
+- [x] Consulta de ativos e busca por ticker (`GET /assets`, `GET /assets/:ticker`)
+- [x] 14 testes novos: 8 unitários do preço médio + 6 de integração do fluxo completo
 
 ## ⚖️ Sprint 4 — Motor de Rebalanceamento (coração do produto)
 

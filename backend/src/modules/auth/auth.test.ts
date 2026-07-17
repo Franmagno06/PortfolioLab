@@ -15,7 +15,9 @@ const email = `vitest-${randomUUID()}@portfoliolab.dev`;
 const password = "senha123";
 
 afterAll(async () => {
-  await prisma.user.deleteMany({ where: { email: { startsWith: "vitest-" } } });
+  // apaga apenas o usuário DESTE arquivo de teste: os arquivos rodam em
+  // paralelo, e um deleteMany amplo poderia colidir com os outros testes
+  await prisma.user.deleteMany({ where: { email } });
   await prisma.$disconnect();
 });
 
