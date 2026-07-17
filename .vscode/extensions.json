@@ -1,0 +1,9 @@
+{
+  "recommendations": [
+    "Prisma.prisma",
+    "rangav.vscode-thunder-client",
+    "esbenp.prettier-vscode",
+    "dbaeumer.vscode-eslint",
+    "MS-CEINTL.vscode-language-pack-pt-BR"
+  ]
+}
