@@ -73,6 +73,10 @@ Rotas com 🔒 exigem login (cookie de sessão). Teste com o Thunder Client no V
 | DELETE 🔒 | `/dividends/:id` | Apagar provento |
 | GET 🔒 | `/portfolio` | Posição consolidada: quantidade, preço médio, lucro por ativo |
 | GET 🔒 | `/portfolio/summary` | Patrimônio total, lucro e alocação % por classe |
+| GET 🔒 | `/goals` | Metas de alocação e soma total |
+| PUT 🔒 | `/goals` | Criar/atualizar meta (`ticker`, `targetWeight`) — soma ≤ 100% |
+| DELETE 🔒 | `/goals/:ticker` | Remover meta |
+| POST 🔒 | `/rebalance/simulate` | Simular aporte (`amount`): o que comprar para rebalancear |
 
 ## Documentação
 

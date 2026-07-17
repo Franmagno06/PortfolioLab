@@ -43,10 +43,11 @@ Plano em 8 sprints (1 semana cada), do banco de dados ao módulo de IA. Os itens
 
 **Objetivo:** dado R$ 1.500, o sistema diz o que comprar.
 
-- [ ] CRUD de `AssetGoal` (pesos-alvo, validar soma ≤ 100%)
-- [ ] `RebalanceService`: algoritmo guloso — ordena por maior déficit (`peso_alvo − peso_atual`), aloca em unidades inteiras
-- [ ] Testes unitários: aporte insuficiente para 1 cota, carteira vazia, todos acima da meta, empate de déficit
-- [ ] Documentar complexidade: O(n log n) da ordenação + O(n) da alocação
+- [x] CRUD de `AssetGoal` (pesos-alvo, validar soma ≤ 100%)
+- [x] `RebalanceService`: algoritmo guloso — ordena por maior déficit (`peso_alvo − peso_atual`), aloca em unidades inteiras
+- [x] Testes unitários: aporte insuficiente para 1 cota, carteira vazia, todos acima da meta, empate de déficit
+- [x] Documentar complexidade: O(n log n) da ordenação + O(n) da alocação — ver [algoritmo-rebalanceamento.md](algoritmo-rebalanceamento.md)
+- [x] 14 testes novos (8 unitários do algoritmo + 6 de integração) — 37 no total
 
 ## 🎨 Sprint 5 — Frontend: fundação e auth
 

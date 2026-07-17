@@ -3,7 +3,9 @@ import express from "express";
 import { assetsRoutes } from "./modules/assets/assets.routes.js";
 import { authRoutes } from "./modules/auth/auth.routes.js";
 import { dividendsRoutes } from "./modules/dividends/dividends.routes.js";
+import { goalsRoutes } from "./modules/goals/goals.routes.js";
 import { portfolioRoutes } from "./modules/portfolio/portfolio.routes.js";
+import { rebalanceRoutes } from "./modules/rebalance/rebalance.routes.js";
 import { transactionsRoutes } from "./modules/transactions/transactions.routes.js";
 import { authGuard } from "./shared/middlewares/auth-guard.js";
 import { errorHandler } from "./shared/middlewares/error-handler.js";
@@ -26,7 +28,9 @@ app.use("/auth", authRoutes);
 app.use("/assets", authGuard, assetsRoutes);
 app.use("/transactions", authGuard, transactionsRoutes);
 app.use("/dividends", authGuard, dividendsRoutes);
+app.use("/goals", authGuard, goalsRoutes);
 app.use("/portfolio", authGuard, portfolioRoutes);
+app.use("/rebalance", authGuard, rebalanceRoutes);
 
 // Registrado por último: captura os erros de todas as rotas acima
 app.use(errorHandler);
