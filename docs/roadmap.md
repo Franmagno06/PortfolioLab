@@ -26,7 +26,7 @@ Plano em 8 sprints (1 semana cada), do banco de dados ao módulo de IA. Os itens
 - [x] `POST /auth/login` — JWT em cookie `HttpOnly` + `Secure` + `SameSite=Strict`
 - [x] `POST /auth/logout` e `GET /auth/me` (rota protegida)
 - [x] Middleware `authGuard` que valida o token e injeta `userId` na request
-- [ ] Testes de integração (Vitest + Supertest): registro duplicado, senha errada, token expirado
+- [x] Testes de integração (Vitest + Supertest): registro duplicado, senha errada, token expirado — 9 testes passando
 
 ## 💼 Sprint 3 — API da Carteira
 
