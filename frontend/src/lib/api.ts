@@ -13,6 +13,17 @@ export class ApiError extends Error {
   }
 }
 
+// Upload de arquivos (multipart/form-data): o navegador define o
+// Content-Type sozinho — por isso NÃO usamos o header JSON aqui
+export async function apiUpload<T>(path: string, form: FormData): Promise<T> {
+  const res = await fetch(`/api${path}`, { method: "POST", body: form });
+  const body = (await res.json().catch(() => null)) as (T & ApiErrorBody) | null;
+  if (!res.ok) {
+    throw new ApiError(body?.error ?? "Erro inesperado, tente novamente", res.status);
+  }
+  return body as T;
+}
+
 export async function api<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`/api${path}`, {
     ...options,

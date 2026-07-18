@@ -30,6 +30,7 @@ model User {
   transactions Transaction[]
   goals        AssetGoal[]
   dividends    Dividend[]
+  reports      Report[]
 
   @@map("users")
 }
@@ -82,6 +83,23 @@ model AssetGoal {
   // Um usuário só pode ter UMA meta por ativo
   @@unique([userId, assetId])
   @@map("asset_goals")
+}
+
+// Relatório gerencial analisado pela IA (Sprint 8)
+model Report {
+  id            String   @id @default(uuid())
+  userId        String   @map("user_id")
+  fileName      String   @map("file_name")
+  // texto extraído do PDF — usado pelo chat "Pergunte ao Relatório"
+  extractedText String   @map("extracted_text") @db.Text
+  // resultado da análise (resumo, alertas, indicadores) como JSON
+  analysis      Json?
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@map("reports")
 }
 
 model Dividend {

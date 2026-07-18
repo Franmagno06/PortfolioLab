@@ -8,6 +8,9 @@ const envSchema = z.object({
   DATABASE_URL: z.string().min(1, "DATABASE_URL é obrigatória"),
   PORT: z.coerce.number().default(3333),
   JWT_SECRET: z.string().min(1).default("dev-secret"),
+  // Módulo IA (Sprint 8) — opcional: sem a chave, as rotas /reports retornam 503
+  ANTHROPIC_API_KEY: z.string().optional(),
+  ANTHROPIC_MODEL: z.string().default("claude-opus-4-8"),
 });
 
 export const env = envSchema.parse(process.env);

@@ -73,8 +73,13 @@ Plano em 8 sprints (1 semana cada), do banco de dados ao módulo de IA. Os itens
 
 ## 🤖 Sprint 8 — Módulo IA de Relatórios
 
-- [ ] Upload de PDF (`multer`) e extração de texto (`pdf-parse`)
-- [ ] Integração com LLM: resumo executivo, alertas (vacância, emissões, dividendos), chat "Pergunte ao Relatório"
+- [x] Upload de PDF (`multer` em memória, limite 10 MB) e extração de texto (`unpdf`)
+- [x] Integração com a API do Claude (`@anthropic-ai/sdk`, modelo `claude-opus-4-8`): resumo executivo, alertas com severidade (vacância, emissões, dividendos) e indicadores citados
+- [x] **Structured outputs** (JSON Schema): a análise volta como JSON válido garantido pela API
+- [x] **Prompt caching** no chat: o texto do relatório fica em cache entre perguntas (~90% mais barato)
+- [x] Chat "Pergunte ao Relatório" com histórico mantido no cliente
+- [x] Tabela `reports` no banco (texto extraído + análise em JSON)
+- [x] Tela `/relatorios`: upload, lista, resumo, alertas coloridos e chat
 
 ## 📰 Sprint 9 (opcional) — Notícias e Deploy
 

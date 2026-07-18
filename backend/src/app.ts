@@ -6,6 +6,7 @@ import { dividendsRoutes } from "./modules/dividends/dividends.routes.js";
 import { goalsRoutes } from "./modules/goals/goals.routes.js";
 import { portfolioRoutes } from "./modules/portfolio/portfolio.routes.js";
 import { rebalanceRoutes } from "./modules/rebalance/rebalance.routes.js";
+import { reportsRoutes } from "./modules/reports/reports.routes.js";
 import { transactionsRoutes } from "./modules/transactions/transactions.routes.js";
 import { authGuard } from "./shared/middlewares/auth-guard.js";
 import { errorHandler } from "./shared/middlewares/error-handler.js";
@@ -31,6 +32,7 @@ app.use("/dividends", authGuard, dividendsRoutes);
 app.use("/goals", authGuard, goalsRoutes);
 app.use("/portfolio", authGuard, portfolioRoutes);
 app.use("/rebalance", authGuard, rebalanceRoutes);
+app.use("/reports", authGuard, reportsRoutes);
 
 // Registrado por último: captura os erros de todas as rotas acima
 app.use(errorHandler);

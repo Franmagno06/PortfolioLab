@@ -91,6 +91,14 @@ Rotas com 🔒 exigem login (cookie de sessão). Teste com o Thunder Client no V
 | PUT 🔒 | `/goals` | Criar/atualizar meta (`ticker`, `targetWeight`) — soma ≤ 100% |
 | DELETE 🔒 | `/goals/:ticker` | Remover meta |
 | POST 🔒 | `/rebalance/simulate` | Simular aporte (`amount`): o que comprar para rebalancear |
+| POST 🔒 | `/reports` | Enviar PDF (campo `file`) → análise com IA: resumo, alertas, indicadores |
+| GET 🔒 | `/reports` | Relatórios já analisados |
+| POST 🔒 | `/reports/:id/ask` | Chat "Pergunte ao Relatório" (`question`, `history?`) |
+| DELETE 🔒 | `/reports/:id` | Apagar relatório |
+
+> O módulo de IA requer `ANTHROPIC_API_KEY` no `backend/.env`
+> (crie em [console.anthropic.com](https://console.anthropic.com)). Sem a chave,
+> o restante da plataforma funciona normalmente.
 
 ## Documentação
 
