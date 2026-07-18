@@ -1,13 +1,73 @@
 @import "tailwindcss";
 
-/* Paleta do protótipo Figma do PortfolioLab */
+/*
+  Identidade visual do PortfolioLab — "editorial financeiro"
+  Tinta navy sobre papel, esmeralda para ganhos, números tabulares.
+*/
+@theme inline {
+  --font-sans: var(--font-grotesk); /* Space Grotesk — títulos e texto */
+  --font-mono: var(--font-jet); /* JetBrains Mono — números e valores */
+}
+
 @theme {
-  --color-navy: #1b2b4b; /* sidebar */
-  --color-navy-light: #2d4a80; /* item ativo da sidebar */
-  --color-page: #f3f4f8; /* fundo das páginas */
+  --color-ink: #0e1b33; /* navy profundo (sidebar, títulos) */
+  --color-ink-soft: #16264a; /* navy intermediário */
+  --color-paper: #f4f4ef; /* fundo "papel", levemente quente */
+  --color-card: #ffffff;
+  --color-line: #e3e4dc; /* hairlines dos cards */
+  --color-gain: #1e9e63; /* esmeralda — ganhos */
+  --color-loss: #d94f5c; /* coral — perdas */
+  --color-acao: #1e9e63;
+  --color-fii: #3b6fe0;
+  --color-etf: #d98324;
+  --color-rf: #7a5af8;
 }
 
 body {
-  background: var(--color-page);
-  color: #1b2b4b;
+  background: var(--color-paper);
+  color: var(--color-ink);
+}
+
+/* números alinhados como em terminal financeiro */
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+/* revelação escalonada na carga da página */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.reveal {
+  animation: fade-up 0.55s cubic-bezier(0.22, 0.9, 0.35, 1) both;
+}
+.reveal-2 {
+  animation-delay: 0.07s;
+}
+.reveal-3 {
+  animation-delay: 0.14s;
+}
+.reveal-4 {
+  animation-delay: 0.21s;
+}
+.reveal-5 {
+  animation-delay: 0.28s;
+}
+
+/* crescimento das barras de progresso */
+@keyframes grow-bar {
+  from {
+    width: 0;
+  }
+}
+.grow-bar {
+  animation: grow-bar 0.9s cubic-bezier(0.22, 0.9, 0.35, 1) both;
+  animation-delay: 0.3s;
 }

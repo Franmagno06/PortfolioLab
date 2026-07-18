@@ -60,8 +60,9 @@ Plano em 8 sprints (1 semana cada), do banco de dados ao módulo de IA. Os itens
 
 ## 📊 Sprint 6 — Dashboard e Carteira (telas 1 e 2 do Figma)
 
-- [ ] Recharts: rosca (alocação por classe), barras (proventos mês a mês), setores (exposição setorial)
-- [ ] Tabela interativa de ativos com lucro/prejuízo colorido
+- [x] Recharts: rosca (alocação por classe) e barras (proventos mês a mês); exposição setorial fica para quando houver dados de setor por posição
+- [x] Tabela de ativos completa: preço médio, resultado colorido, % da carteira com barras
+- [x] Identidade visual "editorial financeiro": Space Grotesk + JetBrains Mono (números tabulares), navy/papel/esmeralda, animações de entrada escalonadas, logomarca SVG
 
 ## 🧮 Sprint 7 — Calculadora de Aportes (tela 3 do Figma)
 

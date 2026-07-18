@@ -50,7 +50,7 @@ export default function RegistroPage() {
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="Seu nome"
-          className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
+          className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
         />
       </label>
 
@@ -62,7 +62,7 @@ export default function RegistroPage() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="voce@exemplo.com"
-          className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
+          className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
         />
       </label>
 
@@ -77,7 +77,7 @@ export default function RegistroPage() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           placeholder="••••••"
-          className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
+          className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
         />
       </label>
 
@@ -88,14 +88,14 @@ export default function RegistroPage() {
       <button
         type="submit"
         disabled={enviando}
-        className="w-full rounded-lg bg-blue-600 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
+        className="w-full rounded-lg bg-[#0e1b33] py-2.5 text-sm font-semibold text-white transition hover:bg-[#1a2f5c] disabled:opacity-60"
       >
         {enviando ? "Criando..." : "Criar conta"}
       </button>
 
       <p className="text-center text-sm text-slate-500">
         Já tem conta?{" "}
-        <Link href="/login" className="font-semibold text-blue-600 hover:underline">
+        <Link href="/login" className="font-semibold text-[#1e9e63] hover:underline">
           Entrar
         </Link>
       </p>
