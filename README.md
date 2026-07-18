@@ -44,6 +44,20 @@ npm install
 npm run dev
 ```
 
+## Como rodar o frontend
+
+Com a API rodando (passo acima), abra **outro terminal**:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Acesse [http://localhost:3000](http://localhost:3000) — login demo:
+`demo@portfoliolab.dev` / `123456`. O frontend fala com a API via rewrite
+(`/api/*` → `localhost:3333`), então os dois precisam estar rodando.
+
 A API sobe em `http://localhost:3333` — teste com `GET /health`.
 
 Usuário de demonstração criado pelo seed: `demo@portfoliolab.dev` / senha `123456`.

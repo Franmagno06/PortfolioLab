@@ -1,0 +1,11 @@
+import { Sidebar } from "@/components/sidebar";
+
+// Layout da área logada: sidebar fixa + conteúdo da página
+export default function AppLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex min-h-screen">
+      <Sidebar />
+      <main className="flex-1 p-8">{children}</main>
+    </div>
+  );
+}

@@ -1,0 +1,13 @@
+@import "tailwindcss";
+
+/* Paleta do protótipo Figma do PortfolioLab */
+@theme {
+  --color-navy: #1b2b4b; /* sidebar */
+  --color-navy-light: #2d4a80; /* item ativo da sidebar */
+  --color-page: #f3f4f8; /* fundo das páginas */
+}
+
+body {
+  background: var(--color-page);
+  color: #1b2b4b;
+}

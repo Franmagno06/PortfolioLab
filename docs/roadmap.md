@@ -51,10 +51,12 @@ Plano em 8 sprints (1 semana cada), do banco de dados ao módulo de IA. Os itens
 
 ## 🎨 Sprint 5 — Frontend: fundação e auth
 
-- [ ] Next.js (App Router) + Tailwind + shadcn/ui
-- [ ] Telas de login/registro consumindo a API
-- [ ] `middleware.ts` protegendo rotas autenticadas
-- [ ] Layout base com a sidebar do [protótipo Figma](https://www.figma.com/design/G153Uuy3Gwt3I0SNarOn6f)
+- [x] Next.js 16 (App Router) + Tailwind v4 — shadcn/ui adiado para quando tabelas/diálogos precisarem (evitar dependência antes da hora)
+- [x] Telas de login/registro consumindo a API (com auto-login após registro)
+- [x] `proxy.ts` protegendo rotas autenticadas (convenção nova do Next 16, ex-`middleware.ts`)
+- [x] Rewrite `/api/*` → backend: sem CORS e cookie funcionando naturalmente
+- [x] Layout base com a sidebar do [protótipo Figma](https://www.figma.com/design/G153Uuy3Gwt3I0SNarOn6f)
+- [x] Dashboard inicial com dados reais: cards de patrimônio/lucro/proventos e barras de alocação por classe
 
 ## 📊 Sprint 6 — Dashboard e Carteira (telas 1 e 2 do Figma)
 
