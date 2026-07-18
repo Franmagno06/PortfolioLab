@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { NovaTransacao } from "@/components/nova-transacao";
+import { ProventosCard } from "@/components/proventos-card";
 import { api, ApiError } from "@/lib/api";
 import { brl, coresClasse, nomesClasse, pct } from "@/lib/format";
 
@@ -17,11 +19,14 @@ type Posicao = {
   lucroPct: number;
 };
 
+type Ativo = { ticker: string; name: string };
+
 export default function CarteiraPage() {
   const [ativos, setAtivos] = useState<Posicao[] | null>(null);
+  const [disponiveis, setDisponiveis] = useState<Ativo[]>([]);
   const [erro, setErro] = useState<string | null>(null);
 
-  useEffect(() => {
+  const carregar = useCallback(() => {
     api<Posicao[]>("/portfolio")
       .then(setAtivos)
       .catch((err) =>
@@ -29,8 +34,13 @@ export default function CarteiraPage() {
       );
   }, []);
 
+  useEffect(() => {
+    carregar();
+    api<Ativo[]>("/assets").then(setDisponiveis).catch(() => setDisponiveis([]));
+  }, [carregar]);
+
   if (erro) {
-    return <p className="rounded-lg bg-red-50 px-4 py-3 text-[--color-loss]">{erro}</p>;
+    return <p className="rounded-lg bg-red-50 px-4 py-3 text-[#d94f5c]">{erro}</p>;
   }
 
   if (!ativos) {
@@ -60,11 +70,15 @@ export default function CarteiraPage() {
         </span>
       </header>
 
+      <div className="reveal reveal-2">
+        <NovaTransacao ativos={disponiveis} aoCriar={carregar} />
+      </div>
+
       {ativos.length === 0 ? (
         <div className="reveal reveal-2 rounded-2xl border-2 border-dashed border-slate-300 bg-white p-12 text-center">
           <p className="font-semibold">Sua carteira está vazia</p>
           <p className="mt-1 text-sm text-slate-500">
-            Registre compras em POST /transactions para vê-las aqui.
+            Registre sua primeira compra no botão acima.
           </p>
         </div>
       ) : (
@@ -156,6 +170,8 @@ export default function CarteiraPage() {
           </table>
         </div>
       )}
+
+      <ProventosCard ativos={disponiveis} />
     </div>
   );
 }

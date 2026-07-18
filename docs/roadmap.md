@@ -66,8 +66,10 @@ Plano em 8 sprints (1 semana cada), do banco de dados ao módulo de IA. Os itens
 
 ## 🧮 Sprint 7 — Calculadora de Aportes (tela 3 do Figma)
 
-- [ ] Formulário de simulação + resultado com prioridades e comparação antes/depois
-- [ ] Registro de proventos e histórico
+- [x] Formulário de simulação + resultado com prioridades e comparação antes/depois (barras com marcador de meta)
+- [x] Editor de metas de alocação na própria tela (soma validada, adicionar/editar)
+- [x] Registro de transações (compra/venda) direto na Carteira, com validação da API na tela
+- [x] Registro de proventos e histórico na Carteira
 
 ## 🤖 Sprint 8 — Módulo IA de Relatórios
 
