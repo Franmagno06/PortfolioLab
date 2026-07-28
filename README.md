@@ -100,6 +100,20 @@ Rotas com 🔒 exigem login (cookie de sessão). Teste com o Thunder Client no V
 > (crie em [console.anthropic.com](https://console.anthropic.com)). Sem a chave,
 > o restante da plataforma funciona normalmente.
 
+## Problemas comuns
+
+**"Erro interno do servidor" no login / banco não responde**
+
+O Supabase no plano gratuito **hiberna o projeto após ~1 semana sem uso**. Quando
+isso acontece, a API responde `503` com uma mensagem explicativa. Para reativar:
+
+1. Acesse [o painel do projeto](https://supabase.com/dashboard/project/yqalnjhwdrvetemjbtzq)
+2. Clique em **Restore project** (leva ~2 a 4 minutos para o banco voltar)
+3. Teste a conexão: `node scripts/debug-login.mjs` dentro de `backend/`
+
+O script `backend/scripts/debug-login.mjs` testa banco, senha e JWT em etapas
+separadas — útil para saber exatamente onde algo quebrou.
+
 ## Documentação
 
 - [Roadmap de desenvolvimento](docs/roadmap.md) — plano completo em 8 sprints

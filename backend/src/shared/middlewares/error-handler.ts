@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import type { NextFunction, Request, Response } from "express";
 import multer from "multer";
 import { ZodError } from "zod";
@@ -31,6 +32,18 @@ export function errorHandler(
     res.status(400).json({
       error: "Dados inválidos",
       issues: err.flatten().fieldErrors,
+    });
+    return;
+  }
+
+  // Banco inacessível — a causa mais comum é o projeto Supabase pausado
+  // (o plano gratuito hiberna após ~1 semana sem uso). Sem esta checagem,
+  // o problema aparecia como um genérico 500 e era difícil de diagnosticar.
+  if (err instanceof Prisma.PrismaClientInitializationError) {
+    console.error("[banco indisponível]", err.message);
+    res.status(503).json({
+      error:
+        "Não foi possível conectar ao banco de dados. Se você usa o Supabase no plano gratuito, o projeto pode ter hibernado por inatividade — reative em supabase.com/dashboard (leva ~2 minutos).",
     });
     return;
   }
