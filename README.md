@@ -11,7 +11,7 @@ Plataforma web de gestão de carteira de investimentos (Ações, FIIs, ETFs e Re
 | Backend | Node.js, TypeScript (strict), Express 5, Prisma ORM, Zod |
 | Banco de Dados | PostgreSQL 16 (Docker) |
 | Frontend (Sprint 5+) | Next.js, Tailwind CSS, shadcn/ui, Recharts |
-| IA (Sprint 8) | Análise de relatórios gerenciais em PDF via LLM |
+| IA (Sprint 8) | Google Gemini (`@google/genai`, modelo `gemini-3.6-flash`) + `unpdf` |
 
 ## Como rodar o backend
 
@@ -96,9 +96,9 @@ Rotas com 🔒 exigem login (cookie de sessão). Teste com o Thunder Client no V
 | POST 🔒 | `/reports/:id/ask` | Chat "Pergunte ao Relatório" (`question`, `history?`) |
 | DELETE 🔒 | `/reports/:id` | Apagar relatório |
 
-> O módulo de IA requer `ANTHROPIC_API_KEY` no `backend/.env`
-> (crie em [console.anthropic.com](https://console.anthropic.com)). Sem a chave,
-> o restante da plataforma funciona normalmente.
+> O módulo de IA requer `GEMINI_API_KEY` no `backend/.env`
+> (crie em [aistudio.google.com/apikey](https://aistudio.google.com/apikey)).
+> Sem a chave, o restante da plataforma funciona normalmente.
 
 ## Problemas comuns
 
@@ -113,6 +113,23 @@ isso acontece, a API responde `503` com uma mensagem explicativa. Para reativar:
 
 O script `backend/scripts/debug-login.mjs` testa banco, senha e JWT em etapas
 separadas — útil para saber exatamente onde algo quebrou.
+
+**Páginas do frontend dando 404 (`/login`, `/registro`)**
+
+Cache do Next.js corrompido — costuma acontecer quando um build de produção
+(`npm run build`) e o servidor de desenvolvimento (`npm run dev`) se misturam
+na mesma pasta `.next`. Apague a pasta e suba de novo:
+
+```bash
+cd frontend
+rm -rf .next
+npm run dev
+```
+
+**Conferir se a IA está inventando números**
+
+`backend/scripts/verificar-analise.mjs <caminho-do-pdf>` extrai o texto do PDF e
+checa se cada valor citado pela análise existe mesmo no documento original.
 
 ## Documentação
 

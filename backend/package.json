@@ -15,7 +15,7 @@
     "db:studio": "prisma studio"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.112.3",
+    "@google/genai": "^2.13.0",
     "@prisma/client": "^6.5.0",
     "bcryptjs": "^3.0.2",
     "cookie-parser": "^1.4.7",

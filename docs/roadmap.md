@@ -74,9 +74,10 @@ Plano em 8 sprints (1 semana cada), do banco de dados ao módulo de IA. Os itens
 ## 🤖 Sprint 8 — Módulo IA de Relatórios
 
 - [x] Upload de PDF (`multer` em memória, limite 10 MB) e extração de texto (`unpdf`)
-- [x] Integração com a API do Claude (`@anthropic-ai/sdk`, modelo `claude-opus-4-8`): resumo executivo, alertas com severidade (vacância, emissões, dividendos) e indicadores citados
+- [x] Integração com a API do Gemini (`@google/genai`, modelo `gemini-3.6-flash`): resumo executivo, alertas com severidade (vacância, emissões, dividendos) e indicadores citados
 - [x] **Structured outputs** (JSON Schema): a análise volta como JSON válido garantido pela API
-- [x] **Prompt caching** no chat: o texto do relatório fica em cache entre perguntas (~90% mais barato)
+- [x] Erros da IA traduzidos (chave inválida, cota estourada, sem permissão) — nunca um 500 genérico
+- [x] Validado com relatórios reais do MXRF11 (maio e março/2026): 25/25 valores conferidos contra o PDF, sem alucinação e sem contaminação entre documentos
 - [x] Chat "Pergunte ao Relatório" com histórico mantido no cliente
 - [x] Tabela `reports` no banco (texto extraído + análise em JSON)
 - [x] Tela `/relatorios`: upload, lista, resumo, alertas coloridos e chat

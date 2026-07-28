@@ -1,6 +1,6 @@
 import { extractText, getDocumentProxy } from "unpdf";
 import { AppError } from "../../shared/errors/AppError.js";
-import { analisarRelatorio, perguntarAoRelatorio, type Analise } from "./claude.js";
+import { analisarRelatorio, perguntarAoRelatorio, type Analise } from "./gemini.js";
 import type { AskInput } from "./reports.schemas.js";
 import { reportsRepository } from "./reports.repository.js";
 

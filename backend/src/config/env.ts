@@ -9,8 +9,8 @@ const envSchema = z.object({
   PORT: z.coerce.number().default(3333),
   JWT_SECRET: z.string().min(1).default("dev-secret"),
   // Módulo IA (Sprint 8) — opcional: sem a chave, as rotas /reports retornam 503
-  ANTHROPIC_API_KEY: z.string().optional(),
-  ANTHROPIC_MODEL: z.string().default("claude-opus-4-8"),
+  GEMINI_API_KEY: z.string().optional(),
+  GEMINI_MODEL: z.string().default("gemini-3.6-flash"),
 });
 
 export const env = envSchema.parse(process.env);

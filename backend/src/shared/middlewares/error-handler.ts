@@ -27,6 +27,17 @@ export function errorHandler(
     return;
   }
 
+  // JSON malformado no corpo da requisição (body-parser).
+  // Ele já marca o erro com statusCode 400 — sem isto, virava um 500 genérico.
+  if (
+    err instanceof SyntaxError &&
+    "statusCode" in err &&
+    (err as { statusCode?: number }).statusCode === 400
+  ) {
+    res.status(400).json({ error: "Corpo da requisição não é um JSON válido" });
+    return;
+  }
+
   // Dados de entrada inválidos (validação Zod)
   if (err instanceof ZodError) {
     res.status(400).json({
