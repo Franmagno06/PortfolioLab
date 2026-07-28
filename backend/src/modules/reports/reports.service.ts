@@ -4,8 +4,11 @@ import { analisarRelatorio, perguntarAoRelatorio, type Analise } from "./gemini.
 import type { AskInput } from "./reports.schemas.js";
 import { reportsRepository } from "./reports.repository.js";
 
-// ~150 mil tokens — bem dentro da janela de 1M do modelo, mas evita custos surpresa
-const LIMITE_CARACTERES = 600_000;
+// Releases trimestrais de banco passam de 300 páginas (o do Banco do Brasil
+// tem 760 mil caracteres), então o limite precisa acomodar documentos grandes.
+// ~2 milhões de caracteres ≈ 570 mil tokens — dentro da janela do modelo,
+// mas ainda barra arquivos absurdos.
+const LIMITE_CARACTERES = 2_000_000;
 
 export const reportsService = {
   async analisar(userId: string, arquivo: { originalname: string; buffer: Buffer }) {
@@ -21,7 +24,10 @@ export const reportsService = {
       );
     }
     if (texto.length > LIMITE_CARACTERES) {
-      throw new AppError("Relatório muito grande para análise (limite de ~600 mil caracteres)", 400);
+      throw new AppError(
+        `Relatório muito grande para análise: ${texto.length.toLocaleString("pt-BR")} caracteres (limite de ${LIMITE_CARACTERES.toLocaleString("pt-BR")}).`,
+        400,
+      );
     }
 
     // 2. envia para o Claude com structured outputs

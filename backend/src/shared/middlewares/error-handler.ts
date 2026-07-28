@@ -22,7 +22,7 @@ export function errorHandler(
   // Erros de upload (multer) — ex: arquivo maior que o limite
   if (err instanceof multer.MulterError) {
     const mensagem =
-      err.code === "LIMIT_FILE_SIZE" ? "O arquivo excede o limite de 10 MB" : err.message;
+      err.code === "LIMIT_FILE_SIZE" ? "O arquivo excede o limite de 25 MB" : err.message;
     res.status(400).json({ error: mensagem });
     return;
   }

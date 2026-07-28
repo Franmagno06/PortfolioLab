@@ -7,7 +7,8 @@ import { reportsController } from "./reports.controller.js";
 // (extraímos o texto e guardamos apenas ele no banco)
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
+  // 25 MB: releases trimestrais de bancos costumam passar de 5 MB
+  limits: { fileSize: 25 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     if (file.mimetype === "application/pdf") {
       cb(null, true);
