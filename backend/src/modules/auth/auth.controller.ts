@@ -5,6 +5,15 @@ import { authService } from "./auth.service.js";
 
 const SETE_DIAS_MS = 7 * 24 * 60 * 60 * 1000;
 
+// As MESMAS opções precisam ser usadas ao gravar e ao apagar o cookie:
+// o navegador só remove um cookie quando os atributos batem. Sem isso, o
+// logout falharia silenciosamente em produção (onde `secure` é true).
+const OPCOES_COOKIE = {
+  httpOnly: true, // o JavaScript da página não lê este cookie (defesa contra XSS)
+  secure: env.NODE_ENV === "production", // em produção só viaja por HTTPS
+  sameSite: "strict",
+} as const;
+
 // Fronteira HTTP ↔ domínio: valida entrada, chama o service, formata a resposta.
 // Se o schema.parse falhar, o ZodError vai direto para o errorHandler (400).
 export const authController = {
@@ -18,20 +27,12 @@ export const authController = {
     const input = loginSchema.parse(req.body);
     const { token, user } = await authService.login(input);
 
-    // HttpOnly: o JavaScript do navegador NÃO consegue ler este cookie —
-    // proteção contra roubo de sessão via XSS
-    res.cookie("token", token, {
-      httpOnly: true,
-      secure: env.NODE_ENV === "production", // em produção, só viaja por HTTPS
-      sameSite: "strict",
-      maxAge: SETE_DIAS_MS,
-    });
-
+    res.cookie("token", token, { ...OPCOES_COOKIE, maxAge: SETE_DIAS_MS });
     res.json({ user });
   },
 
   async logout(_req: Request, res: Response) {
-    res.clearCookie("token");
+    res.clearCookie("token", OPCOES_COOKIE);
     res.status(204).send();
   },
 
