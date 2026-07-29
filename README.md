@@ -1,152 +1,211 @@
 # PortfolioLab
 
-Plataforma web de gestão de carteira de investimentos (Ações, FIIs, ETFs e Renda Fixa) com calculadora inteligente de rebalanceamento de aportes e análise de relatórios gerenciais com IA.
+Plataforma web de gestão de carteira de investimentos (Ações, FIIs, ETFs e Renda
+Fixa) com calculadora de rebalanceamento de aportes e análise de relatórios
+gerenciais por IA.
 
-> **Aviso:** projeto educacional e de portfólio. Nada aqui constitui recomendação profissional de compra ou venda de ativos.
+> **Aviso:** projeto educacional e de portfólio. Nada aqui constitui recomendação
+> profissional de compra ou venda de ativos.
+
+## O que o projeto faz
+
+| Módulo | O que resolve |
+|--------|---------------|
+| **Carteira** | Posição consolidada calculada a partir das transações — preço médio ponderado, lucro/prejuízo e alocação por classe |
+| **Simulação de aportes** | Dado um valor, calcula **o que comprar** para aproximar a carteira das metas de alocação |
+| **Relatórios com IA** | Envie o PDF de um relatório gerencial (FII) ou release trimestral (ação) e receba resumo executivo, alertas por severidade e indicadores — com chat para tirar dúvidas sobre o documento |
+| **Notícias** | Feed de mercado que destaca automaticamente o que cita ativos da sua carteira |
+
+## Destaques técnicos
+
+- **Preço médio ponderado** seguindo a regra da Receita Federal (compras
+  recalculam o PM incluindo taxas; vendas reduzem quantidade sem alterá-lo),
+  com `Decimal` em vez de `float` para não perder centavos em dízimas.
+- **Algoritmo guloso de rebalanceamento** — ordena por maior déficit
+  (`O(n log n)`) e aloca em unidades inteiras (`O(n)`). Documentado com exemplo
+  numérico e análise de complexidade em
+  [docs/algoritmo-rebalanceamento.md](docs/algoritmo-rebalanceamento.md).
+- **Saída estruturada da IA** via JSON Schema — a análise vem em formato
+  garantido pela API, sem parsing de texto livre.
+- **Auditoria de alucinação**: `scripts/verificar-analise.mjs` confere se cada
+  número citado pela IA existe mesmo no PDF original.
+- **Arquitetura em camadas** (Routes → Controller → Service → Repository) com
+  TypeScript estrito e 44 testes automatizados.
 
 ## Stack
 
 | Camada | Tecnologias |
 |--------|-------------|
 | Backend | Node.js, TypeScript (strict), Express 5, Prisma ORM, Zod |
-| Banco de Dados | PostgreSQL 16 (Docker) |
-| Frontend (Sprint 5+) | Next.js, Tailwind CSS, shadcn/ui, Recharts |
-| IA (Sprint 8) | Google Gemini (`@google/genai`, modelo `gemini-3.6-flash`) + `unpdf` |
+| Banco de dados | PostgreSQL 16 (Supabase ou Docker local) |
+| Frontend | Next.js 16 (App Router), Tailwind CSS, Recharts |
+| IA | Google Gemini (`@google/genai`) + `unpdf` para extração de PDF |
+| Testes | Vitest + Supertest |
 
-## Como rodar o backend
+## Como rodar
 
-Pré-requisito: Node.js 20+.
+Pré-requisito: **Node.js 20+**.
 
-### Banco de dados — duas opções
+### 1. Banco de dados
 
-**Opção A — Supabase (recomendada, já configurada):** o projeto `portfoliolab`
-existe no Supabase (região São Paulo) com schema aplicado e dados de exemplo.
-Basta copiar a connection string (Dashboard → Connect → ORM → Prisma, usando o
-**Session pooler**) para a variável `DATABASE_URL` no arquivo `backend/.env`.
+Escolha uma das opções:
 
-> Com o Supabase, o schema já está aplicado — não rode `db:migrate`. Para
-> futuras mudanças de schema, use `npx prisma db push`.
-
-**Opção B — PostgreSQL local via Docker:**
+**Supabase (nuvem, sem instalar nada)** — crie um projeto gratuito em
+[supabase.com](https://supabase.com), copie a connection string em
+*Connect → ORM → Prisma* (use o **Session pooler**) e aplique o schema:
 
 ```bash
 cd backend
-docker compose up -d     # sobe o PostgreSQL
-npm run db:migrate       # cria as tabelas
-npm run db:seed          # popula com dados de exemplo
-```
-
-### Iniciar a API
-
-```bash
-cd backend
+cp .env.example .env      # cole a connection string em DATABASE_URL
 npm install
-npm run dev
+npx prisma db push        # cria as tabelas
+npm run db:seed           # popula com carteira de exemplo
 ```
 
-## Como rodar o frontend
+**PostgreSQL local via Docker:**
 
-Com a API rodando (passo acima), abra **outro terminal**:
+```bash
+cd backend
+cp .env.example .env      # a DATABASE_URL local já vem preenchida
+docker compose up -d
+npm install
+npm run db:migrate
+npm run db:seed
+```
+
+### 2. Backend
+
+```bash
+cd backend
+npm run dev               # http://localhost:3333
+```
+
+Teste com `GET /health`. Para inspecionar o banco visualmente: `npm run db:studio`.
+
+### 3. Frontend
+
+Em **outro terminal**:
 
 ```bash
 cd frontend
 npm install
-npm run dev
+npm run dev               # http://localhost:3000
 ```
 
-Acesse [http://localhost:3000](http://localhost:3000) — login demo:
-`demo@portfoliolab.dev` / `123456`. O frontend fala com a API via rewrite
-(`/api/*` → `localhost:3333`), então os dois precisam estar rodando.
+Login do seed: `demo@portfoliolab.dev` / `123456`.
 
-A API sobe em `http://localhost:3333` — teste com `GET /health`.
+O frontend faz proxy de `/api/*` para o backend, então os dois precisam estar no ar.
 
-Usuário de demonstração criado pelo seed: `demo@portfoliolab.dev` / senha `123456`.
+### 4. Módulo de IA (opcional)
 
-Para inspecionar o banco visualmente: `npm run db:studio`.
+Crie uma chave em [aistudio.google.com/apikey](https://aistudio.google.com/apikey)
+e coloque em `backend/.env`:
 
-> **Nota sobre imports:** o projeto usa ES Modules com `moduleResolution: NodeNext`, então imports relativos levam extensão `.js` mesmo em arquivos `.ts` (ex: `import { app } from "./app.js"`). É o comportamento padrão do Node moderno.
+```env
+GEMINI_API_KEY="sua-chave"
+```
+
+Sem a chave, todo o resto funciona normalmente — só a tela de Relatórios
+responde `503` com a instrução.
 
 ## Endpoints da API
 
-Rotas com 🔒 exigem login (cookie de sessão). Teste com o Thunder Client no VS Code.
+Rotas com 🔒 exigem login (cookie HttpOnly).
 
 | Método | Rota | Descrição |
 |--------|------|-----------|
 | GET | `/health` | Status da API |
 | POST | `/auth/register` | Criar conta (`name`, `email`, `password`) |
 | POST | `/auth/login` | Login — grava cookie HttpOnly |
-| POST | `/auth/logout` | Sai da sessão |
+| POST | `/auth/logout` | Encerra a sessão |
 | GET 🔒 | `/auth/me` | Perfil do usuário logado |
-| GET 🔒 | `/assets` | Lista os ativos disponíveis |
-| GET 🔒 | `/assets/:ticker` | Busca ativo por ticker |
+| GET 🔒 | `/assets` · `/assets/:ticker` | Ativos disponíveis / busca por ticker |
 | POST 🔒 | `/transactions` | Registrar compra/venda (`ticker`, `kind`, `quantity`, `unitPrice`, `fee?`, `executedAt`) |
 | GET 🔒 | `/transactions` | Histórico de transações |
 | DELETE 🔒 | `/transactions/:id` | Apagar transação |
 | POST 🔒 | `/dividends` | Registrar provento (`ticker`, `amount`, `paidAt`) |
 | GET 🔒 | `/dividends` | Histórico de proventos |
 | DELETE 🔒 | `/dividends/:id` | Apagar provento |
-| GET 🔒 | `/portfolio` | Posição consolidada: quantidade, preço médio, lucro por ativo |
-| GET 🔒 | `/portfolio/summary` | Patrimônio total, lucro e alocação % por classe |
+| GET 🔒 | `/portfolio` | Posição consolidada por ativo |
+| GET 🔒 | `/portfolio/summary` | Patrimônio, lucro e alocação por classe |
 | GET 🔒 | `/goals` | Metas de alocação e soma total |
 | PUT 🔒 | `/goals` | Criar/atualizar meta (`ticker`, `targetWeight`) — soma ≤ 100% |
 | DELETE 🔒 | `/goals/:ticker` | Remover meta |
-| POST 🔒 | `/rebalance/simulate` | Simular aporte (`amount`): o que comprar para rebalancear |
-| GET 🔒 | `/news` | Notícias de mercado, separando as que citam ativos da sua carteira |
-| POST 🔒 | `/reports` | Enviar PDF (campo `file`) → análise com IA: resumo, alertas, indicadores |
+| POST 🔒 | `/rebalance/simulate` | Simular aporte (`amount`) |
+| GET 🔒 | `/news` | Notícias, separando as que citam ativos da carteira |
+| POST 🔒 | `/reports` | Enviar PDF (campo `file`) → análise por IA |
 | GET 🔒 | `/reports` | Relatórios já analisados |
 | POST 🔒 | `/reports/:id/ask` | Chat "Pergunte ao Relatório" (`question`, `history?`) |
 | DELETE 🔒 | `/reports/:id` | Apagar relatório |
 
-> O módulo de IA requer `GEMINI_API_KEY` no `backend/.env`
-> (crie em [aistudio.google.com/apikey](https://aistudio.google.com/apikey)).
-> Sem a chave, o restante da plataforma funciona normalmente.
+## Testes
+
+```bash
+cd backend
+npm test          # 44 testes
+npm run typecheck
+```
 
 ## Problemas comuns
 
-**"Erro interno do servidor" no login / banco não responde**
+**"Erro interno do servidor" no login**
 
-O Supabase no plano gratuito **hiberna o projeto após ~1 semana sem uso**. Quando
-isso acontece, a API responde `503` com uma mensagem explicativa. Para reativar:
-
-1. Acesse [o painel do projeto](https://supabase.com/dashboard/project/yqalnjhwdrvetemjbtzq)
-2. Clique em **Restore project** (leva ~2 a 4 minutos para o banco voltar)
-3. Teste a conexão: `node scripts/debug-login.mjs` dentro de `backend/`
-
-O script `backend/scripts/debug-login.mjs` testa banco, senha e JWT em etapas
-separadas — útil para saber exatamente onde algo quebrou.
-
-**Páginas do frontend dando 404 (`/login`, `/registro`)**
-
-Cache do Next.js corrompido — costuma acontecer quando um build de produção
-(`npm run build`) e o servidor de desenvolvimento (`npm run dev`) se misturam
-na mesma pasta `.next`. Apague a pasta e suba de novo:
+Se você usa Supabase no plano gratuito, o projeto **hiberna após ~1 semana sem
+uso** e a API passa a responder `503`. Reative em *Restore project* no painel do
+Supabase (leva 2 a 4 minutos). Para diagnosticar em etapas:
 
 ```bash
-cd frontend
-rm -rf .next
-npm run dev
+cd backend
+node scripts/debug-login.mjs   # testa banco → senha → JWT separadamente
 ```
 
-**Conferir se a IA está inventando números**
+**Páginas do frontend dando 404**
 
-`backend/scripts/verificar-analise.mjs <caminho-do-pdf>` extrai o texto do PDF e
-checa se cada valor citado pela análise existe mesmo no documento original.
+Cache do Next.js corrompido — acontece quando um build de produção e o servidor
+de desenvolvimento se misturam na mesma pasta `.next`:
+
+```bash
+cd frontend && rm -rf .next && npm run dev
+```
+
+**Conferir se a IA inventou algum número**
+
+```bash
+cd backend
+node scripts/verificar-analise.mjs <pdf> "valor1" "valor2" ...
+node scripts/medir-pdf.mjs <pdf>       # páginas, caracteres e tokens
+```
 
 ## Documentação
 
-- [Roadmap de desenvolvimento](docs/roadmap.md) — plano completo em 8 sprints
-- [Protótipo no Figma](https://www.figma.com/design/G153Uuy3Gwt3I0SNarOn6f) — 4 telas: Dashboard, Carteira, Simulação e Indicadores
+- [Roadmap](docs/roadmap.md) — os 9 sprints, do schema ao módulo de IA
+- [Arquitetura](docs/arquitetura.md) — camadas e decisões técnicas
+- [Algoritmo de rebalanceamento](docs/algoritmo-rebalanceamento.md) — estratégia, complexidade e limitações
+- [Guia de deploy](docs/deploy.md) — variáveis de ambiente e checklist
+- [Protótipo no Figma](https://www.figma.com/design/G153Uuy3Gwt3I0SNarOn6f)
 
 ## Estrutura
 
 ```
-├── backend/          # API Node.js + TypeScript + Prisma
-│   ├── prisma/       # schema, migrations e seed
+├── backend/              # API Node.js + TypeScript + Prisma
+│   ├── prisma/           # schema, migrations e seed
+│   ├── scripts/          # diagnóstico: conexão, medição e auditoria de PDF
 │   └── src/
-│       ├── config/   # validação de variáveis de ambiente
-│       ├── database/ # cliente Prisma (singleton)
-│       ├── modules/  # domínios: auth, assets, portfolio, rebalance...
-│       └── shared/   # middlewares, erros e utilitários
-├── frontend/         # Next.js (a partir do Sprint 5)
-└── docs/             # roadmap e decisões técnicas
+│       ├── config/       # validação das variáveis de ambiente (Zod)
+│       ├── database/     # cliente Prisma (singleton)
+│       ├── modules/      # auth, assets, transactions, dividends,
+│       │                 # portfolio, goals, rebalance, reports, news
+│       └── shared/       # middlewares, erros e utilitários
+├── frontend/             # Next.js (App Router)
+│   └── src/
+│       ├── app/(auth)/   # login e registro
+│       ├── app/(app)/    # dashboard, carteira, simulação, relatórios, notícias
+│       ├── components/   # sidebar e formulários
+│       └── lib/          # cliente HTTP e formatação
+├── docs/                 # roadmap, arquitetura, algoritmo e deploy
+└── relatorios-para-teste/# PDFs reais para testar o módulo de IA
 ```
+
+## Licença
+
+MIT — veja [LICENSE](LICENSE).
