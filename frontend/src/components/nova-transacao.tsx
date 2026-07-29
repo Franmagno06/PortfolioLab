@@ -1,26 +1,74 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api, ApiError } from "@/lib/api";
+import { brl, nomesClasse } from "@/lib/format";
 
-type Props = {
-  ativos: { ticker: string; name: string }[];
-  aoCriar: () => void;
-};
+type Props = { aoCriar: () => void };
+
+type Cotacao = { ticker: string; nome: string; preco: number; tipo: string };
 
 const campo =
   "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100";
 
-export function NovaTransacao({ ativos, aoCriar }: Props) {
+// 4 letras + 1 ou 2 números — o padrão da B3 (PETR4, MXRF11)
+const FORMATO_TICKER = /^[A-Z]{4}\d{1,2}$/;
+
+export function NovaTransacao({ aoCriar }: Props) {
   const [aberto, setAberto] = useState(false);
   const [ticker, setTicker] = useState("");
+  const [cotacao, setCotacao] = useState<Cotacao | null>(null);
+  const [buscando, setBuscando] = useState(false);
+  const [erroTicker, setErroTicker] = useState<string | null>(null);
+
   const [kind, setKind] = useState<"COMPRA" | "VENDA">("COMPRA");
   const [quantity, setQuantity] = useState("");
   const [unitPrice, setUnitPrice] = useState("");
+  const [precoEditado, setPrecoEditado] = useState(false);
   const [fee, setFee] = useState("0");
   const [executedAt, setExecutedAt] = useState(new Date().toISOString().slice(0, 10));
   const [erro, setErro] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
+
+  // Busca o ticker enquanto o usuário digita (com atraso, para não
+  // disparar uma consulta a cada tecla)
+  useEffect(() => {
+    if (!FORMATO_TICKER.test(ticker)) {
+      setCotacao(null);
+      setErroTicker(null);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setBuscando(true);
+      setErroTicker(null);
+      try {
+        const c = await api<Cotacao>(`/quotes/${ticker}`);
+        setCotacao(c);
+        // sugere o preço de mercado, mas sem sobrescrever o que o
+        // usuário já tiver digitado (a compra pode ter sido em outra data)
+        if (!precoEditado) setUnitPrice(String(c.preco));
+      } catch (err) {
+        setCotacao(null);
+        setErroTicker(err instanceof ApiError ? err.message : "Falha ao buscar o ticker");
+      } finally {
+        setBuscando(false);
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [ticker, precoEditado]);
+
+  function fechar() {
+    setAberto(false);
+    setTicker("");
+    setCotacao(null);
+    setErroTicker(null);
+    setQuantity("");
+    setUnitPrice("");
+    setPrecoEditado(false);
+    setErro(null);
+  }
 
   async function salvar(e: React.FormEvent) {
     e.preventDefault();
@@ -38,13 +86,10 @@ export function NovaTransacao({ ativos, aoCriar }: Props) {
           executedAt,
         }),
       });
-      setAberto(false);
-      setQuantity("");
-      setUnitPrice("");
+      fechar();
       aoCriar();
     } catch (err) {
       setErro(err instanceof ApiError ? err.message : "Falha ao registrar");
-    } finally {
       setSalvando(false);
     }
   }
@@ -69,7 +114,7 @@ export function NovaTransacao({ ativos, aoCriar }: Props) {
         <h2 className="font-semibold">Registrar transação</h2>
         <button
           type="button"
-          onClick={() => setAberto(false)}
+          onClick={fechar}
           className="text-sm text-slate-400 hover:text-slate-600"
         >
           ✕ fechar
@@ -78,15 +123,19 @@ export function NovaTransacao({ ativos, aoCriar }: Props) {
 
       <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-6">
         <label className="col-span-2 block">
-          <span className="mb-1 block text-xs font-medium text-slate-600">Ativo</span>
-          <select required value={ticker} onChange={(e) => setTicker(e.target.value)} className={campo}>
-            <option value="">Selecione...</option>
-            {ativos.map((a) => (
-              <option key={a.ticker} value={a.ticker}>
-                {a.ticker} — {a.name}
-              </option>
-            ))}
-          </select>
+          <span className="mb-1 block text-xs font-medium text-slate-600">
+            Ativo <span className="font-normal text-slate-400">(qualquer ação ou FII da B3)</span>
+          </span>
+          <input
+            type="text"
+            required
+            value={ticker}
+            onChange={(e) => setTicker(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""))}
+            placeholder="Ex: PETR4, MXRF11, WEGE3"
+            maxLength={6}
+            autoFocus
+            className={`${campo} font-mono uppercase`}
+          />
         </label>
 
         <label className="block">
@@ -122,7 +171,10 @@ export function NovaTransacao({ ativos, aoCriar }: Props) {
             min="0.01"
             step="0.01"
             value={unitPrice}
-            onChange={(e) => setUnitPrice(e.target.value)}
+            onChange={(e) => {
+              setUnitPrice(e.target.value);
+              setPrecoEditado(true);
+            }}
             className={`${campo} tnum font-mono`}
           />
         </label>
@@ -139,13 +191,35 @@ export function NovaTransacao({ ativos, aoCriar }: Props) {
         </label>
       </div>
 
+      {/* confirmação do ativo encontrado */}
+      {buscando && <p className="mt-3 text-sm text-slate-400">Buscando {ticker} na B3...</p>}
+
+      {cotacao && !buscando && (
+        <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg bg-[#1e9e63]/[0.06] px-3 py-2 text-sm">
+          <span className="font-semibold text-[#1e9e63]">✓ {cotacao.ticker}</span>
+          <span className="text-slate-700">{cotacao.nome}</span>
+          <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-slate-500">
+            {nomesClasse[cotacao.tipo] ?? cotacao.tipo}
+          </span>
+          <span className="tnum ml-auto font-mono text-xs text-slate-500">
+            cotação hoje: {brl(cotacao.preco)}
+          </span>
+        </div>
+      )}
+
+      {erroTicker && !buscando && (
+        <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          {erroTicker}
+        </p>
+      )}
+
       {erro && (
         <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-[#d94f5c]">{erro}</p>
       )}
 
       <button
         type="submit"
-        disabled={salvando}
+        disabled={salvando || buscando}
         className="mt-4 rounded-lg bg-[#0e1b33] px-5 py-2 text-sm font-semibold text-white transition hover:bg-[#1a2f5c] disabled:opacity-60"
       >
         {salvando ? "Registrando..." : kind === "COMPRA" ? "Registrar compra" : "Registrar venda"}

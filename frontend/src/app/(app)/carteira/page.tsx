@@ -71,7 +71,7 @@ export default function CarteiraPage() {
       </header>
 
       <div className="reveal reveal-2">
-        <NovaTransacao ativos={disponiveis} aoCriar={carregar} />
+        <NovaTransacao aoCriar={carregar} />
       </div>
 
       {ativos.length === 0 ? (

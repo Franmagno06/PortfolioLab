@@ -62,11 +62,19 @@ describe("Fluxo: comprar → posição → resumo", () => {
 
     const petr = res.body.find((a: { ticker: string }) => a.ticker === "PETR4");
     expect(petr).toBeDefined();
+
+    // Derivados só das transações — independem do mercado
     expect(petr.quantidade).toBe(20);
     expect(petr.precoMedio).toBe(35); // (10×30 + 10×40) / 20
     expect(petr.valorAplicado).toBe(700);
-    expect(petr.valorAtual).toBe(764); // 20 × preço atual (38,20)
-    expect(petr.lucro).toBe(64);
+
+    // O preço atual vem da cotação ao vivo, então o teste verifica a
+    // INVARIANTE do cálculo, e não um valor de mercado fixo (que mudaria
+    // a cada pregão e deixaria o teste intermitente).
+    expect(petr.precoAtual).toBeGreaterThan(0);
+    expect(petr.valorAtual).toBeCloseTo(petr.quantidade * petr.precoAtual, 2);
+    expect(petr.lucro).toBeCloseTo(petr.valorAtual - petr.valorAplicado, 2);
+    expect(petr.lucroPct).toBeCloseTo((petr.lucro / petr.valorAplicado) * 100, 1);
   });
 
   it("impede vender mais do que possui (400)", async () => {
@@ -96,10 +104,15 @@ describe("Fluxo: comprar → posição → resumo", () => {
     const res = await request(app).get("/portfolio/summary").set("Cookie", cookies);
     expect(res.status).toBe(200);
 
-    expect(res.body.patrimonioTotal).toBe(764);
+    // totalAplicado vem das transações (fixo); o patrimônio depende da
+    // cotação do dia, então checamos a coerência entre os três números
     expect(res.body.totalAplicado).toBe(700);
-    expect(res.body.lucroTotal).toBe(64);
     expect(res.body.quantidadeAtivos).toBe(1);
+    expect(res.body.patrimonioTotal).toBeGreaterThan(0);
+    expect(res.body.lucroTotal).toBeCloseTo(
+      res.body.patrimonioTotal - res.body.totalAplicado,
+      2,
+    );
 
     // este usuário só tem ações → 100% em ACAO
     expect(res.body.alocacaoPorClasse).toHaveLength(1);

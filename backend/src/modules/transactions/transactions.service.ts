@@ -1,13 +1,18 @@
 import { AppError } from "../../shared/errors/AppError.js";
-import { assetsRepository } from "../assets/assets.repository.js";
+import { quotesService } from "../quotes/quotes.service.js";
 import type { CreateTransactionInput } from "./transactions.schemas.js";
 import { transactionsRepository } from "./transactions.repository.js";
 
 export const transactionsService = {
   async create(userId: string, input: CreateTransactionInput) {
-    const asset = await assetsRepository.findByTicker(input.ticker);
+    // Cadastra o ativo automaticamente se ainda não existir: assim o usuário
+    // registra qualquer ação ou FII da B3, sem depender de lista pré-carregada
+    const asset = await quotesService.buscarOuCadastrar(input.ticker);
     if (!asset) {
-      throw new AppError(`Ativo ${input.ticker} não encontrado`, 404);
+      throw new AppError(
+        `Ativo ${input.ticker.toUpperCase()} não encontrado na B3. Confira o ticker (ex: PETR4, MXRF11).`,
+        404,
+      );
     }
 
     // Regra de negócio: não se pode vender mais do que se possui

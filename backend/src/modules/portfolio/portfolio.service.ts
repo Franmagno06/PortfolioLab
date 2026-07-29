@@ -1,4 +1,5 @@
 import { Prisma } from "@prisma/client";
+import { quotesService } from "../quotes/quotes.service.js";
 import { portfolioRepository } from "./portfolio.repository.js";
 
 type TransacaoComAtivo = Awaited<
@@ -73,13 +74,22 @@ export const portfolioService = {
       porAtivo.set(t.assetId, grupo);
     }
 
+    // Busca cotações atualizadas antes de calcular. Se a API estiver fora,
+    // o mapa devolve o último preço conhecido e a carteira não quebra.
+    const precosAtuais = await quotesService.atualizarSeNecessario(
+      [...porAtivo.values()].map((g) => g.asset),
+    );
+
     const ativos = [];
     for (const { asset, transacoes: doAtivo } of porAtivo.values()) {
       const { quantidade, precoMedio } = calcularPosicao(doAtivo);
       if (quantidade.lte(0)) continue; // posição zerada não aparece na carteira
 
+      const precoAtual = new Prisma.Decimal(
+        precosAtuais.get(asset.ticker) ?? asset.currentPrice,
+      );
       const valorAplicado = quantidade.times(precoMedio);
-      const valorAtual = quantidade.times(asset.currentPrice);
+      const valorAtual = quantidade.times(precoAtual);
       const lucro = valorAtual.minus(valorAplicado);
       const lucroPct = valorAplicado.isZero()
         ? ZERO
@@ -91,7 +101,7 @@ export const portfolioService = {
         type: asset.type,
         quantidade: quantidade.toNumber(),
         precoMedio: em2Casas(precoMedio),
-        precoAtual: em2Casas(asset.currentPrice),
+        precoAtual: em2Casas(precoAtual),
         valorAplicado: em2Casas(valorAplicado),
         valorAtual: em2Casas(valorAtual),
         lucro: em2Casas(lucro),

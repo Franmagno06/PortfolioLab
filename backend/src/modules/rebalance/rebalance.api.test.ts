@@ -72,15 +72,35 @@ describe("Simulação de aporte (/rebalance/simulate)", () => {
     expect(res.body.patrimonioAtual).toBe(0);
     expect(res.body.patrimonioFinal).toBe(200);
 
-    // MXRF11 (meta 60%): déficit R$120 → 11 cotas × R$10,85 = R$119,35
-    // BOVA11 (meta 40%): déficit R$80 < preço da cota (R$110) → não compra
-    expect(res.body.compras).toHaveLength(1);
-    expect(res.body.compras[0]).toMatchObject({
-      ticker: "MXRF11",
-      quantidade: 11,
-      total: 119.35,
-    });
-    expect(res.body.restante).toBe(80.65);
+    // Os preços vêm da cotação ao vivo, então as quantidades exatas mudam
+    // a cada pregão. O que precisa valer SEMPRE são as regras do algoritmo:
+    type Compra = {
+      ticker: string;
+      quantidade: number;
+      precoUnitario: number;
+      total: number;
+      deficit: number;
+    };
+    const compras: Compra[] = res.body.compras;
+
+    for (const c of compras) {
+      // só compra unidade inteira — não existe meia cota
+      expect(Number.isInteger(c.quantidade)).toBe(true);
+      expect(c.quantidade).toBeGreaterThan(0);
+      // o total bate com quantidade × preço
+      expect(c.total).toBeCloseTo(c.quantidade * c.precoUnitario, 2);
+      // nunca compra além do déficit do ativo
+      expect(c.total).toBeLessThanOrEqual(c.deficit + 0.01);
+    }
+
+    // não gasta mais do que o aporte, e o troco fecha a conta
+    expect(res.body.totalGasto).toBeLessThanOrEqual(200);
+    expect(res.body.totalGasto + res.body.restante).toBeCloseTo(200, 2);
+
+    // MXRF11 tem a maior meta (60%), então é o primeiro a ser atendido
+    if (compras.length > 0) {
+      expect(compras[0]?.ticker).toBe("MXRF11");
+    }
   });
 
   it("valor de aporte inválido → 400", async () => {

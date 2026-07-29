@@ -43,6 +43,9 @@ model Asset {
   sector       String?
   // Decimal, nunca Float: dinheiro exige precisão exata
   currentPrice Decimal   @map("current_price") @db.Decimal(12, 2)
+  // Quando a cotação foi buscada pela última vez. Null = veio do seed e
+  // nunca foi atualizada. Serve para decidir se vale consultar a API de novo.
+  priceUpdatedAt DateTime? @map("price_updated_at")
 
   transactions Transaction[]
   goals        AssetGoal[]

@@ -11,7 +11,7 @@ gerenciais por IA.
 
 | Módulo | O que resolve |
 |--------|---------------|
-| **Carteira** | Posição consolidada calculada a partir das transações — preço médio ponderado, lucro/prejuízo e alocação por classe |
+| **Carteira** | Posição consolidada calculada a partir das transações — preço médio ponderado, lucro/prejuízo e alocação por classe, com **cotações ao vivo da B3** |
 | **Simulação de aportes** | Dado um valor, calcula **o que comprar** para aproximar a carteira das metas de alocação |
 | **Relatórios com IA** | Envie o PDF de um relatório gerencial (FII) ou release trimestral (ação) e receba resumo executivo, alertas por severidade e indicadores — com chat para tirar dúvidas sobre o documento |
 | **Notícias** | Feed de mercado que destaca automaticamente o que cita ativos da sua carteira |
@@ -29,8 +29,11 @@ gerenciais por IA.
   garantido pela API, sem parsing de texto livre.
 - **Auditoria de alucinação**: `scripts/verificar-analise.mjs` confere se cada
   número citado pela IA existe mesmo no PDF original.
+- **Catálogo que cresce sozinho** — ao registrar uma transação com um ticker
+  desconhecido, o ativo é criado a partir da cotação real, com a classe
+  deduzida do nome. Não há lista fixa: qualquer ação ou FII da B3 serve.
 - **Arquitetura em camadas** (Routes → Controller → Service → Repository) com
-  TypeScript estrito e 44 testes automatizados.
+  TypeScript estrito e 54 testes automatizados.
 
 ## Stack
 
@@ -39,6 +42,7 @@ gerenciais por IA.
 | Backend | Node.js, TypeScript (strict), Express 5, Prisma ORM, Zod |
 | Banco de dados | PostgreSQL 16 (Supabase ou Docker local) |
 | Frontend | Next.js 16 (App Router), Tailwind CSS, Recharts |
+| Cotações | Yahoo Finance (gratuita, sem chave) — ações e FIIs da B3 |
 | IA | Google Gemini (`@google/genai`) + `unpdf` para extração de PDF |
 | Testes | Vitest + Supertest |
 
@@ -119,7 +123,8 @@ Rotas com 🔒 exigem login (cookie HttpOnly).
 | POST | `/auth/login` | Login — grava cookie HttpOnly |
 | POST | `/auth/logout` | Encerra a sessão |
 | GET 🔒 | `/auth/me` | Perfil do usuário logado |
-| GET 🔒 | `/assets` · `/assets/:ticker` | Ativos disponíveis / busca por ticker |
+| GET 🔒 | `/assets` · `/assets/:ticker` | Ativos já cadastrados / busca por ticker |
+| GET 🔒 | `/quotes/:ticker` | Cotação ao vivo na B3 (nome, preço e classe) sem cadastrar |
 | POST 🔒 | `/transactions` | Registrar compra/venda (`ticker`, `kind`, `quantity`, `unitPrice`, `fee?`, `executedAt`) |
 | GET 🔒 | `/transactions` | Histórico de transações |
 | DELETE 🔒 | `/transactions/:id` | Apagar transação |
