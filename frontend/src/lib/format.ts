@@ -8,6 +8,22 @@ export function pct(valor: number): string {
   return `${valor >= 0 ? "+" : ""}${valor.toFixed(1).replace(".", ",")}%`;
 }
 
+/** "há 2 horas", "há 3 dias" — para o feed de notícias */
+export function tempoRelativo(iso: string): string {
+  const minutos = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+
+  if (minutos < 1) return "agora";
+  if (minutos < 60) return `há ${minutos} min`;
+
+  const horas = Math.round(minutos / 60);
+  if (horas < 24) return `há ${horas} ${horas === 1 ? "hora" : "horas"}`;
+
+  const dias = Math.round(horas / 24);
+  if (dias < 30) return `há ${dias} ${dias === 1 ? "dia" : "dias"}`;
+
+  return new Date(iso).toLocaleDateString("pt-BR");
+}
+
 export const nomesClasse: Record<string, string> = {
   ACAO: "Ações",
   FII: "FIIs",

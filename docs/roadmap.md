@@ -82,10 +82,31 @@ Plano em 8 sprints (1 semana cada), do banco de dados ao módulo de IA. Os itens
 - [x] Tabela `reports` no banco (texto extraído + análise em JSON)
 - [x] Tela `/relatorios`: upload, lista, resumo, alertas coloridos e chat
 
-## 📰 Sprint 9 (opcional) — Notícias e Deploy
+## 📰 Sprint 9 — Notícias e Deploy
 
-- [ ] Feed de notícias (API brapi.dev — gratuita para B3)
+- [x] Feed de notícias por RSS (Money Times + Suno Notícias)
+- [x] Classificação automática: separa o que cita ativos da carteira do resto do mercado
+- [x] Cache de 10 minutos — evita martelar servidores de terceiros
+- [x] Decodificação de entidades HTML (feeds WordPress vêm com dupla codificação)
+- [x] Tela `/noticias` com destaque visual para os ativos que você possui
+- [x] 7 testes de contrato do feed
 - [ ] Deploy (backend + banco gerenciado + frontend)
+
+> **Nota sobre a fonte:** o roadmap original previa a API do brapi.dev, mas ela
+> **não tem endpoint de notícias** — só cotações, indicadores e dados de balanço.
+> A alternativa adotada foi RSS público, que não exige chave de API.
+
+### Como o casamento notícia ↔ ativo funciona
+
+Para cada ativo da carteira são gerados termos de busca:
+
+1. **O ticker** (`PETR4`) — alta precisão, sempre entra.
+2. **O nome da empresa** sem o sufixo de classe (`Petrobras PN` → `Petrobras`),
+   mas só se tiver 5+ caracteres.
+
+A regra dos 5 caracteres existe porque nomes curtos geram falso positivo:
+"Vale" casaria com "**Vale** a pena investir...". Com a regra, VALE3 só é
+detectada pelo ticker. A comparação ignora acentos e maiúsculas.
 
 ---
 

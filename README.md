@@ -91,6 +91,7 @@ Rotas com 🔒 exigem login (cookie de sessão). Teste com o Thunder Client no V
 | PUT 🔒 | `/goals` | Criar/atualizar meta (`ticker`, `targetWeight`) — soma ≤ 100% |
 | DELETE 🔒 | `/goals/:ticker` | Remover meta |
 | POST 🔒 | `/rebalance/simulate` | Simular aporte (`amount`): o que comprar para rebalancear |
+| GET 🔒 | `/news` | Notícias de mercado, separando as que citam ativos da sua carteira |
 | POST 🔒 | `/reports` | Enviar PDF (campo `file`) → análise com IA: resumo, alertas, indicadores |
 | GET 🔒 | `/reports` | Relatórios já analisados |
 | POST 🔒 | `/reports/:id/ask` | Chat "Pergunte ao Relatório" (`question`, `history?`) |
