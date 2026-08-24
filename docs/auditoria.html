@@ -1,0 +1,1413 @@
+<title>Auditoria do PortfolioLab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=JetBrains+Mono:wght@400;600;700&display=swap">
+
+<style>
+  :root {
+    --paper:      #f4f4ef;
+    --surface:    #ffffff;
+    --surface-2:  #ecece5;
+    --ink:        #0e1b33;
+    --ink-soft:   #46516b;
+    --ink-faint:  #767f95;
+    --line:       #e3e4dc;
+    --line-firm:  #c9cabf;
+
+    --critica:    #c2323f;
+    --alta:       #b06414;
+    --media:      #2f5cc4;
+    --baixa:      #6c7488;
+    --solida:     #167a4c;
+
+    --critica-bg: #fbeced;
+    --alta-bg:    #fbf2e4;
+    --media-bg:   #eaf0fc;
+    --baixa-bg:   #eeeee8;
+    --solida-bg:  #e6f3ec;
+
+    --accent:     #b06414;
+
+    --shell: 1100px;
+    --prose: 68ch;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper:      #0b1223;
+      --surface:    #111c33;
+      --surface-2:  #16233d;
+      --ink:        #e9e8df;
+      --ink-soft:   #a8b1c5;
+      --ink-faint:  #78829a;
+      --line:       #24314c;
+      --line-firm:  #354463;
+
+      --critica:    #f28a92;
+      --alta:       #e3a758;
+      --media:      #7ba4f5;
+      --baixa:      #97a0b5;
+      --solida:     #4fc78d;
+
+      --critica-bg: #2c1620;
+      --alta-bg:    #2b2013;
+      --media-bg:   #16223f;
+      --baixa-bg:   #1a2338;
+      --solida-bg:  #10281f;
+
+      --accent:     #e3a758;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper:      #0b1223;
+    --surface:    #111c33;
+    --surface-2:  #16233d;
+    --ink:        #e9e8df;
+    --ink-soft:   #a8b1c5;
+    --ink-faint:  #78829a;
+    --line:       #24314c;
+    --line-firm:  #354463;
+
+    --critica:    #f28a92;
+    --alta:       #e3a758;
+    --media:      #7ba4f5;
+    --baixa:      #97a0b5;
+    --solida:     #4fc78d;
+
+    --critica-bg: #2c1620;
+    --alta-bg:    #2b2013;
+    --media-bg:   #16223f;
+    --baixa-bg:   #1a2338;
+    --solida-bg:  #10281f;
+
+    --accent:     #e3a758;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Source Serif 4", Georgia, "Times New Roman", serif;
+    font-size: 17px;
+    line-height: 1.62;
+    margin: 0;
+    padding: 0 24px 96px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .shell { max-width: var(--shell); margin: 0 auto; }
+  .prose { max-width: var(--prose); }
+
+  h1, h2, h3, .ui {
+    font-family: "Space Grotesk", "Helvetica Neue", Arial, sans-serif;
+    text-wrap: balance;
+  }
+
+  code, .mono, .num {
+    font-family: "JetBrains Mono", "SF Mono", Consolas, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ── Cabeçalho ───────────────────────────────────────────── */
+
+  header.topo {
+    border-bottom: 2px solid var(--ink);
+    padding: 56px 0 22px;
+    margin-bottom: 40px;
+  }
+
+  .eyebrow {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin: 0 0 18px;
+  }
+
+  h1 {
+    font-size: clamp(2.1rem, 5.2vw, 3.4rem);
+    font-weight: 700;
+    line-height: 1.04;
+    letter-spacing: -0.022em;
+    margin: 0 0 16px;
+  }
+
+  .subtitulo {
+    font-size: 1.06rem;
+    color: var(--ink-soft);
+    max-width: 62ch;
+    margin: 0;
+  }
+
+  /* ── Placar de severidade ────────────────────────────────── */
+
+  .placar {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+    gap: 1px;
+    background: var(--line);
+    border: 1px solid var(--line);
+    margin: 0 0 44px;
+  }
+
+  .placar div {
+    background: var(--surface);
+    padding: 18px 16px 16px;
+  }
+
+  .placar .n {
+    font-family: "JetBrains Mono", monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: 2.05rem;
+    font-weight: 700;
+    line-height: 1;
+    display: block;
+  }
+
+  .placar .r {
+    font-family: "Space Grotesk", sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin-top: 9px;
+    display: block;
+  }
+
+  .c-critica { color: var(--critica); }
+  .c-alta    { color: var(--alta); }
+  .c-media   { color: var(--media); }
+  .c-baixa   { color: var(--baixa); }
+  .c-solida  { color: var(--solida); }
+
+  /* ── Seções ──────────────────────────────────────────────── */
+
+  section { margin: 0 0 68px; }
+
+  h2 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    letter-spacing: -0.012em;
+    margin: 0 0 6px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--line-firm);
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+  }
+
+  h2 .marca {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    font-weight: 400;
+    color: var(--ink-faint);
+    letter-spacing: 0.1em;
+  }
+
+  .intro-secao {
+    color: var(--ink-soft);
+    margin: 14px 0 28px;
+    max-width: var(--prose);
+  }
+
+  p { margin: 0 0 15px; }
+  p:last-child { margin-bottom: 0; }
+
+  code {
+    font-size: 0.855em;
+    background: var(--surface-2);
+    padding: 1px 5px;
+    border-radius: 2px;
+  }
+
+  strong { font-weight: 600; }
+
+  /* ── Lista "o que se sustenta" ───────────────────────────── */
+
+  .sustenta {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    gap: 1px;
+    background: var(--line);
+    border: 1px solid var(--line);
+  }
+
+  .sustenta li {
+    background: var(--surface);
+    padding: 15px 18px;
+    display: grid;
+    grid-template-columns: 22px 1fr;
+    gap: 12px;
+    align-items: start;
+  }
+
+  .sustenta .tick {
+    color: var(--solida);
+    font-weight: 700;
+    font-family: "Space Grotesk", sans-serif;
+    line-height: 1.5;
+  }
+
+  /* ── Figuras ─────────────────────────────────────────────── */
+
+  figure {
+    margin: 0 0 30px;
+    border: 1px solid var(--line);
+    background: var(--surface);
+  }
+
+  .quadro {
+    overflow-x: auto;
+    padding: 26px 22px 10px;
+  }
+
+  figure svg {
+    display: block;
+    min-width: 640px;
+    max-width: 100%;
+    height: auto;
+    margin: 0 auto;
+    color: var(--ink);
+  }
+
+  figcaption {
+    border-top: 1px solid var(--line);
+    padding: 13px 20px;
+    font-size: 0.895rem;
+    color: var(--ink-soft);
+    background: var(--surface-2);
+  }
+
+  /* ── Filtros ─────────────────────────────────────────────── */
+
+  .filtros {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 0 0 8px;
+    padding: 0 0 22px;
+  }
+
+  .filtros button {
+    font-family: "Space Grotesk", sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.055em;
+    text-transform: uppercase;
+    background: var(--surface);
+    color: var(--ink-soft);
+    border: 1px solid var(--line-firm);
+    padding: 7px 13px;
+    cursor: pointer;
+    transition: background 0.14s, color 0.14s, border-color 0.14s;
+  }
+
+  .filtros button:hover { border-color: var(--ink-soft); }
+
+  .filtros button:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  .filtros button[aria-pressed="true"] {
+    background: var(--ink);
+    color: var(--paper);
+    border-color: var(--ink);
+  }
+
+  /* ── Razão de achados ────────────────────────────────────── */
+
+  .razao { border-top: 1px solid var(--line-firm); }
+
+  .achado {
+    border-bottom: 1px solid var(--line);
+    padding: 26px 0;
+    display: grid;
+    grid-template-columns: 52px 1fr;
+    gap: 20px;
+  }
+
+  .achado[hidden] { display: none; }
+
+  .idx {
+    font-family: "JetBrains Mono", monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: 1.28rem;
+    font-weight: 700;
+    color: var(--ink-faint);
+    line-height: 1.28;
+    padding-top: 1px;
+  }
+
+  .achado h3 {
+    font-size: 1.145rem;
+    font-weight: 600;
+    letter-spacing: -0.008em;
+    line-height: 1.32;
+    margin: 0 0 11px;
+  }
+
+  .chip {
+    display: inline-block;
+    font-family: "Space Grotesk", sans-serif;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    margin-right: 9px;
+    vertical-align: 2px;
+    white-space: nowrap;
+  }
+
+  .chip-critica { background: var(--critica-bg); color: var(--critica); }
+  .chip-alta    { background: var(--alta-bg);    color: var(--alta); }
+  .chip-media   { background: var(--media-bg);   color: var(--media); }
+  .chip-baixa   { background: var(--baixa-bg);   color: var(--baixa); }
+
+  .local {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.795rem;
+    color: var(--ink-soft);
+    background: var(--surface-2);
+    border-left: 2px solid var(--line-firm);
+    padding: 6px 10px;
+    margin: 0 0 14px;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+
+  .achado p { font-size: 0.975rem; max-width: 74ch; }
+
+  .cenario {
+    border-left: 2px solid var(--accent);
+    padding: 3px 0 3px 15px;
+    margin: 14px 0 0;
+    font-size: 0.93rem;
+    color: var(--ink-soft);
+  }
+
+  .cenario b {
+    font-family: "Space Grotesk", sans-serif;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    display: block;
+    margin-bottom: 5px;
+  }
+
+  .vazio {
+    padding: 40px 0;
+    color: var(--ink-faint);
+    font-style: italic;
+    display: none;
+  }
+
+  /* ── Tabelas ─────────────────────────────────────────────── */
+
+  .rolagem {
+    overflow-x: auto;
+    border: 1px solid var(--line);
+    background: var(--surface);
+  }
+
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    min-width: 580px;
+    font-size: 0.9rem;
+  }
+
+  th {
+    font-family: "Space Grotesk", sans-serif;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    text-align: left;
+    padding: 12px 15px;
+    border-bottom: 1px solid var(--line-firm);
+    white-space: nowrap;
+  }
+
+  td {
+    padding: 11px 15px;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+  }
+
+  tr:last-child td { border-bottom: 0; }
+
+  td.mod {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.83rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  td.mid { text-align: center; font-weight: 600; }
+
+  .sim { color: var(--solida); }
+  .nao { color: var(--critica); }
+  .parcial { color: var(--alta); }
+
+  .nota { font-size: 0.87rem; color: var(--ink-soft); margin-top: 13px; }
+
+  footer {
+    border-top: 2px solid var(--ink);
+    padding-top: 22px;
+    margin-top: 20px;
+    font-size: 0.88rem;
+    color: var(--ink-soft);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
+
+  @media (max-width: 620px) {
+    body { font-size: 16px; padding: 0 16px 64px; }
+    .achado { grid-template-columns: 1fr; gap: 8px; }
+    .idx { font-size: 1rem; }
+  }
+</style>
+
+<div class="shell">
+
+  <header class="topo">
+    <p class="eyebrow">Auditoria técnica &middot; 22 de agosto de 2026</p>
+    <h1>Auditoria do PortfolioLab</h1>
+    <p class="subtitulo">
+      Leitura completa do backend (10 módulos em camadas), do frontend (Next 16, 6 páginas)
+      e dos quatro documentos em <code>docs/</code>. Vinte e quatro achados, ordenados por
+      severidade. Nenhuma linha de código foi alterada.
+    </p>
+  </header>
+
+  <div class="placar">
+    <div><span class="n c-critica">4</span><span class="r">Críticas</span></div>
+    <div><span class="n c-alta">5</span><span class="r">Altas</span></div>
+    <div><span class="n c-media">7</span><span class="r">Médias</span></div>
+    <div><span class="n c-baixa">8</span><span class="r">Baixas / doc</span></div>
+    <div><span class="n c-solida">54</span><span class="r">Testes hoje</span></div>
+  </div>
+
+  <section>
+    <h2>O veredito <span class="marca">em uma frase</span></h2>
+    <div class="prose">
+      <p>
+        O problema deste projeto não é desleixo — é <strong>cobertura desigual</strong>.
+        Onde houve teste, o código está correto e bem pensado. Onde não houve, quatro falhas
+        atingem exatamente a regra de negócio que dá sentido ao produto: a conta que responde
+        <em>&ldquo;tenho R$ 1.500, o que eu compro?&rdquo;</em>.
+      </p>
+      <p>
+        As três áreas testadas — autenticação, carteira e rebalanceamento — somam 54 testes
+        e sustentam a inspeção. Os módulos <code>reports</code> (o Sprint 8 inteiro),
+        <code>dividends</code> e <code>goals</code> não têm um único teste, e é lá que estão
+        três dos quatro achados críticos.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>O que se sustenta <span class="marca">antes das críticas</span></h2>
+    <p class="intro-secao">
+      Nada disto é obrigação cumprida por acaso — cada item é uma decisão que sobreviveu
+      à leitura linha a linha e que vale defender numa banca.
+    </p>
+    <ul class="sustenta">
+      <li><span class="tick">&#10003;</span><span><strong>As camadas são respeitadas de verdade.</strong> Nenhum controller importa Prisma; nenhum service lê <code>req</code> ou <code>res</code>. A separação <code>app.ts</code>&nbsp;/&nbsp;<code>server.ts</code> é o que permite testar rotas com Supertest sem subir servidor.</span></li>
+      <li><span class="tick">&#10003;</span><span><strong><code>Decimal</code> em todo dinheiro, sem exceção no núcleo.</strong> <code>calcularPosicao</code> e <code>calcularAporte</code> operam em <code>Prisma.Decimal</code> do início ao fim e só convertem para <code>number</code> na resposta HTTP.</span></li>
+      <li><span class="tick">&#10003;</span><span><strong><code>npx tsc --noEmit</code> passa limpo</strong> com <code>strict</code> e <code>noUncheckedIndexedAccess</code> ligados — a configuração mais severa é a que está em uso, não a padrão.</span></li>
+      <li><span class="tick">&#10003;</span><span><strong>Tratamento de erro centralizado e específico.</strong> O <code>errorHandler</code> distingue <code>AppError</code>, <code>ZodError</code>, <code>MulterError</code> e <code>PrismaClientInitializationError</code> — inclusive traduzindo &ldquo;Supabase hibernou&rdquo; em vez de devolver 500 genérico.</span></li>
+      <li><span class="tick">&#10003;</span><span><strong>Login não vaza qual campo errou.</strong> E-mail inexistente e senha incorreta devolvem a mesma mensagem — defesa contra enumeração de contas, com teste cobrindo.</span></li>
+      <li><span class="tick">&#10003;</span><span><strong>Integrações externas nunca derrubam uma rota.</strong> Yahoo Finance, Gemini e os feeds RSS têm <code>timeout</code>, <code>AbortController</code> e degradação explícita — falha vira &ldquo;último preço conhecido&rdquo; ou lista vazia, não exceção.</span></li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Onde as falhas estruturais moram <span class="marca">figura 1</span></h2>
+    <p class="intro-secao">
+      O caminho real de uma requisição, com os quatro achados que são de arquitetura
+      — não de uma linha isolada — marcados no ponto exato em que aparecem.
+    </p>
+
+    <figure>
+      <div class="quadro">
+        <svg viewBox="0 0 940 400" role="img" aria-label="Caminho de uma requisição do navegador até o Postgres, com quatro pontos de falha marcados: ausência de rate limiting na entrada do Express, JWT_SECRET com valor padrão no authGuard, GET /assets sem filtro por usuário no repository, e escrita no banco durante requisições de leitura.">
+          <defs>
+            <marker id="seta" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 1 L 10 5 L 0 9 z" fill="currentColor"></path>
+            </marker>
+            <marker id="seta-alerta" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 1 L 10 5 L 0 9 z" fill="#c2323f"></path>
+            </marker>
+          </defs>
+
+          <!-- trilha principal -->
+          <g font-family="'JetBrains Mono', monospace" font-size="12">
+            <rect x="8"   y="120" width="118" height="52" fill="none" stroke="currentColor" stroke-width="1.5"></rect>
+            <text x="67"  y="142" text-anchor="middle" font-size="12.5">Navegador</text>
+            <text x="67"  y="158" text-anchor="middle" font-size="10" opacity="0.62">/api/*</text>
+
+            <rect x="166" y="120" width="118" height="52" fill="none" stroke="currentColor" stroke-width="1.5"></rect>
+            <text x="225" y="142" text-anchor="middle" font-size="12.5">Next 16</text>
+            <text x="225" y="158" text-anchor="middle" font-size="10" opacity="0.62">rewrite</text>
+
+            <rect x="324" y="120" width="118" height="52" fill="none" stroke="currentColor" stroke-width="1.5"></rect>
+            <text x="383" y="142" text-anchor="middle" font-size="12.5">Express</text>
+            <text x="383" y="158" text-anchor="middle" font-size="10" opacity="0.62">app.ts</text>
+
+            <rect x="482" y="120" width="118" height="52" fill="none" stroke="currentColor" stroke-width="1.5"></rect>
+            <text x="541" y="142" text-anchor="middle" font-size="12.5">authGuard</text>
+            <text x="541" y="158" text-anchor="middle" font-size="10" opacity="0.62">jwt.verify</text>
+
+            <rect x="640" y="120" width="118" height="52" fill="none" stroke="currentColor" stroke-width="1.5"></rect>
+            <text x="699" y="136" text-anchor="middle" font-size="11">Controller</text>
+            <text x="699" y="150" text-anchor="middle" font-size="11">Service</text>
+            <text x="699" y="164" text-anchor="middle" font-size="11">Repository</text>
+
+            <rect x="798" y="120" width="118" height="52" fill="none" stroke="currentColor" stroke-width="1.5"></rect>
+            <text x="857" y="142" text-anchor="middle" font-size="12.5">Postgres</text>
+            <text x="857" y="158" text-anchor="middle" font-size="10" opacity="0.62">Supabase</text>
+          </g>
+
+          <g stroke="currentColor" stroke-width="1.5" fill="none" marker-end="url(#seta)">
+            <line x1="126" y1="146" x2="160" y2="146"></line>
+            <line x1="284" y1="146" x2="318" y2="146"></line>
+            <line x1="442" y1="146" x2="476" y2="146"></line>
+            <line x1="600" y1="146" x2="634" y2="146"></line>
+            <line x1="758" y1="146" x2="792" y2="146"></line>
+          </g>
+
+          <!-- integrações externas -->
+          <g font-family="'JetBrains Mono', monospace" font-size="10.5" opacity="0.72">
+            <rect x="640" y="26" width="118" height="40" fill="none" stroke="currentColor" stroke-width="1" stroke-dasharray="4 3"></rect>
+            <text x="699" y="43" text-anchor="middle">Yahoo Finance</text>
+            <text x="699" y="57" text-anchor="middle" opacity="0.7">Gemini &middot; RSS</text>
+          </g>
+          <g stroke="currentColor" stroke-width="1" stroke-dasharray="4 3" fill="none" marker-end="url(#seta)" opacity="0.72">
+            <line x1="699" y1="114" x2="699" y2="72"></line>
+          </g>
+
+          <!-- pontos de falha -->
+          <g font-family="'JetBrains Mono', monospace" font-size="11" fill="#c2323f">
+            <circle cx="383" cy="120" r="12" fill="#c2323f"></circle>
+            <text x="383" y="124" text-anchor="middle" fill="#ffffff" font-weight="700" font-size="11">8</text>
+            <text x="383" y="98" text-anchor="middle">sem rate limiting</text>
+
+            <circle cx="541" cy="120" r="12" fill="#c2323f"></circle>
+            <text x="541" y="124" text-anchor="middle" fill="#ffffff" font-weight="700" font-size="11">6</text>
+            <text x="541" y="98" text-anchor="middle">JWT_SECRET tem padrão</text>
+
+            <circle cx="699" cy="192" r="12" fill="#c2323f"></circle>
+            <text x="699" y="196" text-anchor="middle" fill="#ffffff" font-weight="700" font-size="11">3</text>
+            <text x="699" y="228" text-anchor="middle">GET /assets sem filtro</text>
+            <text x="699" y="244" text-anchor="middle" opacity="0.8">por userId</text>
+
+            <circle cx="857" cy="192" r="12" fill="#c2323f"></circle>
+            <text x="857" y="196" text-anchor="middle" fill="#ffffff" font-weight="700" font-size="11">12</text>
+            <text x="857" y="228" text-anchor="middle">GET grava preço</text>
+            <text x="857" y="244" text-anchor="middle" opacity="0.8">no banco</text>
+          </g>
+
+          <g stroke="#c2323f" stroke-width="1.2" fill="none" stroke-dasharray="3 3">
+            <line x1="699" y1="180" x2="699" y2="172"></line>
+            <line x1="857" y1="180" x2="857" y2="172"></line>
+          </g>
+
+          <!-- nota do banco compartilhado -->
+          <g font-family="'JetBrains Mono', monospace" font-size="10.5">
+            <line x1="600" y1="330" x2="792" y2="330" stroke="#c2323f" stroke-width="1.2" stroke-dasharray="4 3" marker-end="url(#seta-alerta)"></line>
+            <rect x="482" y="310" width="118" height="40" fill="none" stroke="#c2323f" stroke-width="1.2"></rect>
+            <text x="541" y="327" text-anchor="middle" fill="#c2323f">npm test</text>
+            <text x="541" y="341" text-anchor="middle" fill="#c2323f" opacity="0.8">db:seed</text>
+            <text x="698" y="322" text-anchor="middle" fill="#c2323f">achado 7 &mdash; escreve</text>
+            <text x="698" y="350" text-anchor="middle" fill="#c2323f">no MESMO banco</text>
+          </g>
+        </svg>
+      </div>
+      <figcaption>
+        Os quatro achados de arquitetura ficam em pontos distintos do caminho: a entrada do
+        Express (sem teto de requisições), a verificação do token (segredo com valor padrão),
+        a camada de dados (consulta sem dono) e o próprio banco — que é o de produção e recebe
+        escrita direta da suíte de testes.
+      </figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <h2>A corrida que quebra a simulação <span class="marca">figura 2 &middot; achado 1</span></h2>
+    <p class="intro-secao">
+      Este é o achado mais grave e o mais difícil de ver lendo o arquivo, porque os dois ramos
+      aparecem em linhas consecutivas mas executam ao mesmo tempo.
+    </p>
+
+    <figure>
+      <div class="quadro">
+        <svg viewBox="0 0 900 320" role="img" aria-label="Diagrama do Promise.all em rebalance.service.ts: o ramo das metas lê asset.currentPrice do banco enquanto o ramo da carteira ainda está gravando a cotação nova nessa mesma coluna, fazendo a simulação usar dois preços diferentes do mesmo ativo.">
+          <defs>
+            <marker id="seta2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 1 L 10 5 L 0 9 z" fill="currentColor"></path>
+            </marker>
+            <marker id="seta2-r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 1 L 10 5 L 0 9 z" fill="#c2323f"></path>
+            </marker>
+          </defs>
+
+          <g font-family="'JetBrains Mono', monospace" font-size="11.5">
+            <rect x="10" y="128" width="132" height="52" fill="none" stroke="currentColor" stroke-width="1.5"></rect>
+            <text x="76" y="150" text-anchor="middle" font-size="12">Promise.all</text>
+            <text x="76" y="166" text-anchor="middle" font-size="10" opacity="0.62">linha 129</text>
+
+            <!-- ramo A -->
+            <rect x="248" y="42" width="196" height="56" fill="none" stroke="currentColor" stroke-width="1.5"></rect>
+            <text x="346" y="63" text-anchor="middle">goalsRepository</text>
+            <text x="346" y="79" text-anchor="middle" font-size="10" opacity="0.7">.findManyByUser()</text>
+
+            <rect x="518" y="42" width="212" height="56" fill="none" stroke="#c2323f" stroke-width="1.5"></rect>
+            <text x="624" y="63" text-anchor="middle" fill="#c2323f">lê asset.currentPrice</text>
+            <text x="624" y="79" text-anchor="middle" fill="#c2323f" font-size="10" opacity="0.85">preço ANTIGO &middot; linha 147</text>
+
+            <!-- ramo B -->
+            <rect x="248" y="212" width="196" height="56" fill="none" stroke="currentColor" stroke-width="1.5"></rect>
+            <text x="346" y="233" text-anchor="middle">portfolioService</text>
+            <text x="346" y="249" text-anchor="middle" font-size="10" opacity="0.7">.getCarteira()</text>
+
+            <rect x="518" y="212" width="212" height="56" fill="none" stroke="currentColor" stroke-width="1.5"></rect>
+            <text x="624" y="233" text-anchor="middle">grava cotação nova</text>
+            <text x="624" y="249" text-anchor="middle" font-size="10" opacity="0.7">quotesService &middot; UPDATE</text>
+          </g>
+
+          <g stroke="currentColor" stroke-width="1.5" fill="none" marker-end="url(#seta2)">
+            <path d="M 76 128 L 76 70 L 242 70"></path>
+            <path d="M 76 180 L 76 240 L 242 240"></path>
+            <line x1="444" y1="70" x2="512" y2="70"></line>
+            <line x1="444" y1="240" x2="512" y2="240"></line>
+          </g>
+
+          <!-- colisão -->
+          <g font-family="'JetBrains Mono', monospace" font-size="11">
+            <rect x="784" y="128" width="106" height="52" fill="none" stroke="#c2323f" stroke-width="1.5"></rect>
+            <text x="837" y="150" text-anchor="middle" fill="#c2323f">mesma</text>
+            <text x="837" y="166" text-anchor="middle" fill="#c2323f">coluna</text>
+          </g>
+
+          <g stroke="#c2323f" stroke-width="1.5" fill="none" marker-end="url(#seta2-r)" stroke-dasharray="5 3">
+            <path d="M 730 70 L 837 70 L 837 122"></path>
+            <path d="M 730 240 L 837 240 L 837 186"></path>
+          </g>
+
+          <g font-family="'JetBrains Mono', monospace" font-size="10.5" fill="#c2323f">
+            <text x="624" y="132" text-anchor="middle">os dois ramos correm ao mesmo tempo &mdash;</text>
+            <text x="624" y="148" text-anchor="middle">quem termina primeiro decide o preço usado</text>
+            <text x="624" y="176" text-anchor="middle" opacity="0.85">valorAtual vem do preço vivo &middot; precoAtual vem do banco</text>
+          </g>
+        </svg>
+      </div>
+      <figcaption>
+        Em <code>rebalance.service.ts:129</code> os dois ramos do <code>Promise.all</code> tocam
+        a mesma coluna <code>assets.current_price</code>: um lê, o outro escreve. A simulação
+        acaba calculando o déficit com o preço vivo e a quantidade a comprar com o preço antigo.
+      </figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <h2>Os achados <span class="marca">24 itens &middot; ordenados por severidade</span></h2>
+    <p class="intro-secao">
+      Cada item traz o local exato, a razão pela qual quebra e um cenário concreto de
+      reprodução. A numeração é estável: use-a para referenciar os achados no plano
+      de correção.
+    </p>
+
+    <div class="filtros" role="group" aria-label="Filtrar achados por severidade">
+      <button type="button" data-sev="todos" aria-pressed="true">Todos &middot; 24</button>
+      <button type="button" data-sev="critica" aria-pressed="false">Críticas &middot; 4</button>
+      <button type="button" data-sev="alta" aria-pressed="false">Altas &middot; 5</button>
+      <button type="button" data-sev="media" aria-pressed="false">Médias &middot; 7</button>
+      <button type="button" data-sev="baixa" aria-pressed="false">Baixas &middot; 8</button>
+    </div>
+
+    <div class="razao" id="razao">
+
+      <article class="achado" data-sev="critica">
+        <div class="idx">01</div>
+        <div>
+          <h3><span class="chip chip-critica">Crítica</span>A simulação de aporte usa dois preços diferentes do mesmo ativo</h3>
+          <p class="local">backend/src/modules/rebalance/rebalance.service.ts:129-147</p>
+          <p>
+            O <code>Promise.all</code> dispara <code>goalsRepository.findManyByUser()</code> e
+            <code>portfolioService.getCarteira()</code> em paralelo. O segundo chama
+            <code>quotesService.atualizarSeNecessario()</code>, que faz <code>UPDATE</code> em
+            <code>assets.current_price</code>. O primeiro lê <code>m.asset.currentPrice</code>
+            dessa mesma coluna — e, por ser concorrente, quase sempre lê antes da gravação.
+            O resultado: <code>valorAtual</code> (posição) vem da cotação viva e
+            <code>precoAtual</code> (quanto custa uma unidade) vem do preço velho.
+          </p>
+          <p class="cenario">
+            <b>Como reproduzir</b>
+            Meta de 50% em PETR4, banco com <code>current_price = 38,20</code> (do seed), cotação
+            real hoje em 32,00. O déficit é calculado sobre o patrimônio a 32,00, mas a divisão
+            <code>orcamento ÷ precoAtual</code> usa 38,20 — o sistema manda comprar ~16% menos
+            ações do que o aporte de fato paga. É o coração do produto errando.
+          </p>
+        </div>
+      </article>
+
+      <article class="achado" data-sev="critica">
+        <div class="idx">02</div>
+        <div>
+          <h3><span class="chip chip-critica">Crítica</span>Só é possível definir meta para um ativo que você já comprou</h3>
+          <p class="local">backend/src/modules/goals/goals.service.ts:23 &middot; dividends.service.ts:8</p>
+          <p>
+            <code>goalsService.upsert</code> resolve o ticker com
+            <code>assetsRepository.findByTicker</code>, que apenas consulta. Já
+            <code>transactionsService.create</code> usa
+            <code>quotesService.buscarOuCadastrar</code>, que cadastra o ativo automaticamente a
+            partir da cotação real. As duas portas de entrada do mesmo conceito seguem regras
+            opostas.
+          </p>
+          <p>
+            O efeito prático anula metade do valor do rebalanceamento: a proposta é
+            &ldquo;o aporte vai para o que está abaixo da meta&rdquo;, mas você não consegue
+            registrar meta de um ativo que ainda não possui — exatamente o caso de maior déficit.
+            <code>dividends.service.ts</code> tem o mesmo defeito.
+          </p>
+          <p class="cenario">
+            <b>Como reproduzir</b>
+            Conta nova, sem transações. <code>PUT /goals</code> com
+            <code>{"ticker":"BBAS3","targetWeight":20}</code> devolve
+            <code>404 Ativo BBAS3 não encontrado</code>, embora o ticker exista na B3 e
+            <code>GET /quotes/BBAS3</code> responda com preço e nome corretos.
+          </p>
+        </div>
+      </article>
+
+      <article class="achado" data-sev="critica">
+        <div class="idx">03</div>
+        <div>
+          <h3><span class="chip chip-critica">Crítica</span><code>GET /assets</code> expõe os tickers de todos os usuários</h3>
+          <p class="local">backend/src/modules/assets/assets.repository.ts:4-6</p>
+          <p>
+            <code>findAll()</code> é <code>prisma.asset.findMany({ orderBy: { ticker: "asc" } })</code>
+            — sem <code>where</code>. A tabela <code>assets</code> é global e cresce sozinha:
+            sempre que <em>qualquer</em> usuário registra uma transação com ticker novo, o ativo
+            é criado ali. A rota devolve, portanto, a união de tudo que toda a base já negociou.
+          </p>
+          <p>
+            Não é vazamento de dado pessoal, mas é quebra de isolamento entre contas: revela a
+            composição agregada das carteiras alheias. O frontend consome a rota em dois lugares
+            visíveis — o seletor &ldquo;Adicionar meta&rdquo; (<code>simulacao/page.tsx:48</code>)
+            e a Carteira (<code>carteira/page.tsx:39</code>).
+          </p>
+          <p class="cenario">
+            <b>Como reproduzir</b>
+            Usuário A registra uma compra de <code>WEGE3</code>. Usuário B, que nunca ouviu falar
+            do ticker, abre a tela de Simulação e encontra <code>WEGE3</code> no seletor de metas.
+          </p>
+        </div>
+      </article>
+
+      <article class="achado" data-sev="critica">
+        <div class="idx">04</div>
+        <div>
+          <h3><span class="chip chip-critica">Crítica</span>Apagar uma transação pode deixar a posição negativa, em silêncio</h3>
+          <p class="local">backend/src/modules/transactions/transactions.service.ts:44-52</p>
+          <p>
+            <code>remove()</code> confere apenas se a transação pertence ao usuário. Não verifica
+            se apagá-la torna inválido o histórico posterior. A regra
+            &ldquo;não se pode vender o que não se tem&rdquo; é aplicada só na criação da venda —
+            nunca reavaliada depois.
+          </p>
+          <p>
+            O estado corrompido fica invisível: <code>calcularPosicao</code> filtra com
+            <code>quantidade.lte(0)</code> e o ativo simplesmente some da carteira. Mas
+            <code>transactionsRepository.quantidadeAtual</code> continua devolvendo o número
+            negativo, e ele bloqueia toda venda futura daquele ativo.
+          </p>
+          <p class="cenario">
+            <b>Como reproduzir</b>
+            Compre 100 MXRF11, venda 100 MXRF11, depois apague a compra. A posição vira −100:
+            o ativo desaparece da tela e qualquer nova venda passa a responder
+            <code>Quantidade insuficiente: você possui -100</code>. Não há como sair desse estado
+            pela interface.
+          </p>
+        </div>
+      </article>
+
+      <article class="achado" data-sev="alta">
+        <div class="idx">05</div>
+        <div>
+          <h3><span class="chip chip-alta">Alta</span>Não existe histórico de migrations versionado</h3>
+          <p class="local">backend/prisma/ &mdash; contém apenas schema.prisma e seed.ts</p>
+          <p>
+            Não há pasta <code>migrations/</code>. O README instrui
+            <code>npx prisma db push</code>, que aplica o schema sem gerar histórico, e
+            <code>docs/deploy.md</code> repete o <code>db push</code> para mudanças futuras. O
+            próprio <code>docs/roadmap.md</code> registra a pendência: o item
+            <em>&ldquo;Rodar a primeira migration e o seed&rdquo;</em> do Sprint 1 é o único
+            desmarcado da lista.
+          </p>
+          <p>
+            Para a entrega acadêmica isto pesa mais do que parece: migrations versionadas são
+            justamente o entregável central da disciplina de Banco de Dados Relacional, e sem
+            elas o schema não é reprodutível nem auditável por quem corrige.
+          </p>
+          <p class="cenario">
+            <b>Como reproduzir</b>
+            Clone o repositório num ambiente limpo. Não há como recriar a evolução do banco —
+            só o estado final, e apenas se o <code>db push</code> for executado manualmente.
+          </p>
+        </div>
+      </article>
+
+      <article class="achado" data-sev="alta">
+        <div class="idx">06</div>
+        <div>
+          <h3><span class="chip chip-alta">Alta</span><code>JWT_SECRET</code> tem valor padrão e a aplicação sobe sem ele</h3>
+          <p class="local">backend/src/config/env.ts:10</p>
+          <p>
+            <code>JWT_SECRET: z.string().min(1).default("dev-secret")</code>. O comentário no topo
+            do arquivo promete <em>&ldquo;se algo obrigatório faltar, a aplicação nem sobe (fail
+            fast)&rdquo;</em> — mas o <code>.default()</code> impede exatamente isso. Faltando a
+            variável em produção, a API inicia normalmente e assina todos os tokens com um segredo
+            público, presente no repositório.
+          </p>
+          <p>
+            <code>docs/deploy.md</code> lista <code>JWT_SECRET</code> como obrigatória e adverte
+            que quem tem o segredo forja sessão de qualquer usuário. A documentação está certa;
+            o código não a faz cumprir.
+          </p>
+          <p class="cenario">
+            <b>Como reproduzir</b>
+            Suba a API sem <code>JWT_SECRET</code> no ambiente. Ela responde <code>200</code> em
+            <code>/health</code> e aceita login. Um token assinado com <code>"dev-secret"</code> e
+            <code>sub</code> arbitrário passa pelo <code>authGuard</code>.
+          </p>
+        </div>
+      </article>
+
+      <article class="achado" data-sev="alta">
+        <div class="idx">07</div>
+        <div>
+          <h3><span class="chip chip-alta">Alta</span>A suíte de testes escreve no banco de produção</h3>
+          <p class="local">backend/vitest.config.ts &middot; auth.test.ts, portfolio.api.test.ts, rebalance.api.test.ts, news.test.ts &middot; prisma/seed.ts:29-33</p>
+          <p>
+            Quatro suítes importam o cliente Prisma real, que lê <code>DATABASE_URL</code> de
+            <code>backend/.env</code> — a string do Supabase. Não existe <code>.env.test</code>
+            nem banco descartável configurado. As suítes criam usuários, transações e metas no
+            banco real e limpam no <code>afterAll</code>; um teste que falha no meio deixa lixo.
+          </p>
+          <p>
+            O risco se agrava porque <code>prisma/seed.ts</code> abre com cinco
+            <code>deleteMany()</code> sem filtro — todas as tabelas. O próprio comentário do
+            <code>vitest.config.ts</code> confirma que a escolha foi consciente:
+            <em>&ldquo;os testes de integração falam com o Supabase (rede)&rdquo;</em>.
+          </p>
+          <p class="cenario">
+            <b>Como reproduzir</b>
+            <code>cd backend &amp;&amp; npm run db:seed</code> com o <code>.env</code> atual apaga
+            todos os usuários, ativos, transações, metas e proventos do banco em produção antes de
+            repopular com a carteira de exemplo. Não há confirmação nem guarda.
+          </p>
+        </div>
+      </article>
+
+      <article class="achado" data-sev="alta">
+        <div class="idx">08</div>
+        <div>
+          <h3><span class="chip chip-alta">Alta</span>Nenhuma rota tem limite de requisições</h3>
+          <p class="local">backend/src/app.ts &mdash; sem middleware de rate limiting</p>
+          <p>
+            <code>POST /auth/login</code> aceita tentativas ilimitadas: com <code>bcrypt</code> em
+            10 rounds e senha mínima de 6 caracteres, força bruta é viável. E
+            <code>POST /reports</code> e <code>POST /reports/:id/ask</code> chamam a API paga do
+            Gemini sem teto por usuário — o limite de 2.000.000 de caracteres por relatório
+            equivale a cerca de 570 mil tokens <em>por requisição</em>.
+          </p>
+          <p>
+            Não há tampouco cota de armazenamento: cada relatório grava o texto extraído inteiro
+            em <code>reports.extracted_text</code>, até 2 MB por linha, sem limite de quantidade.
+          </p>
+          <p class="cenario">
+            <b>Como reproduzir</b>
+            Um laço enviando o mesmo PDF de 300 páginas para <code>POST /reports</code> consome a
+            cota do Gemini e enche a tabela <code>reports</code> sem nenhuma barreira.
+          </p>
+        </div>
+      </article>
+
+      <article class="achado" data-sev="alta">
+        <div class="idx">09</div>
+        <div>
+          <h3><span class="chip chip-alta">Alta</span>Chaves estrangeiras sem <code>onDelete</code></h3>
+          <p class="local">backend/prisma/schema.prisma:68, 69, 83, 84, 102, 115, 116</p>
+          <p>
+            As sete relações usam o padrão do Prisma, <code>Restrict</code>. Apagar um
+            <code>User</code> falha enquanto houver transação, meta, provento ou relatório
+            apontando para ele; apagar um <code>Asset</code> falha do mesmo modo.
+          </p>
+          <p>
+            Não há rota de exclusão de conta hoje, então nada quebra em produção — mas os testes
+            já contornam o problema na mão (<code>portfolio.api.test.ts:24-27</code> apaga as
+            transações antes do usuário), o que é sinal de que a modelagem está empurrando
+            responsabilidade para quem consome.
+          </p>
+          <p class="cenario">
+            <b>Como reproduzir</b>
+            <code>prisma.user.delete({ where: { id } })</code> num usuário com qualquer transação
+            lança <code>P2003 Foreign key constraint failed</code>.
+          </p>
+        </div>
+      </article>
+
+      <article class="achado" data-sev="media">
+        <div class="idx">10</div>
+        <div>
+          <h3><span class="chip chip-media">Média</span>A taxa de corretagem da venda é descartada</h3>
+          <p class="local">backend/src/modules/portfolio/portfolio.service.ts:43-45</p>
+          <p>
+            Em <code>calcularPosicao</code>, <code>t.fee</code> só é somado dentro do ramo
+            <code>kind === "COMPRA"</code>. O ramo da venda reduz a quantidade e ignora a taxa
+            por completo. O schema aceita <code>fee</code> nos dois sentidos e a API grava o
+            valor — ele apenas nunca é usado.
+          </p>
+          <p>
+            Pela regra da Receita Federal, a taxa de venda reduz o ganho de capital. O preço médio
+            de fato não muda (isso está correto), mas o resultado realizado, sim.
+          </p>
+          <p class="cenario">
+            <b>Como reproduzir</b>
+            Compre 10 @ R$ 10,00 e venda 10 @ R$ 12,00 com R$ 5,00 de corretagem. O sistema não
+            registra o custo da venda em lugar nenhum — nem no PM (correto), nem no resultado
+            (incorreto). Nenhum dos 8 testes de preço médio cobre taxa em venda.
+          </p>
+        </div>
+      </article>
+
+      <article class="achado" data-sev="media">
+        <div class="idx">11</div>
+        <div>
+          <h3><span class="chip chip-media">Média</span>Salvar metas em série falha no estado intermediário</h3>
+          <p class="local">frontend/src/app/(app)/simulacao/page.tsx:68-77</p>
+          <p>
+            <code>salvarMetas()</code> percorre as metas alteradas e faz um
+            <code>PUT /goals</code> por vez, sequencialmente. O backend valida a soma ≤ 100% a
+            cada chamada isolada — então uma redistribuição válida no conjunto pode ser rejeitada
+            no meio do caminho, deixando parte das metas salva e parte não.
+          </p>
+          <p class="cenario">
+            <b>Como reproduzir</b>
+            Metas A=40% e B=10%, soma 50%. Troque para A=10% e B=40% (soma continua 50%). Se o
+            laço enviar B primeiro, a soma intermediária vira 80% — passa; mas com A=60%/B=10%
+            indo para A=10%/B=60%, o envio de B primeiro gera 120% e a API responde 400 com A já
+            gravado. A tela mostra erro e o estado no banco fica inconsistente com o formulário.
+          </p>
+        </div>
+      </article>
+
+      <article class="achado" data-sev="media">
+        <div class="idx">12</div>
+        <div>
+          <h3><span class="chip chip-media">Média</span>Rotas <code>GET</code> escrevem no banco</h3>
+          <p class="local">backend/src/modules/quotes/quotes.service.ts:37, 61</p>
+          <p>
+            <code>atualizarSeNecessario()</code> executa <code>prisma.asset.update</code> durante
+            <code>GET /portfolio</code>, <code>GET /portfolio/summary</code> e
+            <code>GET /news</code>. Efeito colateral em rota de leitura, sem transação, sobre uma
+            tabela global compartilhada por todos os usuários.
+          </p>
+          <p>
+            Dois usuários com PETR4 abrindo o dashboard ao mesmo tempo disparam duas consultas ao
+            Yahoo e duas gravações concorrentes na mesma linha. É também o mecanismo que torna o
+            achado 1 possível.
+          </p>
+          <p class="cenario">
+            <b>Como reproduzir</b>
+            Abra o dashboard com a cotação vencida (mais de 15 minutos) e observe
+            <code>assets.price_updated_at</code> mudar sem que nenhuma escrita tenha sido pedida.
+          </p>
+        </div>
+      </article>
+
+      <article class="achado" data-sev="media">
+        <div class="idx">13</div>
+        <div>
+          <h3><span class="chip chip-media">Média</span>O frontend não tem teste nem verificação de tipos</h3>
+          <p class="local">frontend/package.json &mdash; scripts: dev, build, start, lint</p>
+          <p>
+            Não há script <code>typecheck</code>, nem Vitest, nem Playwright, nem Testing Library.
+            São 881 linhas de páginas e componentes — incluindo o formulário de transação com
+            busca de ticker com atraso, o editor de metas e o chat de relatórios — sem uma única
+            asserção.
+          </p>
+          <p>
+            O <code>tsc</code> só roda indiretamente, dentro do <code>next build</code>. Um erro
+            de tipo em código de página só aparece no build, nunca durante o desenvolvimento.
+          </p>
+          <p class="cenario">
+            <b>Como reproduzir</b>
+            <code>cd frontend &amp;&amp; npm run typecheck</code> responde
+            <code>Missing script</code>.
+          </p>
+        </div>
+      </article>
+
+      <article class="achado" data-sev="media">
+        <div class="idx">14</div>
+        <div>
+          <h3><span class="chip chip-media">Média</span>Não há integração contínua</h3>
+          <p class="local">raiz do repositório &mdash; sem .github/</p>
+          <p>
+            Nenhum workflow. Nada garante que <code>npm test</code> e
+            <code>npx tsc --noEmit</code> passem antes de um commit chegar ao GitHub — a
+            verificação depende inteiramente de disciplina manual.
+          </p>
+          <p>
+            Para um repositório de portfólio, o custo é duplo: além do risco técnico, o selo verde
+            de CI é uma das primeiras coisas que um avaliador procura na página do projeto.
+          </p>
+          <p class="cenario">
+            <b>Como reproduzir</b>
+            Um commit que quebre o typecheck do backend entra em <code>main</code> sem qualquer
+            sinal.
+          </p>
+        </div>
+      </article>
+
+      <article class="achado" data-sev="media">
+        <div class="idx">15</div>
+        <div>
+          <h3><span class="chip chip-media">Média</span>Três módulos não têm nenhum teste</h3>
+          <p class="local">backend/src/modules/reports/ &middot; dividends/ &middot; goals/</p>
+          <p>
+            O Sprint 8 inteiro — upload de PDF, extração com <code>unpdf</code>, integração com o
+            Gemini, saída estruturada por JSON Schema, tradução de erro da IA e o chat
+            &ldquo;Pergunte ao Relatório&rdquo; — não tem cobertura. O mesmo vale para
+            <code>dividends</code> e para as operações de escrita de <code>goals</code>.
+          </p>
+          <p>
+            Não é coincidência que três dos quatro achados críticos estejam justamente nesses
+            módulos. Os 54 testes existentes concentram-se em auth, portfolio, rebalance, quotes
+            e news — e essas áreas estão sólidas.
+          </p>
+          <p class="cenario">
+            <b>Como reproduzir</b>
+            <code>grep -r "describe" src/modules/reports src/modules/dividends src/modules/goals</code>
+            não retorna nada.
+          </p>
+        </div>
+      </article>
+
+      <article class="achado" data-sev="media">
+        <div class="idx">16</div>
+        <div>
+          <h3><span class="chip chip-media">Média</span>Divisão por zero derruba a simulação</h3>
+          <p class="local">backend/src/modules/rebalance/rebalance.service.ts:77</p>
+          <p>
+            <code>orcamento.div(c.precoAtual).floor()</code> — sem guarda no denominador.
+            <code>Prisma.Decimal.div(0)</code> lança, e o erro cai no ramo genérico do
+            <code>errorHandler</code>: <code>500 Erro interno do servidor</code>.
+          </p>
+          <p>
+            O caminho existe: ativos <code>RENDA_FIXA</code> ficam de fora da atualização de
+            cotação (<code>quotes.service.ts:29</code>) e mantêm para sempre o
+            <code>currentPrice</code> com que foram cadastrados. Uma linha com preço zero, seja
+            por importação, correção manual ou seed alternativo, quebra a rota.
+          </p>
+          <p class="cenario">
+            <b>Como reproduzir</b>
+            <code>UPDATE assets SET current_price = 0 WHERE ticker = 'IPCA2035'</code>, depois
+            <code>POST /rebalance/simulate</code> com meta cadastrada nesse ativo.
+          </p>
+        </div>
+      </article>
+
+      <article class="achado" data-sev="baixa">
+        <div class="idx">17</div>
+        <div>
+          <h3><span class="chip chip-baixa">Baixa</span>O README declara dois números de testes diferentes</h3>
+          <p class="local">README.md:36 (&ldquo;54 testes automatizados&rdquo;) &middot; README.md:150 (&ldquo;npm test # 44 testes&rdquo;)</p>
+          <p>
+            A contagem real é 54: auth 9, portfolio 8+6, rebalance 8+6, quotes 10, news 7. O
+            número 44 ficou de uma versão anterior, antes dos módulos de cotações e notícias.
+          </p>
+        </div>
+      </article>
+
+      <article class="achado" data-sev="baixa">
+        <div class="idx">18</div>
+        <div>
+          <h3><span class="chip chip-baixa">Baixa</span>Limite de upload divergente entre código e documentação</h3>
+          <p class="local">reports.routes.ts:11 (25 MB) &middot; docs/roadmap.md:76 (10 MB)</p>
+          <p>
+            O código usa <code>25 * 1024 * 1024</code> e a mensagem do
+            <code>errorHandler:26</code> diz 25 MB — coerentes entre si. O roadmap ficou com o
+            valor antigo, de quando os releases de banco ainda não tinham sido testados.
+          </p>
+        </div>
+      </article>
+
+      <article class="achado" data-sev="baixa">
+        <div class="idx">19</div>
+        <div>
+          <h3><span class="chip chip-baixa">Baixa</span>Comentários citam Claude; a implementação é Gemini</h3>
+          <p class="local">reports.service.ts:32 &middot; reports.schemas.ts:7</p>
+          <p>
+            <em>&ldquo;envia para o Claude com structured outputs&rdquo;</em> e
+            <em>&ldquo;a API do Claude é stateless&rdquo;</em>. O módulo usa
+            <code>@google/genai</code> com <code>GEMINI_MODEL</code>, e o README e o roadmap
+            documentam Gemini corretamente. São os comentários inline que ficaram para trás.
+          </p>
+        </div>
+      </article>
+
+      <article class="achado" data-sev="baixa">
+        <div class="idx">20</div>
+        <div>
+          <h3><span class="chip chip-baixa">Baixa</span>A documentação de arquitetura cita um arquivo que não existe</h3>
+          <p class="local">docs/arquitetura.md:109 (&ldquo;middleware.ts&rdquo;) &middot; o arquivo real é frontend/src/proxy.ts</p>
+          <p>
+            O Next 16 renomeou a convenção, e o <code>docs/roadmap.md:56</code> registra a
+            mudança corretamente. Só o documento de arquitetura ficou desatualizado.
+          </p>
+        </div>
+      </article>
+
+      <article class="achado" data-sev="baixa">
+        <div class="idx">21</div>
+        <div>
+          <h3><span class="chip chip-baixa">Baixa</span>O roadmap anuncia 8 sprints e lista 9</h3>
+          <p class="local">docs/roadmap.md:3</p>
+          <p>
+            <em>&ldquo;Plano em 8 sprints (1 semana cada)&rdquo;</em>, seguido de nove seções —
+            o Sprint 9 (notícias e deploy) foi acrescentado sem atualizar a abertura.
+          </p>
+        </div>
+      </article>
+
+      <article class="achado" data-sev="baixa">
+        <div class="idx">22</div>
+        <div>
+          <h3><span class="chip chip-baixa">Baixa</span>Ativos auto-cadastrados ficam sem setor</h3>
+          <p class="local">quotes.service.ts:70-78 &mdash; o create não preenche sector</p>
+          <p>
+            <code>Asset.sector</code> só é populado pelo seed. Todo ativo criado a partir de uma
+            transação nasce com <code>sector: null</code>, porque o Yahoo Finance não devolve o
+            campo no endpoint de <em>chart</em> em uso.
+          </p>
+          <p>
+            É a razão pela qual o Sprint 6 registra que <em>&ldquo;exposição setorial fica para
+            quando houver dados de setor por posição&rdquo;</em> — a limitação é real e está
+            documentada, mas o campo no schema sugere um dado que na prática quase nunca existe.
+          </p>
+        </div>
+      </article>
+
+      <article class="achado" data-sev="baixa">
+        <div class="idx">23</div>
+        <div>
+          <h3><span class="chip chip-baixa">Baixa</span>Nenhuma listagem tem paginação</h3>
+          <p class="local">transactions, dividends, reports, assets &mdash; todos os findMany</p>
+          <p>
+            Todas as rotas de listagem devolvem o conjunto completo. Com a carteira de exemplo é
+            irrelevante; com anos de transações reais, <code>GET /transactions</code> cresce sem
+            teto — e <code>GET /portfolio</code> ainda recalcula a posição inteira a cada
+            chamada, a partir de todas as transações.
+          </p>
+        </div>
+      </article>
+
+      <article class="achado" data-sev="baixa">
+        <div class="idx">24</div>
+        <div>
+          <h3><span class="chip chip-baixa">Baixa</span>Sem desligamento gracioso; <code>/health</code> não testa o banco</h3>
+          <p class="local">backend/src/server.ts &middot; app.ts:24</p>
+          <p>
+            <code>server.ts</code> só chama <code>app.listen</code>: não há tratamento de
+            <code>SIGTERM</code> nem <code>prisma.$disconnect()</code>, então cada reinício de
+            deploy deixa conexões penduradas no pool do Supabase.
+          </p>
+          <p>
+            E <code>/health</code> devolve <code>{"status":"ok"}</code> fixo, sem consultar o
+            banco — justamente o cenário que o projeto mais precisa detectar, já que o Supabase
+            gratuito hiberna por inatividade. O health check responde &ldquo;ok&rdquo; com o banco
+            fora do ar.
+          </p>
+        </div>
+      </article>
+
+      <p class="vazio" id="vazio">Nenhum achado nesta severidade.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Mapa de cobertura <span class="marca">módulo por módulo</span></h2>
+    <p class="intro-secao">
+      Onde há teste, o código resistiu à auditoria. O padrão é nítido o bastante para servir
+      de guia de prioridade sozinho.
+    </p>
+    <div class="rolagem">
+      <table>
+        <thead>
+          <tr>
+            <th>Módulo</th>
+            <th style="text-align:center">Unitário</th>
+            <th style="text-align:center">Integração</th>
+            <th style="text-align:center">Testes</th>
+            <th>Achados neste módulo</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td class="mod">auth</td><td class="mid sim">&mdash;</td><td class="mid sim">&#10003;</td><td class="mid">9</td><td>06 (configuração, não o módulo)</td></tr>
+          <tr><td class="mod">portfolio</td><td class="mid sim">&#10003;</td><td class="mid sim">&#10003;</td><td class="mid">14</td><td>10</td></tr>
+          <tr><td class="mod">rebalance</td><td class="mid sim">&#10003;</td><td class="mid sim">&#10003;</td><td class="mid">14</td><td>01, 16</td></tr>
+          <tr><td class="mod">quotes</td><td class="mid sim">&#10003;</td><td class="mid sim">&#10003;</td><td class="mid">10</td><td>12, 22</td></tr>
+          <tr><td class="mod">news</td><td class="mid nao">&mdash;</td><td class="mid sim">&#10003;</td><td class="mid">7</td><td>&mdash;</td></tr>
+          <tr><td class="mod">transactions</td><td class="mid nao">&mdash;</td><td class="mid parcial">parcial</td><td class="mid">0 próprios</td><td>04, 23</td></tr>
+          <tr><td class="mod">assets</td><td class="mid nao">&mdash;</td><td class="mid nao">&mdash;</td><td class="mid nao">0</td><td>03</td></tr>
+          <tr><td class="mod">goals</td><td class="mid nao">&mdash;</td><td class="mid parcial">parcial</td><td class="mid">0 próprios</td><td>02</td></tr>
+          <tr><td class="mod">dividends</td><td class="mid nao">&mdash;</td><td class="mid nao">&mdash;</td><td class="mid nao">0</td><td>02</td></tr>
+          <tr><td class="mod">reports</td><td class="mid nao">&mdash;</td><td class="mid nao">&mdash;</td><td class="mid nao">0</td><td>08, 15, 19</td></tr>
+          <tr><td class="mod">frontend (todo)</td><td class="mid nao">&mdash;</td><td class="mid nao">&mdash;</td><td class="mid nao">0</td><td>11, 13</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="nota">
+      <strong>Parcial</strong> significa que o módulo é exercitado de passagem por testes de
+      outro módulo (<code>transactions</code> aparece em <code>portfolio.api.test.ts</code>;
+      <code>goals</code>, em <code>rebalance.api.test.ts</code>), mas não tem suíte própria
+      cobrindo suas próprias regras.
+    </p>
+  </section>
+
+  <section>
+    <h2>Requisito contra implementação <span class="marca">o que o roadmap afirma</span></h2>
+    <p class="intro-secao">
+      Cada item marcado <code>[x]</code> no <code>docs/roadmap.md</code> foi conferido contra o
+      código. A grande maioria confere — a tabela lista apenas os que merecem ressalva.
+    </p>
+    <div class="rolagem">
+      <table>
+        <thead>
+          <tr>
+            <th>Sprint</th>
+            <th>O que o roadmap afirma</th>
+            <th style="text-align:center">Situação</th>
+            <th>Ressalva</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="mod">1</td>
+            <td>Rodar a primeira migration e o seed</td>
+            <td class="mid nao">aberto</td>
+            <td>Único item desmarcado do roadmap, e corretamente: não existe <code>prisma/migrations/</code>. Ver achado 05.</td>
+          </tr>
+          <tr>
+            <td class="mod">4</td>
+            <td>Motor de rebalanceamento &mdash; &ldquo;dado R$ 1.500, o sistema diz o que comprar&rdquo;</td>
+            <td class="mid parcial">com defeito</td>
+            <td>O algoritmo em si está correto e bem testado. A camada que o alimenta entrega preço defasado. Ver achado 01.</td>
+          </tr>
+          <tr>
+            <td class="mod">4</td>
+            <td>CRUD de <code>AssetGoal</code></td>
+            <td class="mid parcial">incompleto</td>
+            <td>Só aceita ativo já no catálogo — não cobre o caso de uso principal. Ver achado 02.</td>
+          </tr>
+          <tr>
+            <td class="mod">6</td>
+            <td>Exposição setorial &ldquo;fica para quando houver dados de setor&rdquo;</td>
+            <td class="mid parcial">bloqueado</td>
+            <td>Adiamento honesto e documentado. A causa está no provedor de cotações. Ver achado 22.</td>
+          </tr>
+          <tr>
+            <td class="mod">8</td>
+            <td>Validado com relatórios reais &mdash; 25/25 valores conferidos, sem alucinação</td>
+            <td class="mid sim">confere</td>
+            <td>A verificação existe e é reproduzível (<code>scripts/verificar-analise.mjs</code>) &mdash; mas é manual, não automatizada. Nenhum teste guarda o módulo. Ver achado 15.</td>
+          </tr>
+          <tr>
+            <td class="mod">9</td>
+            <td>Deploy (backend + banco gerenciado + frontend)</td>
+            <td class="mid nao">aberto</td>
+            <td>Corretamente desmarcado. <code>docs/deploy.md</code> está escrito, mas backend e frontend seguem &ldquo;a definir&rdquo;.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer>
+    <p>
+      Auditoria estática de leitura: nenhum código foi executado contra o banco de produção e
+      nenhum arquivo do aplicativo foi alterado. Todas as referências <code>arquivo:linha</code>
+      foram conferidas contra a árvore no commit <code>b6ce44f</code>.
+    </p>
+    <p>
+      O plano de correção &mdash; ordem de ataque, agrupamento por risco e critério de pronto
+      para cada achado &mdash; é a próxima etapa, e vai referenciar estes números.
+    </p>
+  </footer>
+
+</div>
+
+<script>
+  (function () {
+    var razao = document.getElementById("razao");
+    var vazio = document.getElementById("vazio");
+    var botoes = Array.prototype.slice.call(
+      document.querySelectorAll(".filtros button")
+    );
+    var achados = Array.prototype.slice.call(
+      document.querySelectorAll(".achado")
+    );
+    var CHAVE = "portfoliolab-auditoria-filtro";
+
+    function aplicar(sev) {
+      var visiveis = 0;
+      achados.forEach(function (a) {
+        var mostra = sev === "todos" || a.dataset.sev === sev;
+        a.hidden = !mostra;
+        if (mostra) visiveis++;
+      });
+      vazio.style.display = visiveis === 0 ? "block" : "none";
+      botoes.forEach(function (b) {
+        b.setAttribute("aria-pressed", String(b.dataset.sev === sev));
+      });
+      try {
+        localStorage.setItem(CHAVE, sev);
+      } catch (e) {
+        /* navegação privada ou site data bloqueado — o filtro só não persiste */
+      }
+    }
+
+    botoes.forEach(function (b) {
+      b.addEventListener("click", function () {
+        aplicar(b.dataset.sev);
+      });
+    });
+
+    var salvo = "todos";
+    try {
+      salvo = localStorage.getItem(CHAVE) || "todos";
+    } catch (e) {
+      /* idem */
+    }
+    if (!botoes.some(function (b) { return b.dataset.sev === salvo; })) {
+      salvo = "todos";
+    }
+    aplicar(salvo);
+  })();
+</script>

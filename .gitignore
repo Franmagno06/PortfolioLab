@@ -1,3 +1,7 @@
 # PDFs de teste: documentos públicos e pesados (~11 MB no total).
 # O README da pasta diz de onde baixá-los novamente.
 relatorios-para-teste/*.pdf
+
+# Aprovações de permissão pessoais do Claude Code.
+# A configuração compartilhada fica em .claude/settings.json, essa vai versionada.
+.claude/settings.local.json

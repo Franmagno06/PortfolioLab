@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc --noEmit:*)",
+      "Bash(npm run typecheck:*)",
+      "Bash(npm test:*)",
+      "Bash(npx vitest run:*)",
+      "Bash(npx prisma validate:*)",
+      "Bash(npm run lint:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git show:*)"
+    ],
+    "deny": [
+      "Bash(npm run db:seed:*)",
+      "Bash(prisma db seed:*)",
+      "Bash(npx prisma db seed:*)",
+      "Bash(npx prisma db push:*)",
+      "Bash(npx prisma migrate reset:*)",
+      "Bash(npx prisma db execute:*)",
+      "Read(./backend/.env)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/typecheck-backend.mjs\"",
+            "timeout": 120,
+            "statusMessage": "Conferindo tipos do backend..."
+          }
+        ]
+      }
+    ]
+  },
+  "extraKnownMarketplaces": {
+    "claude-plugins-official": {
+      "source": {
+        "source": "github",
+        "repo": "anthropics/claude-plugins-official"
+      }
+    }
+  }
+}

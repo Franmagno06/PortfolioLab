@@ -1,0 +1,1020 @@
+<title>Plano de Correção do PortfolioLab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=JetBrains+Mono:wght@400;600;700&display=swap">
+
+<style>
+  :root {
+    --paper:      #f4f4ef;
+    --surface:    #ffffff;
+    --surface-2:  #ecece5;
+    --ink:        #0e1b33;
+    --ink-soft:   #46516b;
+    --ink-faint:  #767f95;
+    --line:       #e3e4dc;
+    --line-firm:  #c9cabf;
+
+    --critica:    #c2323f;
+    --alta:       #b06414;
+    --media:      #2f5cc4;
+    --baixa:      #6c7488;
+    --feito:      #167a4c;
+    --accent:     #b06414;
+
+    --critica-bg: #fbeced;
+    --alta-bg:    #fbf2e4;
+    --media-bg:   #eaf0fc;
+    --baixa-bg:   #eeeee8;
+
+    --shell: 1100px;
+    --prose: 68ch;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper:      #0b1223;
+      --surface:    #111c33;
+      --surface-2:  #16233d;
+      --ink:        #e9e8df;
+      --ink-soft:   #a8b1c5;
+      --ink-faint:  #78829a;
+      --line:       #24314c;
+      --line-firm:  #354463;
+
+      --critica:    #f28a92;
+      --alta:       #e3a758;
+      --media:      #7ba4f5;
+      --baixa:      #97a0b5;
+      --feito:      #4fc78d;
+      --accent:     #e3a758;
+
+      --critica-bg: #2c1620;
+      --alta-bg:    #2b2013;
+      --media-bg:   #16223f;
+      --baixa-bg:   #1a2338;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper:      #0b1223;
+    --surface:    #111c33;
+    --surface-2:  #16233d;
+    --ink:        #e9e8df;
+    --ink-soft:   #a8b1c5;
+    --ink-faint:  #78829a;
+    --line:       #24314c;
+    --line-firm:  #354463;
+
+    --critica:    #f28a92;
+    --alta:       #e3a758;
+    --media:      #7ba4f5;
+    --baixa:      #97a0b5;
+    --feito:      #4fc78d;
+    --accent:     #e3a758;
+
+    --critica-bg: #2c1620;
+    --alta-bg:    #2b2013;
+    --media-bg:   #16223f;
+    --baixa-bg:   #1a2338;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Source Serif 4", Georgia, "Times New Roman", serif;
+    font-size: 17px;
+    line-height: 1.62;
+    margin: 0;
+    padding: 0 24px 96px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .shell { max-width: var(--shell); margin: 0 auto; }
+  .prose { max-width: var(--prose); }
+
+  h1, h2, h3, h4, .ui {
+    font-family: "Space Grotesk", "Helvetica Neue", Arial, sans-serif;
+    text-wrap: balance;
+  }
+
+  code, .mono {
+    font-family: "JetBrains Mono", Consolas, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  header.topo { border-bottom: 2px solid var(--ink); padding: 56px 0 22px; margin-bottom: 38px; }
+
+  .eyebrow {
+    font-family: "JetBrains Mono", monospace; font-size: 11px;
+    letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--ink-faint); margin: 0 0 18px;
+  }
+
+  h1 {
+    font-size: clamp(2.1rem, 5.2vw, 3.4rem); font-weight: 700;
+    line-height: 1.04; letter-spacing: -0.022em; margin: 0 0 16px;
+  }
+
+  .subtitulo { font-size: 1.06rem; color: var(--ink-soft); max-width: 64ch; margin: 0; }
+
+  section { margin: 0 0 68px; }
+
+  h2 {
+    font-size: 1.5rem; font-weight: 600; letter-spacing: -0.012em;
+    margin: 0 0 6px; padding-bottom: 10px;
+    border-bottom: 1px solid var(--line-firm);
+    display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+  }
+
+  h2 .marca {
+    font-family: "JetBrains Mono", monospace; font-size: 11px;
+    font-weight: 400; color: var(--ink-faint); letter-spacing: 0.1em;
+  }
+
+  p { margin: 0 0 15px; }
+  p:last-child { margin-bottom: 0; }
+
+  code { font-size: 0.855em; background: var(--surface-2); padding: 1px 5px; border-radius: 2px; }
+  strong { font-weight: 600; }
+
+  figure { margin: 0 0 30px; border: 1px solid var(--line); background: var(--surface); }
+  .quadro { overflow-x: auto; padding: 26px 22px 10px; }
+  figure svg {
+    display: block; min-width: 680px; max-width: 100%;
+    height: auto; margin: 0 auto; color: var(--ink);
+  }
+  figcaption {
+    border-top: 1px solid var(--line); padding: 13px 20px;
+    font-size: 0.895rem; color: var(--ink-soft); background: var(--surface-2);
+  }
+
+  /* ── Ondas ───────────────────────────────────────────────── */
+
+  .onda { border-top: 2px solid var(--ink); margin: 0 0 54px; padding-top: 22px; }
+
+  .onda-cab { display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; margin-bottom: 6px; }
+
+  .onda-n {
+    font-family: "JetBrains Mono", monospace; font-size: 2.4rem;
+    font-weight: 700; line-height: 1; color: var(--ink-faint);
+  }
+
+  .onda-cab h3 { font-size: 1.5rem; font-weight: 600; letter-spacing: -0.014em; margin: 0; }
+
+  .branch {
+    font-family: "JetBrains Mono", monospace; font-size: 0.78rem;
+    background: var(--surface-2); color: var(--ink-soft);
+    padding: 4px 9px; border: 1px solid var(--line-firm); white-space: nowrap;
+  }
+
+  .onda-resumo { color: var(--ink-soft); max-width: var(--prose); margin: 10px 0 26px; }
+
+  .porta {
+    border-left: 3px solid var(--accent); background: var(--surface);
+    padding: 14px 18px; margin: 0 0 26px; font-size: 0.945rem;
+  }
+
+  .porta b, .aviso b, .nota-forte b {
+    font-family: "Space Grotesk", sans-serif; font-size: 10px; font-weight: 700;
+    letter-spacing: 0.14em; text-transform: uppercase;
+    display: block; margin-bottom: 6px;
+  }
+
+  .porta b { color: var(--accent); }
+
+  /* ── Tarefas ─────────────────────────────────────────────── */
+
+  .tarefa { border-top: 1px solid var(--line); padding: 24px 0 6px; }
+
+  .tarefa h4 {
+    font-size: 1.09rem; font-weight: 600; line-height: 1.34;
+    margin: 0 0 14px; letter-spacing: -0.006em;
+  }
+
+  .chip {
+    display: inline-block; font-family: "Space Grotesk", sans-serif;
+    font-size: 10px; font-weight: 700; letter-spacing: 0.13em;
+    text-transform: uppercase; padding: 3px 8px; margin-right: 8px; vertical-align: 2px;
+  }
+
+  .chip-critica { background: var(--critica-bg); color: var(--critica); }
+  .chip-alta    { background: var(--alta-bg);    color: var(--alta); }
+  .chip-media   { background: var(--media-bg);   color: var(--media); }
+
+  .passo { display: grid; grid-template-columns: 96px 1fr; gap: 16px; margin: 0 0 14px; align-items: start; }
+
+  .rot {
+    font-family: "Space Grotesk", sans-serif; font-size: 10px; font-weight: 700;
+    letter-spacing: 0.11em; text-transform: uppercase; color: var(--ink-faint);
+    padding-top: 5px; text-align: right;
+  }
+
+  .passo > div:last-child { font-size: 0.955rem; max-width: 72ch; }
+
+  .rot-teste { color: var(--critica); }
+  .rot-pronto { color: var(--feito); }
+
+  pre {
+    font-family: "JetBrains Mono", monospace; font-size: 0.79rem; line-height: 1.62;
+    background: var(--surface-2); border: 1px solid var(--line);
+    padding: 12px 14px; overflow-x: auto; margin: 10px 0 0;
+  }
+  pre code { background: none; padding: 0; font-size: inherit; }
+
+  .rolagem { overflow-x: auto; border: 1px solid var(--line); background: var(--surface); }
+  table { border-collapse: collapse; width: 100%; min-width: 600px; font-size: 0.9rem; }
+  th {
+    font-family: "Space Grotesk", sans-serif; font-size: 10px; font-weight: 700;
+    letter-spacing: 0.13em; text-transform: uppercase; color: var(--ink-faint);
+    text-align: left; padding: 12px 15px;
+    border-bottom: 1px solid var(--line-firm); white-space: nowrap;
+  }
+  td { padding: 11px 15px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr:last-child td { border-bottom: 0; }
+  td.mono-cell { font-family: "JetBrains Mono", monospace; font-size: 0.82rem; white-space: nowrap; }
+  td.mid { text-align: center; font-weight: 600; }
+
+  .nota { font-size: 0.87rem; color: var(--ink-soft); margin-top: 12px; max-width: 70ch; }
+
+  .nota-forte {
+    border-left: 2px solid var(--media); padding: 3px 0 3px 14px;
+    margin: 13px 0 0; font-size: 0.9rem; color: var(--ink-soft);
+  }
+  .nota-forte b { color: var(--media); }
+
+  .aviso {
+    border: 1px solid var(--critica); background: var(--critica-bg);
+    padding: 16px 18px; margin: 0 0 40px; font-size: 0.95rem;
+  }
+  .aviso b { color: var(--critica); }
+
+  footer {
+    border-top: 2px solid var(--ink); padding-top: 22px; margin-top: 20px;
+    font-size: 0.88rem; color: var(--ink-soft);
+  }
+
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+
+  @media (max-width: 620px) {
+    body { font-size: 16px; padding: 0 16px 64px; }
+    .passo { grid-template-columns: 1fr; gap: 4px; }
+    .rot { text-align: left; padding-top: 0; }
+  }
+</style>
+
+<div class="shell">
+
+  <header class="topo">
+    <p class="eyebrow">Plano de correção &middot; companheiro da auditoria de 22/08/2026</p>
+    <h1>Plano de Correção do PortfolioLab</h1>
+    <p class="subtitulo">
+      Os 24 achados da auditoria organizados em cinco ondas, na ordem em que precisam ser
+      atacados. Cada correção começa por um teste que falha. Um branch e um PR por onda.
+    </p>
+  </header>
+
+  <section>
+    <h2>A ordem não é negociável <span class="marca">e é o ponto principal deste documento</span></h2>
+    <div class="prose">
+      <p>
+        A tentação é começar pelos quatro achados críticos, porque são os que quebram a regra de
+        negócio. Seria um erro. Dois achados de severidade <em>alta</em> são portas: enquanto
+        estiverem abertos, qualquer correção feita depois é insegura de verificar.
+      </p>
+      <p>
+        <strong>O achado 7</strong> — a suíte escreve no banco de produção — significa que hoje
+        você não pode rodar testes com tranquilidade. Como as 24 correções vão ser verificadas por
+        teste, isolar o banco é literalmente o primeiro passo possível.
+        <strong>O achado 5</strong> — não existem migrations — bloqueia o achado 9, que exige
+        mudança de schema. Sem histórico versionado, alterar o banco vira <code>db push</code> na
+        produção, às cegas.
+      </p>
+      <p>
+        Há ainda dois pares que precisam ser corrigidos <em>juntos</em>, porque um cria a condição
+        para o outro. O diagrama abaixo mostra as dependências reais.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Grafo de dependências <span class="marca">por que esta ordem</span></h2>
+
+    <figure>
+      <div class="quadro">
+        <svg viewBox="0 0 940 430" role="img" aria-label="Grafo de dependências entre os achados: os achados 7 e 5 destravam todos os demais; o achado 2 precisa ser corrigido junto do 3, e o achado 1 junto do 12; o achado 9 depende das migrations do achado 5; as ondas de cobertura e acabamento vêm por último.">
+          <defs>
+            <marker id="s" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 1 L 10 5 L 0 9 z" fill="currentColor"></path>
+            </marker>
+            <marker id="s-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 1 L 10 5 L 0 9 z" fill="#b06414"></path>
+            </marker>
+          </defs>
+
+          <g font-family="'JetBrains Mono', monospace" font-size="11.5">
+
+            <rect x="14" y="150" width="152" height="86" fill="none" stroke="#b06414" stroke-width="2"></rect>
+            <text x="90" y="140" text-anchor="middle" font-size="10" fill="#b06414" letter-spacing="1.4">ONDA 0</text>
+            <text x="90" y="176" text-anchor="middle" font-weight="700" fill="#b06414">7 &mdash; banco</text>
+            <text x="90" y="192" text-anchor="middle" font-size="10" fill="#b06414">de teste isolado</text>
+            <text x="90" y="216" text-anchor="middle" font-weight="700" fill="#b06414">5 &mdash; migrations</text>
+
+            <rect x="266" y="34" width="188" height="66" fill="none" stroke="currentColor" stroke-width="1.5"></rect>
+            <text x="360" y="24" text-anchor="middle" font-size="10" opacity="0.6" letter-spacing="1.4">ONDA 1</text>
+            <text x="360" y="58" text-anchor="middle" font-weight="700">2 + 3 &mdash; par</text>
+            <text x="360" y="76" text-anchor="middle" font-size="10" opacity="0.75">meta livre destrava</text>
+            <text x="360" y="90" text-anchor="middle" font-size="10" opacity="0.75">o escopo de /assets</text>
+
+            <rect x="266" y="122" width="188" height="66" fill="none" stroke="currentColor" stroke-width="1.5"></rect>
+            <text x="360" y="146" text-anchor="middle" font-weight="700">1 + 12 &mdash; par</text>
+            <text x="360" y="164" text-anchor="middle" font-size="10" opacity="0.75">a escrita no GET é</text>
+            <text x="360" y="178" text-anchor="middle" font-size="10" opacity="0.75">o que causa a corrida</text>
+
+            <rect x="266" y="210" width="188" height="46" fill="none" stroke="currentColor" stroke-width="1.5"></rect>
+            <text x="360" y="238" text-anchor="middle" font-weight="700">4 &mdash; posição negativa</text>
+
+            <rect x="554" y="122" width="170" height="66" fill="none" stroke="currentColor" stroke-width="1.5"></rect>
+            <text x="639" y="112" text-anchor="middle" font-size="10" opacity="0.6" letter-spacing="1.4">ONDA 2</text>
+            <text x="639" y="148" text-anchor="middle" font-weight="700">6 &middot; 8 &middot; 16</text>
+            <text x="639" y="168" text-anchor="middle" font-size="10" opacity="0.75">segurança</text>
+
+            <rect x="554" y="210" width="170" height="46" fill="none" stroke="#b06414" stroke-width="1.5"></rect>
+            <text x="639" y="230" text-anchor="middle" font-weight="700" fill="#b06414">9 &mdash; onDelete</text>
+            <text x="639" y="246" text-anchor="middle" font-size="10" fill="#b06414">exige migration</text>
+
+            <rect x="806" y="122" width="120" height="134" fill="none" stroke="currentColor" stroke-width="1.5"></rect>
+            <text x="866" y="112" text-anchor="middle" font-size="10" opacity="0.6" letter-spacing="1.4">ONDAS 3&ndash;4</text>
+            <text x="866" y="160" text-anchor="middle" font-weight="700">cobertura</text>
+            <text x="866" y="180" text-anchor="middle" font-weight="700">CI</text>
+            <text x="866" y="200" text-anchor="middle" font-weight="700">acabamento</text>
+            <text x="866" y="224" text-anchor="middle" font-size="10" opacity="0.7">10 &middot; 11 &middot; 13</text>
+            <text x="866" y="240" text-anchor="middle" font-size="10" opacity="0.7">14 &middot; 15 &middot; 17&ndash;24</text>
+          </g>
+
+          <g stroke="#b06414" stroke-width="1.8" fill="none" marker-end="url(#s-a)">
+            <path d="M 166 176 L 216 176 L 216 67 L 260 67"></path>
+            <path d="M 166 193 L 236 193 L 236 155 L 260 155"></path>
+            <path d="M 166 212 L 216 212 L 216 233 L 260 233"></path>
+          </g>
+
+          <path d="M 166 228 L 194 228 L 194 300 L 639 300 L 639 262"
+                stroke="#b06414" stroke-width="1.8" fill="none"
+                marker-end="url(#s-a)" stroke-dasharray="5 3"></path>
+          <text x="416" y="316" font-family="'JetBrains Mono', monospace" font-size="10"
+                fill="#b06414" text-anchor="middle">o achado 9 muda o schema &mdash; sem migrations, não há como aplicar com segurança</text>
+
+          <g stroke="currentColor" stroke-width="1.5" fill="none" marker-end="url(#s)">
+            <path d="M 454 67 L 504 67 L 504 148 L 548 148"></path>
+            <line x1="454" y1="155" x2="548" y2="155"></line>
+            <line x1="454" y1="233" x2="548" y2="233"></line>
+          </g>
+
+          <g stroke="currentColor" stroke-width="1.5" fill="none" marker-end="url(#s)">
+            <line x1="724" y1="155" x2="800" y2="155"></line>
+            <path d="M 724 233 L 762 233 L 762 200 L 800 200"></path>
+          </g>
+
+          <g font-family="'JetBrains Mono', monospace" font-size="10">
+            <line x1="14" y1="372" x2="54" y2="372" stroke="#b06414" stroke-width="1.8" marker-end="url(#s-a)"></line>
+            <text x="62" y="376" fill="#b06414">destrava &mdash; nada depois pode ser verificado sem isto</text>
+            <line x1="14" y1="398" x2="54" y2="398" stroke="currentColor" stroke-width="1.5" marker-end="url(#s)"></line>
+            <text x="62" y="402" opacity="0.8">precede &mdash; ordem recomendada, não bloqueio absoluto</text>
+          </g>
+        </svg>
+      </div>
+      <figcaption>
+        As setas em ocre são bloqueios reais: sem banco de teste isolado nenhuma correção pode ser
+        verificada, e sem migrations o achado 9 não tem como ser aplicado. Os pares
+        <strong>2+3</strong> e <strong>1+12</strong> aparecem numa caixa só porque corrigir um sem
+        o outro deixa o sistema pior do que estava.
+      </figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <h2>As duas descobertas que reorganizam o trabalho <span class="marca">leia antes de começar</span></h2>
+    <div class="prose">
+      <p>
+        <strong>Os achados 2 e 3 são o mesmo problema visto de dois lados.</strong> Hoje a tela de
+        metas oferece um seletor alimentado por <code>GET /assets</code> — e é justamente por isso
+        que a rota precisa devolver o catálogo global, vazando os tickers de todo mundo. Quando o
+        achado 2 for corrigido e as metas aceitarem qualquer ticker da B3, o seletor deixa de ser
+        necessário: vira um campo de busca igual ao que já existe em
+        <code>nova-transacao.tsx</code>. Só então <code>GET /assets</code> pode ser reduzido aos
+        ativos do próprio usuário sem quebrar a interface. Corrigir o 3 sozinho, antes, deixaria a
+        tela de metas inutilizável.
+      </p>
+      <p>
+        <strong>Os achados 1 e 12 têm a mesma causa raiz.</strong> A corrida da simulação só existe
+        porque <code>quotesService</code> grava preço no meio de uma requisição de leitura, numa
+        tabela global. Não adianta reordenar o <code>Promise.all</code> e deixar a escrita onde
+        está: a próxima rota que ler preço em paralelo reintroduz o mesmo defeito. A correção é
+        resolver os preços <em>uma vez</em>, num mapa explícito, e passá-lo adiante.
+      </p>
+    </div>
+  </section>
+
+  <div class="aviso">
+    <b>Pré-requisito de máquina</b>
+    Não há Docker, Postgres nem <code>psql</code> instalados aqui — o
+    <code>docker-compose.yml</code> do repositório nunca foi executado nesta máquina. A Onda 0
+    começa pela instalação do Docker Desktop, e nada mais pode ser verificado antes disso.
+  </div>
+
+  <section>
+    <h2>Onda 0 &mdash; Destravar <span class="marca">achados 7 e 5</span></h2>
+
+    <div class="onda">
+      <div class="onda-cab">
+        <span class="onda-n">00</span>
+        <h3>Fundação: banco de teste e migrations</h3>
+        <span class="branch">onda-0-fundacao</span>
+      </div>
+      <p class="onda-resumo">
+        Nenhuma linha de regra de negócio é tocada nesta onda. O objetivo é único: tornar possível
+        verificar tudo o que vem depois.
+      </p>
+
+      <div class="porta">
+        <b>Passo zero, manual</b>
+        Instalar o Docker Desktop (backend WSL2), reiniciar se pedido, e confirmar com
+        <code>docker --version</code>. Depois,
+        <code>cd backend &amp;&amp; docker compose up -d</code> e <code>docker compose ps</code>
+        mostrando <code>portfoliolab-db</code> em <code>running</code>. Esta é a única etapa do
+        plano inteiro que não posso executar por você.
+      </div>
+
+      <div class="tarefa">
+        <h4><span class="chip chip-alta">Achado 7</span>Isolar a suíte do banco de produção</h4>
+
+        <div class="passo">
+          <div class="rot rot-teste">Teste primeiro</div>
+          <div>
+            Um teste do próprio guarda: afirma que a função de proteção lança quando recebe uma
+            <code>DATABASE_URL</code> apontando para <code>pooler.supabase.com</code> e passa
+            quando aponta para <code>localhost</code>. É o único teste do projeto cujo trabalho é
+            proteger o projeto de si mesmo.
+          </div>
+        </div>
+
+        <div class="passo">
+          <div class="rot">Correção</div>
+          <div>
+            Criar <code>backend/.env.test</code> com a URL do container. Em
+            <code>vitest.config.ts</code>, carregar esse arquivo e injetar via
+            <code>test.env</code> — o Vitest define <code>process.env</code> antes de os módulos de
+            teste carregarem, e o <code>dotenv/config</code> de <code>config/env.ts</code> não
+            sobrescreve variável já existente, então o valor do teste vence. Somar um
+            <code>globalSetup</code> que aborta a suíte inteira se a URL não for local, e o mesmo
+            guarda no topo de <code>prisma/seed.ts</code>.
+            <pre><code>// vitest.config.ts  ->  globalSetup
+if (!/localhost|127\.0\.0\.1/.test(process.env.DATABASE_URL ?? "")) {
+  throw new Error(
+    "Suite abortada: DATABASE_URL nao aponta para um banco local. " +
+    "Veja a skill rodar-testes-seguro."
+  );
+}</code></pre>
+          </div>
+        </div>
+
+        <div class="passo">
+          <div class="rot rot-pronto">Pronto quando</div>
+          <div>
+            <code>npm test</code> passa contra o container e os 54 testes continuam verdes;
+            <code>npm run db:seed</code> com a URL do Supabase é recusado com mensagem clara;
+            <code>backend/.env.test</code> está no <code>.gitignore</code>.
+          </div>
+        </div>
+      </div>
+
+      <div class="tarefa">
+        <h4><span class="chip chip-alta">Achado 5</span>Criar o histórico de migrations e alinhar a produção</h4>
+
+        <div class="passo">
+          <div class="rot rot-teste">Teste primeiro</div>
+          <div>
+            Aqui a verificação não é um <code>it()</code>, é um comando:
+            <code>prisma migrate status</code> deve reportar pendência antes e limpeza depois, nos
+            dois bancos. Colar a saída no PR como evidência.
+          </div>
+        </div>
+
+        <div class="passo">
+          <div class="rot">Correção</div>
+          <div>
+            Gerar a migration inicial a partir do schema atual e, na produção — que já tem o schema
+            aplicado via <code>db push</code> —, marcá-la como aplicada sem reexecutar. É o fluxo de
+            <em>baselining</em> do Prisma, e a ordem importa:
+            <pre><code># 1. gerar o SQL da migration inicial (nao aplica nada)
+mkdir -p prisma/migrations/0_init
+npx prisma migrate diff \
+  --from-empty --to-schema-datamodel prisma/schema.prisma \
+  --script > prisma/migrations/0_init/migration.sql
+
+# 2. no banco LOCAL: aplicar de verdade
+npx prisma migrate dev
+
+# 3. na PRODUCAO: marcar como ja aplicada, sem reexecutar
+#    (DATABASE_URL apontando para o Supabase apenas nesta linha)
+npx prisma migrate resolve --applied 0_init</code></pre>
+            Fechar atualizando <code>README.md</code> e <code>docs/deploy.md</code>, que hoje
+            recomendam <code>db push</code> para mudanças futuras.
+          </div>
+        </div>
+
+        <div class="passo">
+          <div class="rot rot-pronto">Pronto quando</div>
+          <div>
+            <code>prisma/migrations/0_init/</code> versionado; <code>migrate status</code> limpo no
+            local e na produção; o item <em>&ldquo;Rodar a primeira migration&rdquo;</em> do Sprint
+            1 finalmente marcável no roadmap.
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Onda 1 &mdash; A regra de negócio <span class="marca">os quatro achados críticos</span></h2>
+
+    <div class="onda">
+      <div class="onda-cab">
+        <span class="onda-n">01</span>
+        <h3>Consertar o que o produto promete fazer</h3>
+        <span class="branch">onda-1-regra-de-negocio</span>
+      </div>
+      <p class="onda-resumo">
+        A onda mais importante e a mais delicada. Três dos quatro achados estão em módulos sem
+        nenhum teste hoje — cada correção nasce acompanhada da sua cobertura.
+      </p>
+
+      <div class="tarefa">
+        <h4><span class="chip chip-critica">Achados 2 + 3</span>Metas de qualquer ticker, catálogo por usuário</h4>
+
+        <div class="passo">
+          <div class="rot rot-teste">Teste primeiro</div>
+          <div>
+            Dois testes de integração: <code>PUT /goals</code> com um ticker que o usuário nunca
+            negociou responde <code>200</code> e cadastra o ativo; e o usuário B não encontra em
+            <code>GET /assets</code> um ticker que só o usuário A negociou. Ambos falham hoje.
+          </div>
+        </div>
+
+        <div class="passo">
+          <div class="rot">Correção</div>
+          <div>
+            Em <code>goals.service.ts:23</code> e <code>dividends.service.ts:8</code>, trocar
+            <code>assetsRepository.findByTicker</code> por
+            <code>quotesService.buscarOuCadastrar</code> — a mesma função que
+            <code>transactions.service.ts:10</code> já usa. A mensagem de erro passa a ser
+            &ldquo;não encontrado na B3&rdquo;, coerente com transações. Em seguida,
+            <code>assetsRepository.findAll</code> ganha <code>userId</code> e devolve só os ativos
+            em que o usuário tem transação, meta ou provento. No frontend,
+            <code>simulacao/page.tsx</code> troca o <code>&lt;select&gt;</code> pelo campo de busca
+            com <code>/quotes/:ticker</code> que <code>nova-transacao.tsx</code> já implementa,
+            inclusive o atraso de 500&nbsp;ms.
+          </div>
+        </div>
+
+        <div class="passo">
+          <div class="rot rot-pronto">Pronto quando</div>
+          <div>
+            Uma conta recém-criada consegue montar a carteira-alvo inteira antes de comprar o
+            primeiro ativo, e nenhuma rota devolve ticker de outro usuário.
+          </div>
+        </div>
+      </div>
+
+      <div class="tarefa">
+        <h4><span class="chip chip-critica">Achados 1 + 12</span>Um preço só por ativo, resolvido uma vez</h4>
+
+        <div class="passo">
+          <div class="rot rot-teste">Teste primeiro</div>
+          <div>
+            Teste unitário da nova função de resolução de preços, e um teste de integração em que o
+            preço gravado no banco difere do preço vivo: a quantidade sugerida precisa bater com o
+            preço vivo. Com o código atual, ele falha por usar o preço do banco.
+          </div>
+        </div>
+
+        <div class="passo">
+          <div class="rot">Correção</div>
+          <div>
+            Três mudanças que só funcionam juntas. Primeiro,
+            <code>goalsRepository.findManyByUser</code> passa a trazer <code>priceUpdatedAt</code>
+            no <code>select</code> — hoje traz apenas <code>ticker, name, type, currentPrice</code>,
+            e sem esse campo não há como saber se o preço está velho. Segundo,
+            <code>rebalanceService.simulate</code> deixa de ler <code>m.asset.currentPrice</code>:
+            carrega metas e carteira, monta a união dos ativos, faz <em>uma</em> chamada de
+            resolução de preços e usa o mapa resultante tanto para <code>precoAtual</code> quanto
+            para <code>valorAtual</code>. Terceiro, o <code>prisma.asset.update</code> sai de
+            <code>quotes.service.ts</code> para um <code>quotes.repository.ts</code> novo — onde
+            deveria estar desde sempre, e que o agente <code>revisor-camadas</code> aponta como
+            violação de camada.
+          </div>
+        </div>
+
+        <div class="passo">
+          <div class="rot rot-pronto">Pronto quando</div>
+          <div>
+            Nenhum <code>asset.currentPrice</code> é lido dentro de <code>rebalance</code>, nenhum
+            <code>prisma.</code> aparece fora de um <code>*.repository.ts</code>, e o agente
+            <code>auditor-financeiro</code> roda sobre o módulo sem achados.
+          </div>
+        </div>
+      </div>
+
+      <div class="tarefa">
+        <h4><span class="chip chip-critica">Achado 4</span>Impedir que apagar uma transação corrompa a posição</h4>
+
+        <div class="passo">
+          <div class="rot rot-teste">Teste primeiro</div>
+          <div>
+            Compra 100 &rarr; venda 100 &rarr; <code>DELETE</code> da compra deve responder
+            <code>409</code> e deixar a posição intacta. Hoje responde <code>204</code> e deixa
+            &minus;100 no banco.
+          </div>
+        </div>
+
+        <div class="passo">
+          <div class="rot">Correção</div>
+          <div>
+            <code>calcularPosicao</code> passa a devolver também <code>quantidadeMinima</code> — o
+            menor valor que a quantidade atinge ao longo da sequência cronológica. É uma linha a
+            mais no laço que já existe, e mantém a função pura e testável.
+            <code>transactionsService.remove</code> então carrega as transações daquele ativo,
+            simula a remoção e recusa com <code>409</code> se <code>quantidadeMinima</code> ficar
+            negativa, explicando qual venda posterior ficaria descoberta.
+          </div>
+        </div>
+
+        <div class="passo">
+          <div class="rot rot-pronto">Pronto quando</div>
+          <div>
+            Não existe sequência de operações pela API que produza quantidade negativa, e o filtro
+            <code>quantidade.lte(0)</code> em <code>getCarteira</code> volta a significar apenas
+            &ldquo;posição zerada&rdquo;, não &ldquo;dado corrompido escondido&rdquo;.
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Onda 2 &mdash; Segurança e integridade <span class="marca">achados 6, 8, 9, 16</span></h2>
+
+    <div class="onda">
+      <div class="onda-cab">
+        <span class="onda-n">02</span>
+        <h3>Fechar as portas antes de publicar</h3>
+        <span class="branch">onda-2-seguranca</span>
+      </div>
+      <p class="onda-resumo">
+        Nenhum destes quebra a aplicação hoje. Todos quebram no dia em que ela sair do
+        <code>localhost</code> — que é a última linha aberta do roadmap.
+      </p>
+
+      <div class="tarefa">
+        <h4><span class="chip chip-alta">Achado 6</span><code>JWT_SECRET</code> sem valor padrão em produção</h4>
+        <div class="passo">
+          <div class="rot rot-teste">Teste primeiro</div>
+          <div>
+            Validar o schema de ambiente com <code>NODE_ENV=production</code> e o segredo padrão
+            deve lançar; com <code>development</code>, deve passar.
+          </div>
+        </div>
+        <div class="passo">
+          <div class="rot">Correção</div>
+          <div>
+            Manter o <code>.default()</code> para não criar atrito no desenvolvimento, mas
+            acrescentar um <code>superRefine</code> que rejeita, em produção, segredo ausente,
+            igual ao padrão, ou com menos de 32 caracteres. O comentário no topo do arquivo promete
+            <em>fail fast</em> — a mudança faz o código cumprir a própria promessa.
+          </div>
+        </div>
+        <div class="passo">
+          <div class="rot rot-pronto">Pronto quando</div>
+          <div>A API se recusa a subir em produção sem segredo forte, com mensagem dizendo como gerar um.</div>
+        </div>
+      </div>
+
+      <div class="tarefa">
+        <h4><span class="chip chip-alta">Achado 8</span>Teto de requisições e cota de relatórios</h4>
+        <div class="passo">
+          <div class="rot rot-teste">Teste primeiro</div>
+          <div>
+            Tentativas repetidas de login passam a receber <code>429</code> depois do limite; o
+            usuário que excede a cota de relatórios recebe <code>429</code> com mensagem própria.
+          </div>
+        </div>
+        <div class="passo">
+          <div class="rot">Correção</div>
+          <div>
+            <code>express-rate-limit</code> (8.6.2) em três camadas: rígida em
+            <code>/auth/login</code> e <code>/auth/register</code> por IP; por usuário em
+            <code>POST /reports</code> e <code>/reports/:id/ask</code>, que custam dinheiro real de
+            API; e um teto global folgado. Somar uma cota de relatórios armazenados por usuário,
+            verificada em <code>reportsService.analisar</code>.
+            <div class="nota-forte">
+              <b>Detalhe que costuma passar batido</b>
+              Atrás de Render ou Vercel é preciso <code>app.set("trust proxy", 1)</code>. Sem isso
+              todos os IPs viram o do proxy, e o limite que deveria ser por visitante passa a valer
+              para a aplicação inteira de uma vez.
+            </div>
+          </div>
+        </div>
+        <div class="passo">
+          <div class="rot rot-pronto">Pronto quando</div>
+          <div>Força bruta em <code>/auth/login</code> é barrada e não há caminho para esgotar a cota do Gemini pela API.</div>
+        </div>
+      </div>
+
+      <div class="tarefa">
+        <h4><span class="chip chip-alta">Achado 9</span><code>onDelete</code> explícito nas chaves estrangeiras</h4>
+        <div class="passo">
+          <div class="rot rot-teste">Teste primeiro</div>
+          <div>
+            Apagar um usuário com transações, metas, proventos e relatórios deve funcionar em
+            cascata; apagar um <code>Asset</code> que alguém possui deve continuar falhando.
+          </div>
+        </div>
+        <div class="passo">
+          <div class="rot">Correção</div>
+          <div>
+            Migration acrescentando <code>onDelete: Cascade</code> nas relações que apontam para
+            <code>User</code> e <code>onDelete: Restrict</code> explícito nas que apontam para
+            <code>Asset</code>. A segunda metade não é redundância: torna intencional o que hoje é
+            só o padrão do Prisma. Como efeito colateral, o <code>afterAll</code> de
+            <code>portfolio.api.test.ts</code> deixa de precisar apagar transações na mão.
+            <p class="nota">Depende da Onda 0 — sem migrations não há como aplicar isso com segurança.</p>
+          </div>
+        </div>
+        <div class="passo">
+          <div class="rot rot-pronto">Pronto quando</div>
+          <div>A migration está versionada, aplicada nos dois bancos, e a limpeza manual saiu dos testes.</div>
+        </div>
+      </div>
+
+      <div class="tarefa">
+        <h4><span class="chip chip-media">Achado 16</span>Guarda contra divisão por zero</h4>
+        <div class="passo">
+          <div class="rot rot-teste">Teste primeiro</div>
+          <div>
+            <code>calcularAporte</code> com um candidato de preço zero deve ignorar o ativo e
+            seguir, não lançar. Hoje quebra com <code>Division by zero</code> e vira
+            <code>500</code>.
+          </div>
+        </div>
+        <div class="passo">
+          <div class="rot">Correção</div>
+          <div>
+            Um <code>if (c.precoAtual &lt;= 0) continue;</code> antes da divisão em
+            <code>rebalance.service.ts:77</code>, e o ativo ignorado passa a constar do resultado
+            com o motivo, em vez de sumir em silêncio.
+          </div>
+        </div>
+        <div class="passo">
+          <div class="rot rot-pronto">Pronto quando</div>
+          <div>Nenhum preço vindo do banco consegue transformar a simulação em <code>500</code>.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Onda 3 &mdash; Cobertura e automação <span class="marca">achados 10, 11, 13, 14, 15</span></h2>
+
+    <div class="onda">
+      <div class="onda-cab">
+        <span class="onda-n">03</span>
+        <h3>Fechar o buraco de teste e automatizar a verificação</h3>
+        <span class="branch">onda-3-cobertura</span>
+      </div>
+      <p class="onda-resumo">
+        As Ondas 1 e 2 já terão criado boa parte da cobertura que faltava, como efeito colateral do
+        teste-primeiro. Esta onda fecha o resto e põe um robô para conferir.
+      </p>
+
+      <div class="tarefa">
+        <h4><span class="chip chip-media">Achado 15</span>Testar <code>reports</code>, <code>dividends</code> e <code>goals</code></h4>
+        <div class="passo">
+          <div class="rot">Correção</div>
+          <div>
+            <code>reports</code> é o mais valioso e o mais delicado: a suíte precisa simular
+            <code>@google/genai</code> para não gastar cota nem depender de rede. Cobrir a extração
+            de PDF, o limite de caracteres, o PDF sem texto extraível, a tradução de erro da IA
+            (chave inválida, cota estourada, sem permissão) e o isolamento por usuário no
+            <code>ask</code> e no <code>delete</code>. Para <code>dividends</code> e
+            <code>goals</code>, suítes próprias no molde de <code>auth.test.ts</code>.
+            <p class="nota">
+              A skill <code>novo-modulo-backend</code> já traz o molde e as regras de isolamento
+              entre arquivos de teste que rodam em paralelo.
+            </p>
+          </div>
+        </div>
+        <div class="passo">
+          <div class="rot rot-pronto">Pronto quando</div>
+          <div>Nenhum módulo do backend tem zero teste, e a suíte roda sem tocar a API do Gemini.</div>
+        </div>
+      </div>
+
+      <div class="tarefa">
+        <h4><span class="chip chip-media">Achado 11</span>Salvar todas as metas numa transação só</h4>
+        <div class="passo">
+          <div class="rot rot-teste">Teste primeiro</div>
+          <div>
+            Trocar A de 60% para 10% e B de 10% para 60% numa única chamada deve funcionar. Pela
+            rota atual, item a item, falha no estado intermediário de 120%.
+          </div>
+        </div>
+        <div class="passo">
+          <div class="rot">Correção</div>
+          <div>
+            Uma rota nova, <code>PUT /goals/batch</code>, que recebe o conjunto completo, valida a
+            soma uma vez e grava dentro de <code>prisma.$transaction</code>. O frontend passa a
+            enviar tudo de uma vez. A rota unitária continua existindo para adicionar uma meta
+            isolada — o defeito estava em usá-la em laço, não nela mesma.
+          </div>
+        </div>
+        <div class="passo">
+          <div class="rot rot-pronto">Pronto quando</div>
+          <div>Não há redistribuição válida no conjunto que a interface rejeite, nem estado meio salvo.</div>
+        </div>
+      </div>
+
+      <div class="tarefa">
+        <h4><span class="chip chip-media">Achado 10</span>Parar de descartar a taxa de venda</h4>
+        <div class="passo">
+          <div class="rot rot-teste">Teste primeiro</div>
+          <div>
+            Compra com taxa e venda com taxa: o preço médio deve continuar inalterado pela venda
+            (isso já está correto hoje) <em>e</em> a taxa da venda deve aparecer no total de custos.
+          </div>
+        </div>
+        <div class="passo">
+          <div class="rot">Correção</div>
+          <div>
+            <code>calcularPosicao</code> passa a acumular <code>taxasPagas</code> nos dois sentidos,
+            e <code>getSummary</code> expõe <code>totalTaxas</code>.
+            <div class="nota-forte">
+              <b>Escolha deliberada, e vale discordar</b>
+              O caminho mais &ldquo;correto&rdquo; segundo a Receita seria apurar ganho de capital
+              realizado, descontando a taxa da venda. Mas o <code>lucroTotal</code> de hoje é ganho
+              <em>não</em> realizado (patrimônio menos aplicado), e misturar os dois produziria um
+              número que não significa nada. Expor as taxas separadamente resolve o problema real —
+              o dinheiro deixa de ser invisível — sem inventar uma apuração que ninguém pediu. Se a
+              apuração de ganho realizado entrar depois, já encontra o dado disponível.
+            </div>
+          </div>
+        </div>
+        <div class="passo">
+          <div class="rot rot-pronto">Pronto quando</div>
+          <div>Toda taxa registrada pela API aparece em algum lugar do resumo.</div>
+        </div>
+      </div>
+
+      <div class="tarefa">
+        <h4><span class="chip chip-media">Achados 13 + 14</span>Verificação de tipos, testes de frontend e CI</h4>
+        <div class="passo">
+          <div class="rot">Correção</div>
+          <div>
+            Acrescentar <code>"typecheck": "tsc --noEmit"</code> ao
+            <code>frontend/package.json</code>. Vitest mais Testing Library para o que é puro e
+            barato de cobrir — <code>lib/format.ts</code> (<code>brl</code>, <code>pct</code>,
+            <code>tempoRelativo</code>) e a soma de metas da tela de simulação. Playwright, que você
+            acabou de instalar, para um percurso ponta a ponta: registrar &rarr; entrar &rarr;
+            lançar transação &rarr; simular aporte &rarr; conferir a sugestão. Fechar com
+            <code>.github/workflows/ci.yml</code> rodando, num <em>service container</em> de
+            Postgres 16, o typecheck e os testes do backend e o typecheck, o lint e o build do
+            frontend.
+            <p class="nota">
+              O CI usa o mesmo Postgres em container que a Onda 0 configurou — a decisão pelo
+              Docker se paga aqui, porque o ambiente local e o do CI passam a ser o mesmo.
+            </p>
+          </div>
+        </div>
+        <div class="passo">
+          <div class="rot rot-pronto">Pronto quando</div>
+          <div>
+            Um commit que quebre tipos ou testes é barrado antes do merge, e o selo verde de CI
+            aparece na página do repositório.
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Onda 4 &mdash; Acabamento <span class="marca">achados 17 a 24</span></h2>
+
+    <div class="onda">
+      <div class="onda-cab">
+        <span class="onda-n">04</span>
+        <h3>Coerência da documentação e arestas operacionais</h3>
+        <span class="branch">onda-4-acabamento</span>
+      </div>
+      <p class="onda-resumo">
+        Baratos e rápidos, mas é o que um avaliador encontra primeiro — a documentação é lida antes
+        do código.
+      </p>
+
+      <div class="rolagem">
+        <table>
+          <thead>
+            <tr><th>#</th><th>Correção</th><th>Onde</th></tr>
+          </thead>
+          <tbody>
+            <tr><td class="mid">17</td><td>Unificar a contagem de testes — o número passa a ser o real após as ondas 1 a 3</td><td class="mono-cell">README.md:36, 150</td></tr>
+            <tr><td class="mid">18</td><td>Alinhar o limite de upload em 25 MB nos três lugares</td><td class="mono-cell">docs/roadmap.md:76</td></tr>
+            <tr><td class="mid">19</td><td>Trocar &ldquo;Claude&rdquo; por &ldquo;Gemini&rdquo; nos comentários</td><td class="mono-cell">reports.service.ts, reports.schemas.ts</td></tr>
+            <tr><td class="mid">20</td><td>Corrigir <code>middleware.ts</code> para <code>proxy.ts</code></td><td class="mono-cell">docs/arquitetura.md:109</td></tr>
+            <tr><td class="mid">21</td><td>&ldquo;8 sprints&rdquo; para &ldquo;9 sprints&rdquo;, e marcar o item da migration</td><td class="mono-cell">docs/roadmap.md:3</td></tr>
+            <tr><td class="mid">22</td><td>Documentar que <code>sector</code> é opcional e por quê; esconder a coluna quando nula</td><td class="mono-cell">schema.prisma, quotes.service.ts</td></tr>
+            <tr><td class="mid">23</td><td>Paginação por cursor em <code>transactions</code>, <code>dividends</code> e <code>reports</code></td><td class="mono-cell">os três repositories</td></tr>
+            <tr><td class="mid">24</td><td>Tratar <code>SIGTERM</code> com <code>prisma.$disconnect()</code>; <code>/health</code> passa a fazer <code>SELECT 1</code></td><td class="mono-cell">server.ts, app.ts:24</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="nota">
+        O achado 24 tem valor além do acabamento: com <code>/health</code> consultando o banco, o
+        Supabase hibernado passa a ser detectado pelo próprio health check, em vez de aparecer como
+        erro na cara do usuário.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Como cada onda entra no repositório <span class="marca">o mesmo ritual, cinco vezes</span></h2>
+    <div class="prose">
+      <p>
+        Branch a partir da <code>main</code>, teste que falha, correção, teste verde, PR descrevendo
+        os achados que a onda fecha. O PR referencia os números da auditoria, de modo que o
+        histórico do repositório e o relatório contem a mesma história.
+      </p>
+      <pre><code>git switch -c onda-1-regra-de-negocio
+# por achado:  teste que falha  ->  correcao  ->  teste verde
+cd backend &amp;&amp; npx tsc --noEmit &amp;&amp; npm test
+git push -u origin onda-1-regra-de-negocio
+gh pr create --title "Onda 1: regra de negocio (achados 1, 2, 3, 4, 12)"</code></pre>
+      <p>
+        Duas skills do projeto valem ser acionadas em toda onda:
+        <code>rodar-testes-seguro</code> antes de qualquer <code>npm test</code>, e
+        <code>auditar-calculo-financeiro</code> em qualquer mudança que toque dinheiro. Os agentes
+        <code>auditor-financeiro</code> e <code>revisor-camadas</code> entram antes de abrir o PR —
+        são somente leitura, então não alteram nada: apontam.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Resumo por onda <span class="marca">o que passa a ser verdade</span></h2>
+    <div class="rolagem">
+      <table>
+        <thead>
+          <tr><th>Onda</th><th>Achados</th><th style="text-align:center">Tamanho</th><th>O que passa a ser verdade no fim</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="mono-cell">0 &middot; fundação</td><td class="mono-cell">7, 5</td><td class="mid">P</td>
+            <td>Dá para rodar teste sem medo, e o schema tem histórico.</td>
+          </tr>
+          <tr>
+            <td class="mono-cell">1 &middot; regra</td><td class="mono-cell">1, 2, 3, 4, 12</td><td class="mid">G</td>
+            <td>A simulação de aporte responde certo, e uma conta nova consegue usar o produto do jeito que ele promete.</td>
+          </tr>
+          <tr>
+            <td class="mono-cell">2 &middot; segurança</td><td class="mono-cell">6, 8, 9, 16</td><td class="mid">M</td>
+            <td>Publicar deixa de ser arriscado.</td>
+          </tr>
+          <tr>
+            <td class="mono-cell">3 &middot; cobertura</td><td class="mono-cell">10, 11, 13, 14, 15</td><td class="mid">G</td>
+            <td>Nenhum módulo sem teste, frontend coberto, e um robô conferindo cada commit.</td>
+          </tr>
+          <tr>
+            <td class="mono-cell">4 &middot; acabamento</td><td class="mono-cell">17&ndash;24</td><td class="mid">P</td>
+            <td>Documentação e código dizem a mesma coisa.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="nota">
+      Tamanho é relativo entre as ondas, não estimativa de horas. O que consome tempo de verdade é
+      escrever o teste que reproduz o defeito, e isso varia demais conforme o módulo já esteja ou
+      não preparado para ser testado.
+    </p>
+  </section>
+
+  <footer>
+    <p>
+      Companheiro do <strong>relatório de auditoria</strong>, que descreve os 24 achados com local,
+      causa e cenário de reprodução. Os números usados aqui são os de lá.
+    </p>
+    <p>
+      Nada neste plano foi executado ainda. A Onda 0 depende da instalação do Docker Desktop, única
+      etapa que precisa ser feita por você.
+    </p>
+  </footer>
+
+</div>
