@@ -102,3 +102,41 @@ describe("calcularPosicao — preço médio ponderado", () => {
     expect(precoMedio.times(3).toDecimalPlaces(10).toNumber()).toBeCloseTo(5, 9);
   });
 });
+
+// quantidadeMinima existe para o achado 4: apagar uma transação não pode deixar
+// uma venda posterior descoberta. É o menor valor que a quantidade atinge ao
+// longo da sequência cronológica — negativo significa histórico inválido.
+describe("calcularPosicao — quantidadeMinima", () => {
+  it("sequência sã nunca fica negativa", () => {
+    const { quantidadeMinima } = calcularPosicao([
+      compra(100, 10, "2026-01-01"),
+      venda(40, 12, "2026-02-01"),
+      venda(60, 13, "2026-03-01"),
+    ]);
+    expect(quantidadeMinima.toNumber()).toBe(0);
+  });
+
+  it("venda sem compra que a cubra deixa a quantidade mínima negativa", () => {
+    // é o estado que sobra ao apagar a compra de 100 do teste anterior
+    const { quantidade, quantidadeMinima } = calcularPosicao([
+      venda(40, 12, "2026-02-01"),
+      venda(60, 13, "2026-03-01"),
+    ]);
+    expect(quantidade.toNumber()).toBe(-100);
+    expect(quantidadeMinima.toNumber()).toBe(-100);
+  });
+
+  it("guarda o fundo do poço mesmo quando a posição final é positiva", () => {
+    // fica em −50 no meio do caminho e volta a +50 no fim
+    const { quantidade, quantidadeMinima } = calcularPosicao([
+      venda(50, 12, "2026-01-01"),
+      compra(100, 10, "2026-02-01"),
+    ]);
+    expect(quantidade.toNumber()).toBe(50);
+    expect(quantidadeMinima.toNumber()).toBe(-50);
+  });
+
+  it("carteira vazia tem mínima zero", () => {
+    expect(calcularPosicao([]).quantidadeMinima.toNumber()).toBe(0);
+  });
+});

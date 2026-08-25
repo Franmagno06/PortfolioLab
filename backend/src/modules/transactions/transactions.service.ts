@@ -1,4 +1,5 @@
 import { AppError } from "../../shared/errors/AppError.js";
+import { calcularPosicao } from "../portfolio/portfolio.service.js";
 import { quotesService } from "../quotes/quotes.service.js";
 import type { CreateTransactionInput } from "./transactions.schemas.js";
 import { transactionsRepository } from "./transactions.repository.js";
@@ -48,6 +49,27 @@ export const transactionsService = {
     if (!transacao) {
       throw new AppError("Transação não encontrada", 404);
     }
+
+    // A regra "não se vende o que não se tem" era aplicada só na criação da
+    // venda. Apagar a compra que a cobria deixava a posição negativa e
+    // invisível: a carteira esconde quantidade <= 0, mas toda venda futura
+    // daquele ativo passava a ser recusada. Por isso o histórico inteiro do
+    // ativo é reavaliado antes de remover.
+    const doAtivo = await transactionsRepository.findManyByUserAndAsset(
+      userId,
+      transacao.assetId,
+    );
+    const { quantidadeMinima } = calcularPosicao(doAtivo.filter((t) => t.id !== id));
+
+    if (quantidadeMinima.lessThan(0)) {
+      throw new AppError(
+        `Não é possível apagar: a posição de ${transacao.asset.ticker} ficaria em ` +
+          `${quantidadeMinima.toNumber()} porque existe venda posterior que depende ` +
+          "desta transação. Apague a venda primeiro.",
+        409,
+      );
+    }
+
     await transactionsRepository.delete(id);
   },
 };

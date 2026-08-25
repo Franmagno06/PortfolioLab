@@ -28,6 +28,9 @@ function em2Casas(d: Prisma.Decimal): number {
  * - COMPRA: recalcula o PM → (qtd×PM + qtdCompra×preço + taxa) / (qtd + qtdCompra)
  * - VENDA: reduz a quantidade, o PM NÃO muda
  *
+ * Devolve também a quantidadeMinima: o menor valor que a quantidade atinge ao
+ * longo da sequência. Serve para recusar remoções que invalidem o histórico.
+ *
  * A ordem das operações importa, por isso ordenamos por data.
  * Função pura (sem banco, sem HTTP) — fácil de testar unitariamente.
  */
@@ -38,6 +41,9 @@ export function calcularPosicao(transacoes: TransacaoParaCalculo[]) {
 
   let quantidade = ZERO;
   let precoMedio = ZERO;
+  // menor quantidade que a sequência atinge. Negativa denuncia histórico
+  // inválido: uma venda sem compra que a cubra (ver transactionsService.remove)
+  let quantidadeMinima = ZERO;
 
   for (const t of ordenadas) {
     if (t.kind === "COMPRA") {
@@ -53,9 +59,11 @@ export function calcularPosicao(transacoes: TransacaoParaCalculo[]) {
         precoMedio = ZERO;
       }
     }
+
+    if (quantidade.lessThan(quantidadeMinima)) quantidadeMinima = quantidade;
   }
 
-  return { quantidade, precoMedio };
+  return { quantidade, precoMedio, quantidadeMinima };
 }
 
 export const portfolioService = {

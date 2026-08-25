@@ -23,7 +23,25 @@ export const transactionsRepository = {
   },
 
   findByIdAndUser(id: string, userId: string) {
-    return prisma.transaction.findFirst({ where: { id, userId } });
+    return prisma.transaction.findFirst({
+      where: { id, userId },
+      include: { asset: { select: { ticker: true } } },
+    });
+  },
+
+  // Todas as transações do usuário em UM ativo, para recalcular a posição
+  findManyByUserAndAsset(userId: string, assetId: string) {
+    return prisma.transaction.findMany({
+      where: { userId, assetId },
+      select: {
+        id: true,
+        kind: true,
+        quantity: true,
+        unitPrice: true,
+        fee: true,
+        executedAt: true,
+      },
+    });
   },
 
   delete(id: string) {
