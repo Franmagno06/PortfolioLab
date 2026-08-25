@@ -1,5 +1,6 @@
 import { AppError } from "../../shared/errors/AppError.js";
 import { assetsRepository } from "../assets/assets.repository.js";
+import { quotesService } from "../quotes/quotes.service.js";
 import type { UpsertGoalInput } from "./goals.schemas.js";
 import { goalsRepository } from "./goals.repository.js";
 
@@ -20,9 +21,16 @@ export const goalsService = {
   },
 
   async upsert(userId: string, input: UpsertGoalInput) {
-    const asset = await assetsRepository.findByTicker(input.ticker);
+    // Mesma porta de entrada das transações: o ativo é cadastrado a partir da
+    // cotação real se ainda não existir. Sem isto, uma conta nova não conseguia
+    // definir a meta do ativo que ainda não comprou — justamente o de maior
+    // déficit, e o caso que dá sentido ao rebalanceamento por aporte.
+    const asset = await quotesService.buscarOuCadastrar(input.ticker);
     if (!asset) {
-      throw new AppError(`Ativo ${input.ticker} não encontrado`, 404);
+      throw new AppError(
+        `Ativo ${input.ticker} não encontrado na B3. Confira o ticker (ex: PETR4, MXRF11).`,
+        404,
+      );
     }
 
     // Regra de negócio: a soma de TODAS as metas não pode passar de 100%
@@ -44,6 +52,7 @@ export const goalsService = {
   },
 
   async remove(userId: string, ticker: string) {
+    // Aqui continua sendo consulta pura: apagar meta não pode cadastrar ativo
     const asset = await assetsRepository.findByTicker(ticker.toUpperCase());
     if (!asset) {
       throw new AppError(`Ativo ${ticker.toUpperCase()} não encontrado`, 404);

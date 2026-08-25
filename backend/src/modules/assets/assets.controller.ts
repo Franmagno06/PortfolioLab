@@ -5,8 +5,8 @@ import { assetsRepository } from "./assets.repository.js";
 // Módulo só de leitura: sem regra de negócio, o controller
 // fala direto com o repository (não criamos um service vazio)
 export const assetsController = {
-  async list(_req: Request, res: Response) {
-    const ativos = await assetsRepository.findAll();
+  async list(req: Request, res: Response) {
+    const ativos = await assetsRepository.findAllByUser(req.userId as string);
     res.json(ativos);
   },
 

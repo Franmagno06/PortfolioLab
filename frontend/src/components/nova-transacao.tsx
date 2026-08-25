@@ -1,69 +1,37 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { api, ApiError } from "@/lib/api";
 import { brl, nomesClasse } from "@/lib/format";
+import { normalizarTicker, useBuscaTicker } from "@/lib/use-busca-ticker";
 
 type Props = { aoCriar: () => void };
-
-type Cotacao = { ticker: string; nome: string; preco: number; tipo: string };
 
 const campo =
   "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100";
 
-// 4 letras + 1 ou 2 números — o padrão da B3 (PETR4, MXRF11)
-const FORMATO_TICKER = /^[A-Z]{4}\d{1,2}$/;
-
 export function NovaTransacao({ aoCriar }: Props) {
   const [aberto, setAberto] = useState(false);
   const [ticker, setTicker] = useState("");
-  const [cotacao, setCotacao] = useState<Cotacao | null>(null);
-  const [buscando, setBuscando] = useState(false);
-  const [erroTicker, setErroTicker] = useState<string | null>(null);
+  const { cotacao, buscando, erro: erroTicker } = useBuscaTicker(ticker);
 
   const [kind, setKind] = useState<"COMPRA" | "VENDA">("COMPRA");
   const [quantity, setQuantity] = useState("");
   const [unitPrice, setUnitPrice] = useState("");
   const [precoEditado, setPrecoEditado] = useState(false);
-  const [fee, setFee] = useState("0");
+  const [fee] = useState("0");
   const [executedAt, setExecutedAt] = useState(new Date().toISOString().slice(0, 10));
   const [erro, setErro] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
 
-  // Busca o ticker enquanto o usuário digita (com atraso, para não
-  // disparar uma consulta a cada tecla)
-  useEffect(() => {
-    if (!FORMATO_TICKER.test(ticker)) {
-      setCotacao(null);
-      setErroTicker(null);
-      return;
-    }
-
-    const timer = setTimeout(async () => {
-      setBuscando(true);
-      setErroTicker(null);
-      try {
-        const c = await api<Cotacao>(`/quotes/${ticker}`);
-        setCotacao(c);
-        // sugere o preço de mercado, mas sem sobrescrever o que o
-        // usuário já tiver digitado (a compra pode ter sido em outra data)
-        if (!precoEditado) setUnitPrice(String(c.preco));
-      } catch (err) {
-        setCotacao(null);
-        setErroTicker(err instanceof ApiError ? err.message : "Falha ao buscar o ticker");
-      } finally {
-        setBuscando(false);
-      }
-    }, 500);
-
-    return () => clearTimeout(timer);
-  }, [ticker, precoEditado]);
+  // Sugere o preço de mercado, mas sem sobrescrever o que o usuário já tiver
+  // digitado (a compra pode ter sido em outra data). Derivado, não copiado:
+  // enquanto ninguém editou o campo, ele espelha a cotação.
+  const preco = precoEditado ? unitPrice : cotacao ? String(cotacao.preco) : "";
 
   function fechar() {
     setAberto(false);
     setTicker("");
-    setCotacao(null);
-    setErroTicker(null);
     setQuantity("");
     setUnitPrice("");
     setPrecoEditado(false);
@@ -81,7 +49,7 @@ export function NovaTransacao({ aoCriar }: Props) {
           ticker,
           kind,
           quantity: Number(quantity),
-          unitPrice: Number(unitPrice),
+          unitPrice: Number(preco),
           fee: Number(fee) || 0,
           executedAt,
         }),
@@ -130,7 +98,7 @@ export function NovaTransacao({ aoCriar }: Props) {
             type="text"
             required
             value={ticker}
-            onChange={(e) => setTicker(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""))}
+            onChange={(e) => setTicker(normalizarTicker(e.target.value))}
             placeholder="Ex: PETR4, MXRF11, WEGE3"
             maxLength={6}
             autoFocus
@@ -170,7 +138,7 @@ export function NovaTransacao({ aoCriar }: Props) {
             required
             min="0.01"
             step="0.01"
-            value={unitPrice}
+            value={preco}
             onChange={(e) => {
               setUnitPrice(e.target.value);
               setPrecoEditado(true);

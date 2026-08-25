@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import { AppError } from "../../shared/errors/AppError.js";
 import { goalsRepository } from "../goals/goals.repository.js";
 import { portfolioService } from "../portfolio/portfolio.service.js";
+import { quotesService, type AtivoParaCotacao } from "../quotes/quotes.service.js";
 
 export type CandidatoAporte = {
   ticker: string;
@@ -71,6 +72,7 @@ export function calcularAporte(
 
   for (const c of comDeficit) {
     if (c.deficit.lte(0)) continue; // acima da meta: não recebe aporte
+    if (c.precoAtual <= 0) continue; // sem preço não há como dividir em unidades
 
     // orçamento deste ativo: o menor entre o déficit e o dinheiro que sobrou
     const orcamento = c.deficit.lt(restante) ? c.deficit : restante;
@@ -126,9 +128,12 @@ export function calcularAporte(
 
 export const rebalanceService = {
   async simulate(userId: string, valorAporte: number) {
-    const [metas, carteira] = await Promise.all([
+    // As duas leituras são independentes e nenhuma delas grava — antes,
+    // getCarteira atualizava as cotações enquanto findManyByUser lia a mesma
+    // coluna, e a simulação acabava com dois preços do mesmo ativo.
+    const [metas, posicoes] = await Promise.all([
       goalsRepository.findManyByUser(userId),
-      portfolioService.getCarteira(userId),
+      portfolioService.posicoesPorAtivo(userId),
     ]);
 
     if (metas.length === 0) {
@@ -138,17 +143,37 @@ export const rebalanceService = {
       );
     }
 
+    // União dos ativos: os que têm meta e os que estão na carteira. Uma
+    // resolução de preços só, depois das duas leituras, e o mesmo mapa
+    // responde por quanto custa a unidade e por quanto vale a posição.
+    const uniao = new Map<string, AtivoParaCotacao>();
+    for (const p of posicoes) uniao.set(p.asset.ticker, p.asset);
+    for (const m of metas) uniao.set(m.asset.ticker, m.asset);
+
+    const precos = await quotesService.resolverPrecos([...uniao.values()]);
+    const precoDe = (ticker: string) => precos.get(ticker) ?? new Prisma.Decimal(0);
+
+    const quantidadePorTicker = new Map(posicoes.map((p) => [p.asset.ticker, p.quantidade]));
+
     // patrimônio total inclui TODOS os ativos, mesmo os sem meta
-    const patrimonioAtual = carteira.reduce((soma, a) => soma + a.valorAtual, 0);
+    const patrimonioAtual = posicoes.reduce(
+      (soma, p) => soma.plus(p.quantidade.times(precoDe(p.asset.ticker))),
+      new Prisma.Decimal(0),
+    );
 
-    const candidatos: CandidatoAporte[] = metas.map((m) => ({
-      ticker: m.asset.ticker,
-      name: m.asset.name,
-      precoAtual: m.asset.currentPrice.toNumber(),
-      valorAtual: carteira.find((a) => a.ticker === m.asset.ticker)?.valorAtual ?? 0,
-      alvoPct: m.targetWeight.toNumber(),
-    }));
+    const candidatos: CandidatoAporte[] = metas.map((m) => {
+      const preco = precoDe(m.asset.ticker);
+      const quantidade = quantidadePorTicker.get(m.asset.ticker) ?? new Prisma.Decimal(0);
 
-    return calcularAporte(candidatos, valorAporte, Number(patrimonioAtual.toFixed(2)));
+      return {
+        ticker: m.asset.ticker,
+        name: m.asset.name,
+        precoAtual: preco.toNumber(),
+        valorAtual: em2Casas(quantidade.times(preco)),
+        alvoPct: m.targetWeight.toNumber(),
+      };
+    });
+
+    return calcularAporte(candidatos, valorAporte, em2Casas(patrimonioAtual));
   },
 };

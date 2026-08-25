@@ -1,4 +1,6 @@
+import { Prisma } from "@prisma/client";
 import { AppError } from "../../shared/errors/AppError.js";
+import { calcularPosicao } from "../portfolio/portfolio.service.js";
 import { quotesService } from "../quotes/quotes.service.js";
 import type { CreateTransactionInput } from "./transactions.schemas.js";
 import { transactionsRepository } from "./transactions.repository.js";
@@ -15,12 +17,39 @@ export const transactionsService = {
       );
     }
 
-    // Regra de negócio: não se pode vender mais do que se possui
+    // Regra de negócio: não se pode vender mais do que se possui.
+    // A quantidade sai de calcularPosicao, a mesma função que a carteira e o
+    // remove() usam — uma definição só de "quanto o usuário tem deste ativo".
     if (input.kind === "VENDA") {
-      const posicao = await transactionsRepository.quantidadeAtual(userId, asset.id);
-      if (posicao.lessThan(input.quantity)) {
+      const doAtivo = await transactionsRepository.findManyByUserAndAsset(userId, asset.id);
+      const { quantidade } = calcularPosicao(doAtivo);
+      if (quantidade.lessThan(input.quantity)) {
         throw new AppError(
-          `Quantidade insuficiente para venda: você possui ${posicao.toNumber()} de ${asset.ticker}`,
+          `Quantidade insuficiente para venda: você possui ${quantidade.toNumber()} de ${asset.ticker}`,
+          400,
+        );
+      }
+
+      // A posição de hoje pode bastar e a venda ainda assim ficar descoberta:
+      // basta datá-la antes da compra que a cobre. Conferir só o total ignora a
+      // ordem cronológica que o preço médio respeita — e o histórico entraria
+      // negativo no meio da sequência, empurrando o PM para cima.
+      const { quantidadeMinima } = calcularPosicao([
+        ...doAtivo,
+        {
+          kind: input.kind,
+          quantity: new Prisma.Decimal(input.quantity),
+          unitPrice: new Prisma.Decimal(input.unitPrice),
+          fee: new Prisma.Decimal(input.fee),
+          executedAt: input.executedAt,
+        },
+      ]);
+
+      if (quantidadeMinima.lessThan(0)) {
+        const data = input.executedAt.toISOString().slice(0, 10);
+        throw new AppError(
+          `Em ${data} você ainda não possuía ${input.quantity} de ${asset.ticker}: a venda ficaria ` +
+            "descoberta até a compra seguinte. Confira a data da operação.",
           400,
         );
       }
@@ -48,6 +77,27 @@ export const transactionsService = {
     if (!transacao) {
       throw new AppError("Transação não encontrada", 404);
     }
+
+    // A regra "não se vende o que não se tem" era aplicada só na criação da
+    // venda. Apagar a compra que a cobria deixava a posição negativa e
+    // invisível: a carteira esconde quantidade <= 0, mas toda venda futura
+    // daquele ativo passava a ser recusada. Por isso o histórico inteiro do
+    // ativo é reavaliado antes de remover.
+    const doAtivo = await transactionsRepository.findManyByUserAndAsset(
+      userId,
+      transacao.assetId,
+    );
+    const { quantidadeMinima } = calcularPosicao(doAtivo.filter((t) => t.id !== id));
+
+    if (quantidadeMinima.lessThan(0)) {
+      throw new AppError(
+        `Não é possível apagar: a posição de ${transacao.asset.ticker} ficaria em ` +
+          `${quantidadeMinima.toNumber()} porque existe venda posterior que depende ` +
+          "desta transação. Apague a venda primeiro.",
+        409,
+      );
+    }
+
     await transactionsRepository.delete(id);
   },
 };

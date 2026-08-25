@@ -4,7 +4,19 @@ export const goalsRepository = {
   findManyByUser(userId: string) {
     return prisma.assetGoal.findMany({
       where: { userId },
-      include: { asset: { select: { ticker: true, name: true, type: true, currentPrice: true } } },
+      // priceUpdatedAt entra aqui porque quem consome as metas precisa saber se
+      // o preço guardado ainda vale — sem ele não há como resolver a cotação
+      include: {
+        asset: {
+          select: {
+            ticker: true,
+            name: true,
+            type: true,
+            currentPrice: true,
+            priceUpdatedAt: true,
+          },
+        },
+      },
       orderBy: { targetWeight: "desc" },
     });
   },
