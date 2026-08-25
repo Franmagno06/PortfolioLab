@@ -16,12 +16,15 @@ export const transactionsService = {
       );
     }
 
-    // Regra de negócio: não se pode vender mais do que se possui
+    // Regra de negócio: não se pode vender mais do que se possui.
+    // A quantidade sai de calcularPosicao, a mesma função que a carteira e o
+    // remove() usam — uma definição só de "quanto o usuário tem deste ativo".
     if (input.kind === "VENDA") {
-      const posicao = await transactionsRepository.quantidadeAtual(userId, asset.id);
-      if (posicao.lessThan(input.quantity)) {
+      const doAtivo = await transactionsRepository.findManyByUserAndAsset(userId, asset.id);
+      const { quantidade } = calcularPosicao(doAtivo);
+      if (quantidade.lessThan(input.quantity)) {
         throw new AppError(
-          `Quantidade insuficiente para venda: você possui ${posicao.toNumber()} de ${asset.ticker}`,
+          `Quantidade insuficiente para venda: você possui ${quantidade.toNumber()} de ${asset.ticker}`,
           400,
         );
       }

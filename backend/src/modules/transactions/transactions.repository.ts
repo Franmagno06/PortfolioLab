@@ -1,4 +1,4 @@
-import { Prisma, type TransactionKind } from "@prisma/client";
+import type { TransactionKind } from "@prisma/client";
 import { prisma } from "../../database/prisma.js";
 
 export const transactionsRepository = {
@@ -46,19 +46,5 @@ export const transactionsRepository = {
 
   delete(id: string) {
     return prisma.transaction.delete({ where: { id } });
-  },
-
-  // Quantidade atual do usuário em um ativo: soma das compras - soma das vendas
-  async quantidadeAtual(userId: string, assetId: string): Promise<Prisma.Decimal> {
-    const grupos = await prisma.transaction.groupBy({
-      by: ["kind"],
-      where: { userId, assetId },
-      _sum: { quantity: true },
-    });
-
-    const zero = new Prisma.Decimal(0);
-    const compras = grupos.find((g) => g.kind === "COMPRA")?._sum.quantity ?? zero;
-    const vendas = grupos.find((g) => g.kind === "VENDA")?._sum.quantity ?? zero;
-    return new Prisma.Decimal(compras).minus(vendas);
   },
 };
