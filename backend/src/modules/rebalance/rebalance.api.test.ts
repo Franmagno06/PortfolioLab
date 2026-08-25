@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { AssetType } from "@prisma/client";
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { app } from "../../app.js";
@@ -10,7 +11,25 @@ const email = `vitest-rebalance-${randomUUID()}@portfoliolab.dev`;
 const password = "senha123";
 let cookies: string[];
 
+// PUT /goals hoje só aceita ticker que já existe no catálogo de ativos, então o
+// teste precisa garantir os seus. Sem isto a suíte só passava contra um banco já
+// populado pelo seed — um acoplamento invisível a dado externo.
+// Upsert porque `assets` é uma tabela global e os arquivos de teste rodam em
+// paralelo; como são dados de referência, nenhum teste os remove no afterAll.
+const ativosDoTeste = [
+  { ticker: "MXRF11", name: "Maxi Renda FII", type: AssetType.FII, sector: "Papel/Híbrido", currentPrice: 10.85 },
+  { ticker: "BOVA11", name: "iShares Ibovespa ETF", type: AssetType.ETF, sector: "Índice Brasil", currentPrice: 110.0 },
+];
+
 beforeAll(async () => {
+  for (const ativo of ativosDoTeste) {
+    await prisma.asset.upsert({
+      where: { ticker: ativo.ticker },
+      update: {},
+      create: ativo,
+    });
+  }
+
   await request(app)
     .post("/auth/register")
     .send({ name: "Testadora do Rebalance", email, password });

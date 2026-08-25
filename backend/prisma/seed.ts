@@ -1,5 +1,11 @@
 import { AssetType, PrismaClient, TransactionKind } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import "dotenv/config";
+import { assertDatabaseUrlIsLocal } from "../src/config/dbGuard.js";
+
+// O main() abaixo faz deleteMany() em todas as tabelas — abortar antes de
+// conectar é o que separa um seed local de um apagão na produção.
+assertDatabaseUrlIsLocal(process.env.DATABASE_URL);
 
 const prisma = new PrismaClient();
 
