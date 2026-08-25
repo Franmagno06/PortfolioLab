@@ -53,12 +53,14 @@ export const quotesService = {
     const cotacoes = await buscarCotacoes(desatualizados.map((a) => a.ticker));
     if (cotacoes.size === 0) return precos;
 
+    for (const c of cotacoes.values()) precos.set(c.ticker, emCentavos(c.preco));
+
+    // A gravação é oportunista: o preço a devolver já está no mapa e a resposta
+    // não depende dela. allSettled porque um timeout de pool ou um deadlock não
+    // podem derrubar um GET de carteira que já tem tudo o que precisa.
     const agora = new Date();
-    await Promise.all(
-      [...cotacoes.values()].map((c) => {
-        precos.set(c.ticker, emCentavos(c.preco));
-        return quotesRepository.updatePrice(c.ticker, c.preco, agora);
-      }),
+    await Promise.allSettled(
+      [...cotacoes.values()].map((c) => quotesRepository.updatePrice(c.ticker, c.preco, agora)),
     );
 
     return precos;

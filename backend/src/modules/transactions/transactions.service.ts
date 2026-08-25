@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { AppError } from "../../shared/errors/AppError.js";
 import { calcularPosicao } from "../portfolio/portfolio.service.js";
 import { quotesService } from "../quotes/quotes.service.js";
@@ -25,6 +26,30 @@ export const transactionsService = {
       if (quantidade.lessThan(input.quantity)) {
         throw new AppError(
           `Quantidade insuficiente para venda: você possui ${quantidade.toNumber()} de ${asset.ticker}`,
+          400,
+        );
+      }
+
+      // A posição de hoje pode bastar e a venda ainda assim ficar descoberta:
+      // basta datá-la antes da compra que a cobre. Conferir só o total ignora a
+      // ordem cronológica que o preço médio respeita — e o histórico entraria
+      // negativo no meio da sequência, empurrando o PM para cima.
+      const { quantidadeMinima } = calcularPosicao([
+        ...doAtivo,
+        {
+          kind: input.kind,
+          quantity: new Prisma.Decimal(input.quantity),
+          unitPrice: new Prisma.Decimal(input.unitPrice),
+          fee: new Prisma.Decimal(input.fee),
+          executedAt: input.executedAt,
+        },
+      ]);
+
+      if (quantidadeMinima.lessThan(0)) {
+        const data = input.executedAt.toISOString().slice(0, 10);
+        throw new AppError(
+          `Em ${data} você ainda não possuía ${input.quantity} de ${asset.ticker}: a venda ficaria ` +
+            "descoberta até a compra seguinte. Confira a data da operação.",
           400,
         );
       }

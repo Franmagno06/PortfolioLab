@@ -1,6 +1,7 @@
 import { AssetType } from "@prisma/client";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { prisma } from "../../database/prisma.js";
+import { quotesRepository } from "./quotes.repository.js";
 import { quotesService } from "./quotes.service.js";
 
 // A B3 fica sob controle: `fonte.preco = null` simula o provedor fora do ar.
@@ -109,5 +110,21 @@ describe("quotesService.resolverPrecos", () => {
   it("lista vazia não consulta nada", async () => {
     const precos = await quotesService.resolverPrecos([]);
     expect(precos.size).toBe(0);
+  });
+
+  it("falha ao gravar não derruba quem só queria ler o preço", async () => {
+    const ativos = await semearAtivos();
+    // pool saturado, deadlock, conexão caída: a escrita é oportunista e a
+    // resposta já está pronta em memória — não pode virar 500
+    const gravacao = vi
+      .spyOn(quotesRepository, "updatePrice")
+      .mockRejectedValue(new Error("timeout do pool"));
+
+    try {
+      const precos = await quotesService.resolverPrecos(ativos);
+      expect(precos.get(VELHO)?.toNumber()).toBe(32);
+    } finally {
+      gravacao.mockRestore();
+    }
   });
 });

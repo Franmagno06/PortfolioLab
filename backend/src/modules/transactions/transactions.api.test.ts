@@ -153,3 +153,65 @@ describe("DELETE /transactions/:id — não pode corromper a posição", () => {
     expect(lista.body).toHaveLength(0);
   });
 });
+
+// A posição de hoje pode ser suficiente e a venda mesmo assim ficar descoberta:
+// basta datá-la antes da compra que a cobre. Sem esta guarda, o histórico entra
+// negativo no meio da sequência, o preço médio sai errado — e o DELETE passa a
+// recusar as duas compras, deixando o usuário preso.
+describe("POST /transactions — venda com data retroativa", () => {
+  let primeira: string;
+  let segunda: string;
+
+  it("registra duas compras em datas diferentes", async () => {
+    const um = await request(app)
+      .post("/transactions")
+      .set("Cookie", cookies)
+      .send({ ticker: TICKER, kind: "COMPRA", quantity: 10, unitPrice: 10, fee: 0, executedAt: "2026-03-01" });
+    const dois = await request(app)
+      .post("/transactions")
+      .set("Cookie", cookies)
+      .send({ ticker: TICKER, kind: "COMPRA", quantity: 10, unitPrice: 20, fee: 0, executedAt: "2026-05-01" });
+
+    expect(um.status).toBe(201);
+    expect(dois.status).toBe(201);
+    primeira = um.body.id;
+    segunda = dois.body.id;
+  });
+
+  it("recusa a venda datada entre as duas compras", async () => {
+    // possui 20 hoje, mas só possuía 10 em abril
+    const res = await request(app)
+      .post("/transactions")
+      .set("Cookie", cookies)
+      .send({ ticker: TICKER, kind: "VENDA", quantity: 15, unitPrice: 25, fee: 0, executedAt: "2026-04-01" });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toContain(TICKER);
+  });
+
+  it("o preço médio continua correto e as compras seguem apagáveis", async () => {
+    const carteira = await request(app).get("/portfolio").set("Cookie", cookies);
+    const posicao = carteira.body.find((a: { ticker: string }) => a.ticker === TICKER);
+    expect(posicao.quantidade).toBe(20);
+    expect(posicao.precoMedio).toBe(15);
+
+    for (const id of [segunda, primeira]) {
+      const res = await request(app).delete(`/transactions/${id}`).set("Cookie", cookies);
+      expect(res.status).toBe(204);
+    }
+  });
+
+  it("aceita a mesma venda na data em que a posição já existe", async () => {
+    await request(app)
+      .post("/transactions")
+      .set("Cookie", cookies)
+      .send({ ticker: TICKER, kind: "COMPRA", quantity: 20, unitPrice: 10, fee: 0, executedAt: "2026-03-01" });
+
+    const res = await request(app)
+      .post("/transactions")
+      .set("Cookie", cookies)
+      .send({ ticker: TICKER, kind: "VENDA", quantity: 15, unitPrice: 25, fee: 0, executedAt: "2026-04-01" });
+
+    expect(res.status).toBe(201);
+  });
+});
