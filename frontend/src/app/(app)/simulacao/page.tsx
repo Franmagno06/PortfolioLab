@@ -2,14 +2,13 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { api, ApiError } from "@/lib/api";
-import { brl, coresClasse, nomesClasse } from "@/lib/format";
+import { brl, coresClasse } from "@/lib/format";
+import { normalizarTicker, useBuscaTicker } from "@/lib/use-busca-ticker";
 
 type Metas = {
   metas: { ticker: string; name: string; type: string; targetWeight: number }[];
   somaTotal: number;
 };
-
-type Ativo = { ticker: string; name: string };
 
 type Simulacao = {
   valorAporte: number;
@@ -33,10 +32,14 @@ const campo =
 
 export default function SimulacaoPage() {
   const [metas, setMetas] = useState<Metas | null>(null);
-  const [ativos, setAtivos] = useState<Ativo[]>([]);
   const [edicao, setEdicao] = useState<Record<string, string>>({});
   const [novoTicker, setNovoTicker] = useState("");
   const [novoPct, setNovoPct] = useState("");
+  const {
+    cotacao: cotacaoNova,
+    buscando: buscandoTicker,
+    erro: erroBuscaTicker,
+  } = useBuscaTicker(novoTicker);
   const [valor, setValor] = useState("1500");
   const [resultado, setResultado] = useState<Simulacao | null>(null);
   const [erro, setErro] = useState<string | null>(null);
@@ -45,9 +48,8 @@ export default function SimulacaoPage() {
   const [salvando, setSalvando] = useState(false);
 
   const carregar = useCallback(async () => {
-    const [m, a] = await Promise.all([api<Metas>("/goals"), api<Ativo[]>("/assets")]);
+    const m = await api<Metas>("/goals");
     setMetas(m);
-    setAtivos(a);
     setEdicao(
       Object.fromEntries(m.metas.map((meta) => [meta.ticker, String(meta.targetWeight)])),
     );
@@ -58,7 +60,7 @@ export default function SimulacaoPage() {
   }, [carregar]);
 
   const somaEditada = Object.values(edicao).reduce((s, v) => s + (Number(v) || 0), 0);
-  const semMeta = ativos.filter((a) => metas && !metas.metas.some((m) => m.ticker === a.ticker));
+  const jaTemMeta = metas?.metas.some((m) => m.ticker === novoTicker) ?? false;
 
   async function salvarMetas() {
     if (!metas) return;
@@ -83,7 +85,7 @@ export default function SimulacaoPage() {
   }
 
   async function adicionarMeta() {
-    if (!novoTicker || !novoPct) return;
+    if (!cotacaoNova || !novoPct) return;
     setErroMetas(null);
     try {
       await api("/goals", {
@@ -202,20 +204,18 @@ export default function SimulacaoPage() {
                   ))}
                 </ul>
 
-                {semMeta.length > 0 && (
-                  <div className="mt-3 flex items-center gap-2 border-t border-[--color-line] pt-3">
-                    <select
+                {/* Qualquer ticker da B3 — inclusive um que ainda não se possui,
+                    que é justamente o de maior déficit no rebalanceamento */}
+                <div className="mt-3 space-y-2 border-t border-[--color-line] pt-3">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
                       value={novoTicker}
-                      onChange={(e) => setNovoTicker(e.target.value)}
-                      className="flex-1 rounded-lg border border-slate-300 px-2 py-1.5 text-sm outline-none"
-                    >
-                      <option value="">Adicionar meta...</option>
-                      {semMeta.map((a) => (
-                        <option key={a.ticker} value={a.ticker}>
-                          {a.ticker}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(e) => setNovoTicker(normalizarTicker(e.target.value))}
+                      placeholder="Adicionar meta: PETR4"
+                      maxLength={6}
+                      className="flex-1 rounded-lg border border-slate-300 px-2 py-1.5 font-mono text-sm uppercase outline-none focus:border-emerald-600"
+                    />
                     <input
                       type="number"
                       placeholder="%"
@@ -226,12 +226,39 @@ export default function SimulacaoPage() {
                     <button
                       type="button"
                       onClick={adicionarMeta}
-                      className="rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm font-semibold hover:bg-slate-50"
+                      disabled={!cotacaoNova || buscandoTicker || !novoPct}
+                      className="rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm font-semibold hover:bg-slate-50 disabled:opacity-40"
                     >
                       +
                     </button>
                   </div>
-                )}
+
+                  {buscandoTicker && (
+                    <p className="text-xs text-slate-400">Buscando {novoTicker} na B3...</p>
+                  )}
+
+                  {cotacaoNova && !buscandoTicker && (
+                    <p className="flex flex-wrap items-center gap-2 rounded-lg bg-[#1e9e63]/[0.06] px-2.5 py-1.5 text-xs">
+                      <span className="font-semibold text-[#1e9e63]">✓ {cotacaoNova.ticker}</span>
+                      <span className="text-slate-700">{cotacaoNova.nome}</span>
+                      <span className="tnum ml-auto font-mono text-slate-500">
+                        {brl(cotacaoNova.preco)}
+                      </span>
+                    </p>
+                  )}
+
+                  {jaTemMeta && !buscandoTicker && (
+                    <p className="text-xs text-slate-500">
+                      {novoTicker} já tem meta — o valor acima substitui o atual.
+                    </p>
+                  )}
+
+                  {erroBuscaTicker && !buscandoTicker && (
+                    <p className="rounded-lg bg-amber-50 px-2.5 py-1.5 text-xs text-amber-800">
+                      {erroBuscaTicker}
+                    </p>
+                  )}
+                </div>
 
                 {erroMetas && (
                   <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-[#d94f5c]">
