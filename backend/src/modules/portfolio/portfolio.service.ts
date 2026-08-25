@@ -66,9 +66,24 @@ export function calcularPosicao(transacoes: TransacaoParaCalculo[]) {
   return { quantidade, precoMedio, quantidadeMinima };
 }
 
+/** Posição em um ativo, ainda sem cotação — o preço entra depois. */
+export type PosicaoDoAtivo = {
+  asset: TransacaoComAtivo["asset"];
+  quantidade: Prisma.Decimal;
+  precoMedio: Prisma.Decimal;
+};
+
 export const portfolioService = {
-  // Posição consolidada por ativo — sempre DERIVADA das transações
-  async getCarteira(userId: string) {
+  /**
+   * Posição consolidada por ativo — sempre DERIVADA das transações — SEM tocar
+   * em cotação.
+   *
+   * Separada de getCarteira porque quem já vai resolver os preços (a simulação
+   * de aporte) precisa da posição sem disparar uma segunda resolução: era essa
+   * segunda passada, concorrente com a leitura das metas, que fazia a mesma
+   * resposta carregar dois preços do mesmo ativo.
+   */
+  async posicoesPorAtivo(userId: string): Promise<PosicaoDoAtivo[]> {
     const transacoes = await portfolioRepository.transacoesComAtivo(userId);
 
     // agrupa as transações por ativo
@@ -82,20 +97,27 @@ export const portfolioService = {
       porAtivo.set(t.assetId, grupo);
     }
 
-    // Busca cotações atualizadas antes de calcular. Se a API estiver fora,
-    // o mapa devolve o último preço conhecido e a carteira não quebra.
-    const precosAtuais = await quotesService.atualizarSeNecessario(
-      [...porAtivo.values()].map((g) => g.asset),
-    );
-
-    const ativos = [];
+    const posicoes: PosicaoDoAtivo[] = [];
     for (const { asset, transacoes: doAtivo } of porAtivo.values()) {
       const { quantidade, precoMedio } = calcularPosicao(doAtivo);
       if (quantidade.lte(0)) continue; // posição zerada não aparece na carteira
+      posicoes.push({ asset, quantidade, precoMedio });
+    }
 
-      const precoAtual = new Prisma.Decimal(
-        precosAtuais.get(asset.ticker) ?? asset.currentPrice,
-      );
+    return posicoes;
+  },
+
+  // Posição consolidada com valores de mercado, para a tela de Carteira
+  async getCarteira(userId: string) {
+    const posicoes = await this.posicoesPorAtivo(userId);
+
+    // Busca cotações atualizadas antes de calcular. Se a API estiver fora,
+    // o mapa devolve o último preço conhecido e a carteira não quebra.
+    const precosAtuais = await quotesService.resolverPrecos(posicoes.map((p) => p.asset));
+
+    const ativos = [];
+    for (const { asset, quantidade, precoMedio } of posicoes) {
+      const precoAtual = precosAtuais.get(asset.ticker) ?? asset.currentPrice;
       const valorAplicado = quantidade.times(precoMedio);
       const valorAtual = quantidade.times(precoAtual);
       const lucro = valorAtual.minus(valorAplicado);
