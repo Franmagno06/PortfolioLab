@@ -5,6 +5,9 @@ export const portfolioRepository = {
     return prisma.transaction.findMany({
       where: { userId },
       include: { asset: true },
+      // Sem ORDER BY o Postgres não promete ordem nenhuma, e calcularPosicao
+      // depende dela. seq desempata o que executedAt não separa.
+      orderBy: [{ executedAt: "asc" }, { seq: "asc" }],
     });
   },
 

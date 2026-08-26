@@ -56,6 +56,12 @@ model Asset {
 
 model Transaction {
   id         String          @id @default(uuid())
+  // Ordem de cadastro. A data vem sem hora (o formulário é um <input type="date">),
+  // então operações do mesmo dia empatam em executedAt e alguém precisa desempatar.
+  // O uuid não serve: é aleatório, e ordenaria a venda antes da compra em metade
+  // dos casos — o preço médio sairia errado por baixo de uma operação que a própria
+  // API acabou de aprovar. seq é a única cronologia que sobra.
+  seq        BigInt          @default(autoincrement())
   userId     String          @map("user_id")
   assetId    String          @map("asset_id")
   kind       TransactionKind
@@ -65,11 +71,16 @@ model Transaction {
   fee        Decimal         @default(0) @db.Decimal(8, 2)
   executedAt DateTime        @map("executed_at")
 
-  user  User  @relation(fields: [userId], references: [id])
-  asset Asset @relation(fields: [assetId], references: [id])
+  // Cascade: transação é dado DO usuário, não sobrevive a ele.
+  // Restrict explícito no asset: é catálogo compartilhado — apagar um ativo
+  // que alguém possui deve doer. Já era o padrão do Prisma; agora é intenção.
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  asset Asset @relation(fields: [assetId], references: [id], onDelete: Restrict)
 
   @@index([userId])
   @@index([assetId])
+  // as duas queries que alimentam calcularPosicao ordenam exatamente assim
+  @@index([userId, assetId, executedAt, seq])
   @@map("transactions")
 }
 
@@ -80,8 +91,8 @@ model AssetGoal {
   // Percentual alvo do ativo na carteira, ex: 12.50
   targetWeight Decimal @map("target_weight") @db.Decimal(5, 2)
 
-  user  User  @relation(fields: [userId], references: [id])
-  asset Asset @relation(fields: [assetId], references: [id])
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  asset Asset @relation(fields: [assetId], references: [id], onDelete: Restrict)
 
   // Um usuário só pode ter UMA meta por ativo
   @@unique([userId, assetId])
@@ -99,7 +110,7 @@ model Report {
   analysis      Json?
   createdAt     DateTime @default(now()) @map("created_at")
 
-  user User @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@map("reports")
@@ -112,8 +123,8 @@ model Dividend {
   amount  Decimal  @db.Decimal(12, 2)
   paidAt  DateTime @map("paid_at")
 
-  user  User  @relation(fields: [userId], references: [id])
-  asset Asset @relation(fields: [assetId], references: [id])
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  asset Asset @relation(fields: [assetId], references: [id], onDelete: Restrict)
 
   @@index([userId])
   @@map("dividends")

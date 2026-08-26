@@ -20,6 +20,10 @@ export const reportsRepository = {
     });
   },
 
+  countByUser(userId: string) {
+    return prisma.report.count({ where: { userId } });
+  },
+
   findByIdAndUser(id: string, userId: string) {
     return prisma.report.findFirst({ where: { id, userId } });
   },

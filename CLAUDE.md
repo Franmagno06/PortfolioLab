@@ -15,8 +15,16 @@ Nunca rode sem confirmar o banco de destino:
 - `npx prisma migrate reset`
 - `npx prisma db push`
 
-Os testes de integração (`auth`, `portfolio.api`, `rebalance.api`, `news`) usam o `prisma` real
-e herdam essa mesma `DATABASE_URL`. Use a skill `rodar-testes-seguro` antes de `npm test`.
+**Todo teste que importa `src/database/prisma.js` escreve no banco apontado pela `DATABASE_URL`**
+— hoje são onze arquivos, entre eles todos os `*.api.test.ts`, `auth.test.ts`, `news.test.ts` e
+`src/database/integridade.test.ts`. Confira com:
+
+```bash
+grep -rl "database/prisma" backend/src --include=*.test.ts
+```
+
+Use a skill `rodar-testes-seguro` antes de `npm test`. Testes de regra pura (`calcularPosicao`,
+`calcularAporte`, a cota de relatórios) não tocam o banco e não dependem disso.
 
 ## Comandos
 

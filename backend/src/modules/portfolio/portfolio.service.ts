@@ -7,6 +7,8 @@ type TransacaoComAtivo = Awaited<
 >[number];
 
 type TransacaoParaCalculo = {
+  /** Autoincrement do banco: a ordem de cadastro. Desempata a mesma data. */
+  seq: bigint;
   kind: "COMPRA" | "VENDA";
   quantity: Prisma.Decimal;
   unitPrice: Prisma.Decimal;
@@ -31,13 +33,25 @@ function em2Casas(d: Prisma.Decimal): number {
  * Devolve também a quantidadeMinima: o menor valor que a quantidade atinge ao
  * longo da sequência. Serve para recusar remoções que invalidem o histórico.
  *
- * A ordem das operações importa, por isso ordenamos por data.
+ * A ordem das operações importa, por isso ordenamos por data — e por seq quando
+ * a data empata. O desempate não é detalhe: uma data sem hora vira meia-noite
+ * (executedAt: z.coerce.date()), então operações do mesmo dia empatam sempre. Sem
+ * ele, quem decidia a ordem era a ordem física das linhas do Postgres, e a mesma
+ * carteira respondia preços médios diferentes entre duas requisições.
+ *
+ * seq é o autoincrement da tabela: a ordem em que as operações foram cadastradas.
+ * É a única informação cronológica que sobra quando a data não tem hora — e é a
+ * mesma ordem que transactionsService.create assume ao validar uma venda nova,
+ * de modo que o que a API aprova é o que a leitura calcula.
+ *
  * Função pura (sem banco, sem HTTP) — fácil de testar unitariamente.
  */
 export function calcularPosicao(transacoes: TransacaoParaCalculo[]) {
-  const ordenadas = [...transacoes].sort(
-    (a, b) => a.executedAt.getTime() - b.executedAt.getTime(),
-  );
+  const ordenadas = [...transacoes].sort((a, b) => {
+    const porData = a.executedAt.getTime() - b.executedAt.getTime();
+    if (porData !== 0) return porData;
+    return a.seq < b.seq ? -1 : a.seq > b.seq ? 1 : 0;
+  });
 
   let quantidade = ZERO;
   let precoMedio = ZERO;

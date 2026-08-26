@@ -10,8 +10,26 @@ import { reportsRepository } from "./reports.repository.js";
 // mas ainda barra arquivos absurdos.
 const LIMITE_CARACTERES = 2_000_000;
 
+// Achado 8: cada análise custa cota paga do Gemini e cada relatório guardado
+// carrega o texto inteiro do PDF no banco. A cota limita os dois de uma vez.
+export const COTA_RELATORIOS = 50;
+
 export const reportsService = {
   async analisar(userId: string, arquivo: { originalname: string; buffer: Buffer }) {
+    // 0. a checagem mais barata primeiro: nem lê o PDF, nem chama a IA.
+    // Entre esta contagem e o create lá embaixo há uma janela em que uploads
+    // simultâneos passam juntos — escolha consciente: o limitadorRelatorios
+    // (20/h por usuário) contém o estrago, e uma transação aqui seguraria a
+    // conexão durante a chamada à IA, que é a parte lenta.
+    const guardados = await reportsRepository.countByUser(userId);
+    if (guardados >= COTA_RELATORIOS) {
+      throw new AppError(
+        `Você atingiu o limite de ${COTA_RELATORIOS} relatórios guardados. ` +
+          `Apague algum em /reports antes de analisar outro.`,
+        429,
+      );
+    }
+
     // 1. extrai o texto do PDF
     const pdf = await getDocumentProxy(new Uint8Array(arquivo.buffer));
     const { text } = await extractText(pdf, { mergePages: true });
