@@ -1,6 +1,7 @@
 import { Router } from "express";
 import multer from "multer";
 import { AppError } from "../../shared/errors/AppError.js";
+import { limitadorRelatorios } from "../../shared/middlewares/rate-limit.js";
 import { reportsController } from "./reports.controller.js";
 
 // Upload em memória: o PDF só existe durante a requisição
@@ -20,7 +21,9 @@ const upload = multer({
 
 export const reportsRoutes = Router();
 
-reportsRoutes.post("/", upload.single("file"), reportsController.create);
+// Achado 8: as duas rotas que gastam cota paga do Gemini. O limite vem antes
+// do multer em POST / — não faz sentido receber 25 MB para depois recusar.
+reportsRoutes.post("/", limitadorRelatorios, upload.single("file"), reportsController.create);
 reportsRoutes.get("/", reportsController.list);
-reportsRoutes.post("/:id/ask", reportsController.ask);
+reportsRoutes.post("/:id/ask", limitadorRelatorios, reportsController.ask);
 reportsRoutes.delete("/:id", reportsController.remove);

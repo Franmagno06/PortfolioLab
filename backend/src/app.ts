@@ -12,10 +12,20 @@ import { reportsRoutes } from "./modules/reports/reports.routes.js";
 import { transactionsRoutes } from "./modules/transactions/transactions.routes.js";
 import { authGuard } from "./shared/middlewares/auth-guard.js";
 import { errorHandler } from "./shared/middlewares/error-handler.js";
+import { limitadorGlobal } from "./shared/middlewares/rate-limit.js";
 
 // app.ts monta a aplicação; server.ts dá o listen.
 // Essa separação permite testar as rotas sem subir um servidor real.
 export const app = express();
+
+// Achado 8: atrás do Render/Vercel, sem isto todos os IPs viram o do proxy e o
+// limite que deveria ser por visitante passa a valer para a aplicação inteira
+// de uma vez. O 1 é a quantidade de proxies confiáveis à frente da API.
+app.set("trust proxy", 1);
+
+// Teto global folgado. Antes do express.json() de propósito, pelo mesmo motivo
+// que o limitador de /reports vem antes do multer: recusar sem gastar o parse.
+app.use(limitadorGlobal);
 
 app.use(express.json());
 app.use(cookieParser());
