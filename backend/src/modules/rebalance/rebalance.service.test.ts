@@ -75,3 +75,57 @@ describe("calcularAporte — algoritmo guloso de rebalanceamento", () => {
     expect(a?.aposAportePct).toBe(50); // saiu de 0% e chegou exatamente na meta
   });
 });
+
+describe("achado 16 — ativo sem preço", () => {
+  // REGRESSÃO: o guarda contra divisão por zero entrou na Onda 1. Este teste
+  // existe para que ele não volte a sair, não como parte do ciclo TDD do achado.
+  it("regressão: preço zero não derruba a simulação nem vira compra", () => {
+    const r = calcularAporte([ativo("SEMPRECO", 0, 0, 100)], 1000, 0);
+
+    expect(r.compras).toHaveLength(0);
+    expect(r.restante).toBe(1000);
+  });
+
+  it("o ativo ignorado consta do resultado com o motivo", () => {
+    const r = calcularAporte([ativo("SEMPRECO", 0, 0, 100)], 1000, 0);
+
+    expect(r.ignorados).toEqual([
+      { ticker: "SEMPRECO", motivo: "sem cotação disponível — preço zerado" },
+    ]);
+  });
+
+  it("um ativo sem preço não impede os outros de receberem o aporte", () => {
+    const r = calcularAporte([ativo("SEMPRECO", 0, 0, 50), ativo("BOM", 10, 0, 50)], 100, 0);
+
+    expect(r.compras).toHaveLength(1);
+    expect(r.compras[0]).toMatchObject({ ticker: "BOM", quantidade: 5 });
+    expect(r.ignorados.map((i) => i.ticker)).toEqual(["SEMPRECO"]);
+  });
+
+  it("sem ativo problemático, a lista de ignorados vem vazia", () => {
+    const r = calcularAporte([ativo("A", 10, 0, 100)], 100, 0);
+
+    expect(r.ignorados).toEqual([]);
+  });
+
+  // Se 'ignorados' só contasse o preço zerado, um cliente que a lesse vazia
+  // concluiria "todos os ativos foram considerados" — falso sempre que o
+  // aporte não cobre uma unidade sequer.
+  it("ativo caro demais para uma unidade também é reportado", () => {
+    const r = calcularAporte([ativo("CARO11", 500, 0, 100)], 100, 0);
+
+    expect(r.compras).toHaveLength(0);
+    expect(r.ignorados).toEqual([
+      { ticker: "CARO11", motivo: "aporte insuficiente para 1 unidade (R$ 500,00)" },
+    ]);
+  });
+
+  it("ativo acima da meta não é 'ignorado' — aparece na alocação", () => {
+    // B possui R$600 com meta de 20%: não recebe aporte, mas isso é o
+    // algoritmo funcionando, não uma anomalia a reportar.
+    const r = calcularAporte([ativo("A", 10, 0, 80), ativo("B", 10, 600, 20)], 100, 1000);
+
+    expect(r.ignorados.map((i) => i.ticker)).not.toContain("B");
+    expect(r.alocacao.map((a) => a.ticker)).toContain("B");
+  });
+});

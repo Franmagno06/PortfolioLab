@@ -54,7 +54,10 @@ export function calcularAporte(
     const porDeficit = b.deficit.comparedTo(a.deficit);
     if (porDeficit !== 0) return porDeficit;
     if (a.precoAtual !== b.precoAtual) return a.precoAtual - b.precoAtual;
-    return a.ticker.localeCompare(b.ticker);
+    // Comparação direta, não localeCompare: sem locale explícito ele depende do
+    // ICU do ambiente, e este desempate existe justamente para a mesma carteira
+    // sugerir sempre a mesma compra, em qualquer máquina.
+    return a.ticker < b.ticker ? -1 : a.ticker > b.ticker ? 1 : 0;
   });
 
   // Passo 4: alocação gulosa em unidades inteiras
@@ -70,14 +73,30 @@ export function calcularAporte(
 
   const gastoPorTicker = new Map<string, Prisma.Decimal>();
 
+  // Achado 16: sem preço não há como dividir o aporte em unidades. O ativo é
+  // pulado, mas sai daqui nomeado — some da lista de compras, não do resultado.
+  const ignorados: { ticker: string; motivo: string }[] = [];
+
   for (const c of comDeficit) {
+    if (c.precoAtual <= 0) {
+      ignorados.push({ ticker: c.ticker, motivo: "sem cotação disponível — preço zerado" });
+      continue;
+    }
     if (c.deficit.lte(0)) continue; // acima da meta: não recebe aporte
-    if (c.precoAtual <= 0) continue; // sem preço não há como dividir em unidades
 
     // orçamento deste ativo: o menor entre o déficit e o dinheiro que sobrou
     const orcamento = c.deficit.lt(restante) ? c.deficit : restante;
     const quantidade = orcamento.div(c.precoAtual).floor(); // unidades inteiras
-    if (quantidade.lte(0)) continue;
+    if (quantidade.lte(0)) {
+      // O outro jeito de um ativo sumir das compras: o dinheiro disponível não
+      // paga nem uma unidade. Sem isto, 'ignorados' vazio mentiria dizendo que
+      // todos os ativos foram considerados.
+      ignorados.push({
+        ticker: c.ticker,
+        motivo: `aporte insuficiente para 1 unidade (R$ ${c.precoAtual.toFixed(2).replace(".", ",")})`,
+      });
+      continue;
+    }
 
     const total = quantidade.times(c.precoAtual);
     restante = restante.minus(total);
@@ -123,6 +142,7 @@ export function calcularAporte(
     totalGasto: em2Casas(totalGasto),
     restante: em2Casas(restante),
     alocacao,
+    ignorados,
   };
 }
 
