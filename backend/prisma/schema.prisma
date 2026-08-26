@@ -65,8 +65,11 @@ model Transaction {
   fee        Decimal         @default(0) @db.Decimal(8, 2)
   executedAt DateTime        @map("executed_at")
 
-  user  User  @relation(fields: [userId], references: [id])
-  asset Asset @relation(fields: [assetId], references: [id])
+  // Cascade: transação é dado DO usuário, não sobrevive a ele.
+  // Restrict explícito no asset: é catálogo compartilhado — apagar um ativo
+  // que alguém possui deve doer. Já era o padrão do Prisma; agora é intenção.
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  asset Asset @relation(fields: [assetId], references: [id], onDelete: Restrict)
 
   @@index([userId])
   @@index([assetId])
@@ -80,8 +83,8 @@ model AssetGoal {
   // Percentual alvo do ativo na carteira, ex: 12.50
   targetWeight Decimal @map("target_weight") @db.Decimal(5, 2)
 
-  user  User  @relation(fields: [userId], references: [id])
-  asset Asset @relation(fields: [assetId], references: [id])
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  asset Asset @relation(fields: [assetId], references: [id], onDelete: Restrict)
 
   // Um usuário só pode ter UMA meta por ativo
   @@unique([userId, assetId])
@@ -99,7 +102,7 @@ model Report {
   analysis      Json?
   createdAt     DateTime @default(now()) @map("created_at")
 
-  user User @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@map("reports")
@@ -112,8 +115,8 @@ model Dividend {
   amount  Decimal  @db.Decimal(12, 2)
   paidAt  DateTime @map("paid_at")
 
-  user  User  @relation(fields: [userId], references: [id])
-  asset Asset @relation(fields: [assetId], references: [id])
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  asset Asset @relation(fields: [assetId], references: [id], onDelete: Restrict)
 
   @@index([userId])
   @@map("dividends")
