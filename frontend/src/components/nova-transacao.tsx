@@ -20,7 +20,10 @@ export function NovaTransacao({ aoCriar }: Props) {
   const [unitPrice, setUnitPrice] = useState("");
   const [precoEditado, setPrecoEditado] = useState(false);
   const [fee] = useState("0");
-  const [executedAt, setExecutedAt] = useState(new Date().toISOString().slice(0, 10));
+  // Data LOCAL, não UTC: toISOString() daria o dia seguinte para quem está em
+  // UTC−3 depois das 21h, e a data decide a posição da operação na ordem que a
+  // validação de venda descoberta usa. "sv-SE" formata como AAAA-MM-DD.
+  const [executedAt, setExecutedAt] = useState(new Date().toLocaleDateString("sv-SE"));
   const [erro, setErro] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
 

@@ -215,3 +215,63 @@ describe("POST /transactions — venda com data retroativa", () => {
     expect(res.status).toBe(201);
   });
 });
+
+// Nenhum teste cobria compra e venda na MESMA data — e é o caso comum, porque o
+// formulário é um <input type="date"> e toda operação do dia empata em meia-noite.
+// Foi por esse buraco que passou a regressão do desempate por uuid: a API aprovava
+// a venda e a leitura recalculava o PM por outra ordem.
+describe("compra e venda no mesmo dia", () => {
+  const TICKER_DIA = "TXDL2";
+  const emailDia = `vitest-mesmodia-${randomUUID()}@portfoliolab.dev`;
+  let cookiesDia: string[];
+
+  beforeAll(async () => {
+    await request(app)
+      .post("/auth/register")
+      .send({ name: "Testadora do Mesmo Dia", email: emailDia, password });
+    const login = await request(app).post("/auth/login").send({ email: emailDia, password });
+    cookiesDia = login.headers["set-cookie"] as unknown as string[];
+  });
+
+  afterAll(async () => {
+    const user = await prisma.user.findUnique({ where: { email: emailDia } });
+    if (user) {
+      await prisma.transaction.deleteMany({ where: { userId: user.id } });
+      await prisma.user.delete({ where: { id: user.id } });
+    }
+    await prisma.asset.deleteMany({ where: { ticker: TICKER_DIA } });
+  });
+
+  it("o preço médio lido é o da compra, não um inflado pela ordem", async () => {
+    const dia = "2026-03-10";
+
+    const compra = await request(app)
+      .post("/transactions")
+      .set("Cookie", cookiesDia)
+      .send({ ticker: TICKER_DIA, kind: "COMPRA", quantity: 100, unitPrice: 10, fee: 0, executedAt: dia });
+    expect(compra.status).toBe(201);
+
+    const venda = await request(app)
+      .post("/transactions")
+      .set("Cookie", cookiesDia)
+      .send({ ticker: TICKER_DIA, kind: "VENDA", quantity: 40, unitPrice: 12, fee: 0, executedAt: dia });
+    expect(venda.status).toBe(201);
+
+    const carteira = await request(app).get("/portfolio").set("Cookie", cookiesDia);
+    const posicao = carteira.body.find((p: { ticker: string }) => p.ticker === TICKER_DIA);
+
+    // o que a API aprovou (compra antes da venda) é o que a leitura calcula
+    expect(posicao.quantidade).toBe(60);
+    expect(posicao.precoMedio).toBe(10);
+  });
+
+  it("uma venda posterior do mesmo ticker continua sendo aceita", async () => {
+    // a quantidadeMinima do histórico não pode ter ficado negativa por ordem errada
+    const res = await request(app)
+      .post("/transactions")
+      .set("Cookie", cookiesDia)
+      .send({ ticker: TICKER_DIA, kind: "VENDA", quantity: 60, unitPrice: 15, fee: 0, executedAt: "2026-06-01" });
+
+    expect(res.status).toBe(201);
+  });
+});

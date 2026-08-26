@@ -7,8 +7,14 @@ import { calcularPosicao } from "./portfolio.service.js";
 
 const D = (n: number | string) => new Prisma.Decimal(n);
 
-function compra(qtd: number, preco: number, data: string, taxa = 0) {
+// seq é o autoincrement do banco: a ordem em que as operações foram cadastradas.
+// Só importa como desempate entre operações da MESMA data.
+let proximoSeq = 0n;
+const seqAuto = () => ++proximoSeq;
+
+function compra(qtd: number, preco: number, data: string, taxa = 0, seq = seqAuto()) {
   return {
+    seq,
     kind: "COMPRA" as const,
     quantity: D(qtd),
     unitPrice: D(preco),
@@ -17,8 +23,9 @@ function compra(qtd: number, preco: number, data: string, taxa = 0) {
   };
 }
 
-function venda(qtd: number, preco: number, data: string, taxa = 0) {
+function venda(qtd: number, preco: number, data: string, taxa = 0, seq = seqAuto()) {
   return {
+    seq,
     kind: "VENDA" as const,
     quantity: D(qtd),
     unitPrice: D(preco),
@@ -90,6 +97,45 @@ describe("calcularPosicao — preço médio ponderado", () => {
     ]);
     expect(quantidade.toNumber()).toBe(5);
     expect(precoMedio.toNumber()).toBe(30);
+  });
+
+  // Operações sem hora viram meia-noite (executedAt: z.coerce.date()), então
+  // empate de data é o caso comum, não a exceção. Sem desempate, quem decidia a
+  // ordem era a ordem física das linhas do Postgres — que nenhuma query fixava.
+  it("mesma data: a ordem em que o array chega não muda o preço médio", () => {
+    const a = compra(10, 10, "2026-03-01", 0, 1n);
+    const b = venda(10, 12, "2026-03-01", 0, 2n);
+    const c = compra(10, 20, "2026-03-01", 0, 3n);
+
+    const umaOrdem = calcularPosicao([a, b, c]).precoMedio;
+    const outraOrdem = calcularPosicao([c, b, a]).precoMedio;
+
+    expect(umaOrdem.toNumber()).toBe(outraOrdem.toNumber());
+  });
+
+  it("mesma data: quem manda é a ordem de cadastro (seq), não o acaso", () => {
+    const a = compra(10, 10, "2026-03-01", 0, 1n);
+    const b = venda(10, 12, "2026-03-01", 0, 2n);
+    const c = compra(10, 20, "2026-03-01", 0, 3n);
+
+    // seq 1 → 2 → 3: compra, venda (zera), compra @ R$20
+    expect(calcularPosicao([c, a, b]).precoMedio.toNumber()).toBe(20);
+    expect(calcularPosicao([b, c, a]).precoMedio.toNumber()).toBe(20);
+  });
+
+  // A regressão que o sentinela por uuid causava: a venda era VALIDADA como a
+  // última do dia e, ao ser gravada, sorteava um id que podia ordená-la antes
+  // da compra. A API aprovava e a leitura discordava — PM R$16,67 no lugar de
+  // R$10,00, e quantidadeMinima −40 travando as vendas seguintes do ticker.
+  it("venda cadastrada depois da compra no mesmo dia mantém o PM da compra", () => {
+    const compraDoDia = compra(100, 10, "2026-03-10", 0, 1n);
+    const vendaDoDia = venda(40, 12, "2026-03-10", 0, 2n);
+
+    const r = calcularPosicao([vendaDoDia, compraDoDia]); // array fora de ordem
+
+    expect(r.quantidade.toNumber()).toBe(60);
+    expect(r.precoMedio.toNumber()).toBe(10);
+    expect(r.quantidadeMinima.toNumber()).toBe(0);
   });
 
   it("PM com dízima não perde precisão (Decimal, não float)", () => {

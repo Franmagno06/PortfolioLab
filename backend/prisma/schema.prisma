@@ -56,6 +56,12 @@ model Asset {
 
 model Transaction {
   id         String          @id @default(uuid())
+  // Ordem de cadastro. A data vem sem hora (o formulário é um <input type="date">),
+  // então operações do mesmo dia empatam em executedAt e alguém precisa desempatar.
+  // O uuid não serve: é aleatório, e ordenaria a venda antes da compra em metade
+  // dos casos — o preço médio sairia errado por baixo de uma operação que a própria
+  // API acabou de aprovar. seq é a única cronologia que sobra.
+  seq        BigInt          @default(autoincrement())
   userId     String          @map("user_id")
   assetId    String          @map("asset_id")
   kind       TransactionKind
@@ -73,6 +79,8 @@ model Transaction {
 
   @@index([userId])
   @@index([assetId])
+  // as duas queries que alimentam calcularPosicao ordenam exatamente assim
+  @@index([userId, assetId, executedAt, seq])
   @@map("transactions")
 }
 

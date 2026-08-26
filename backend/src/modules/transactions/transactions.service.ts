@@ -5,6 +5,10 @@ import { quotesService } from "../quotes/quotes.service.js";
 import type { CreateTransactionInput } from "./transactions.schemas.js";
 import { transactionsRepository } from "./transactions.repository.js";
 
+// Maior valor de um BIGINT no Postgres: nenhuma linha gravada pode ter seq
+// maior que este, então a transação ainda-não-persistida ordena por último.
+const SEQ_MAXIMO = 9223372036854775807n;
+
 export const transactionsService = {
   async create(userId: string, input: CreateTransactionInput) {
     // Cadastra o ativo automaticamente se ainda não existir: assim o usuário
@@ -37,6 +41,12 @@ export const transactionsService = {
       const { quantidadeMinima } = calcularPosicao([
         ...doAtivo,
         {
+          // Ainda não existe no banco, logo ainda não tem seq. Ela vai receber
+          // o próximo autoincrement, que é maior que o de qualquer linha já
+          // gravada — então validar com o máximo do BIGINT reproduz exatamente
+          // a posição que ela terá depois de persistida. É por isso que o que a
+          // API aprova aqui é o que calcularPosicao lê depois.
+          seq: SEQ_MAXIMO,
           kind: input.kind,
           quantity: new Prisma.Decimal(input.quantity),
           unitPrice: new Prisma.Decimal(input.unitPrice),
