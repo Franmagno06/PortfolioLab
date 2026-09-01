@@ -145,4 +145,35 @@ describe("Fluxo: comprar → posição → resumo", () => {
     expect(res.status).toBe(200);
     expect(res.body.totalTaxas).toBe(4);
   });
+
+  it("totalTaxas conta a taxa mesmo de um ativo já totalmente vendido", async () => {
+    const compra = await request(app).post("/transactions").set("Cookie", cookies).send({
+      ticker: "VALE3",
+      kind: "COMPRA",
+      quantity: 10,
+      unitPrice: 60,
+      fee: 3,
+      executedAt: "2026-07-01",
+    });
+    expect(compra.status).toBe(201);
+
+    const venda = await request(app).post("/transactions").set("Cookie", cookies).send({
+      ticker: "VALE3",
+      kind: "VENDA",
+      quantity: 10,
+      unitPrice: 62,
+      fee: 2,
+      executedAt: "2026-07-02",
+    });
+    expect(venda.status).toBe(201);
+
+    const carteira = await request(app).get("/portfolio").set("Cookie", cookies);
+    expect(carteira.body.some((a: { ticker: string }) => a.ticker === "VALE3")).toBe(false);
+
+    const res = await request(app).get("/portfolio/summary").set("Cookie", cookies);
+    expect(res.status).toBe(200);
+    // 4 (do teste anterior) + 3 + 2 = 9 — a taxa da VALE3 conta mesmo o
+    // ativo tendo sumido da carteira (posição zerada)
+    expect(res.body.totalTaxas).toBe(9);
+  });
 });
