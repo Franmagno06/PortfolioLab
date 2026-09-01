@@ -119,4 +119,30 @@ describe("Fluxo: comprar → posição → resumo", () => {
     expect(res.body.alocacaoPorClasse[0].classe).toBe("ACAO");
     expect(res.body.alocacaoPorClasse[0].percentual).toBe(100);
   });
+
+  it("totalTaxas soma as taxas de compra e venda de todo o histórico", async () => {
+    // As duas compras do início do arquivo usam fee padrão (0). Esta compra e
+    // esta venda somam R$4,00 em taxa — a venda especialmente, porque hoje o
+    // service descarta a taxa da venda (achado 10 da auditoria).
+    await request(app).post("/transactions").set("Cookie", cookies).send({
+      ticker: "PETR4",
+      kind: "COMPRA",
+      quantity: 5,
+      unitPrice: 30,
+      fee: 2.5,
+      executedAt: "2026-05-01",
+    });
+    await request(app).post("/transactions").set("Cookie", cookies).send({
+      ticker: "PETR4",
+      kind: "VENDA",
+      quantity: 5,
+      unitPrice: 32,
+      fee: 1.5,
+      executedAt: "2026-06-01",
+    });
+
+    const res = await request(app).get("/portfolio/summary").set("Cookie", cookies);
+    expect(res.status).toBe(200);
+    expect(res.body.totalTaxas).toBe(4);
+  });
 });
