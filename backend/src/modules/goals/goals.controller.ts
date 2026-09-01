@@ -1,5 +1,5 @@
 import type { Request, Response } from "express";
-import { upsertGoalSchema } from "./goals.schemas.js";
+import { batchGoalsSchema, upsertGoalSchema } from "./goals.schemas.js";
 import { goalsService } from "./goals.service.js";
 
 export const goalsController = {
@@ -10,6 +10,11 @@ export const goalsController = {
   async upsert(req: Request, res: Response) {
     const input = upsertGoalSchema.parse(req.body);
     res.json(await goalsService.upsert(req.userId as string, input));
+  },
+
+  async batchUpsert(req: Request, res: Response) {
+    const input = batchGoalsSchema.parse(req.body);
+    res.json(await goalsService.batchUpsert(req.userId as string, input));
   },
 
   async remove(req: Request, res: Response) {
