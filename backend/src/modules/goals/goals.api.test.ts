@@ -27,13 +27,14 @@ const NUNCA_NEGOCIADO = "TXGL1";
 const SEGUNDO = "TXGL2";
 const TERCEIRO = "TXGL3";
 const QUARTO = "TXGL4";
+const QUINTO = "TXGL5";
 
 const email = `vitest-goals-${randomUUID()}@portfoliolab.dev`;
 const password = "senha123";
 let cookies: string[];
 
 beforeAll(async () => {
-  await prisma.asset.deleteMany({ where: { ticker: { in: [NUNCA_NEGOCIADO, SEGUNDO, TERCEIRO, QUARTO] } } });
+  await prisma.asset.deleteMany({ where: { ticker: { in: [NUNCA_NEGOCIADO, SEGUNDO, TERCEIRO, QUARTO, QUINTO] } } });
 
   await request(app).post("/auth/register").send({ name: "Testadora Goals", email, password });
   const login = await request(app).post("/auth/login").send({ email, password });
@@ -46,7 +47,7 @@ afterAll(async () => {
     await prisma.assetGoal.deleteMany({ where: { userId: user.id } });
     await prisma.user.delete({ where: { id: user.id } });
   }
-  await prisma.asset.deleteMany({ where: { ticker: { in: [NUNCA_NEGOCIADO, SEGUNDO, TERCEIRO, QUARTO] } } });
+  await prisma.asset.deleteMany({ where: { ticker: { in: [NUNCA_NEGOCIADO, SEGUNDO, TERCEIRO, QUARTO, QUINTO] } } });
   await prisma.$disconnect();
 });
 
@@ -210,5 +211,22 @@ describe("PUT /goals/batch — troca de alocação numa chamada só", () => {
       });
 
     expect(res.status).toBe(400);
+  });
+});
+
+describe("DELETE /goals/:ticker — remoção bem-sucedida", () => {
+  it("remove a meta e ela some da lista", async () => {
+    const criada = await request(app)
+      .put("/goals")
+      .set("Cookie", cookies)
+      .send({ ticker: QUINTO, targetWeight: 15 });
+    expect(criada.status).toBe(200);
+    expect(criada.body.metas.map((m: { ticker: string }) => m.ticker)).toContain(QUINTO);
+
+    const res = await request(app).delete(`/goals/${QUINTO}`).set("Cookie", cookies);
+    expect(res.status).toBe(204);
+
+    const depois = await request(app).get("/goals").set("Cookie", cookies);
+    expect(depois.body.metas.map((m: { ticker: string }) => m.ticker)).not.toContain(QUINTO);
   });
 });
