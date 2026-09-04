@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, ApiError } from "@/lib/api";
 import { brl, coresClasse } from "@/lib/format";
+import { somarMetas } from "@/lib/goals";
 import { normalizarTicker, useBuscaTicker } from "@/lib/use-busca-ticker";
 
 type Metas = {
@@ -59,7 +60,7 @@ export default function SimulacaoPage() {
     carregar().catch(() => setErro("Falha ao carregar as metas"));
   }, [carregar]);
 
-  const somaEditada = Object.values(edicao).reduce((s, v) => s + (Number(v) || 0), 0);
+  const somaEditada = somarMetas(edicao);
   const jaTemMeta = metas?.metas.some((m) => m.ticker === novoTicker) ?? false;
 
   async function salvarMetas() {
