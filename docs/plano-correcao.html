@@ -215,6 +215,23 @@
 
   .rot-teste { color: var(--critica); }
   .rot-pronto { color: var(--feito); }
+  /* Selo aplicado a cada onda depois que o merge dela entrou na main */
+  .selo {
+    font-family: "Space Grotesk", sans-serif; font-size: 10px; font-weight: 700;
+    letter-spacing: 0.13em; text-transform: uppercase;
+    color: var(--feito); border: 1px solid var(--feito);
+    padding: 3px 9px; white-space: nowrap;
+  }
+  .selo .sha { font-family: "JetBrains Mono", monospace; letter-spacing: 0; text-transform: none; }
+  .encerrado {
+    border: 1px solid var(--feito); background: var(--surface);
+    padding: 16px 18px; margin: 0 0 40px; font-size: 0.95rem;
+  }
+  .encerrado b {
+    font-family: "Space Grotesk", sans-serif; font-size: 10px; font-weight: 700;
+    letter-spacing: 0.14em; text-transform: uppercase;
+    display: block; margin-bottom: 6px; color: var(--feito);
+  }
 
   pre {
     font-family: "JetBrains Mono", monospace; font-size: 0.79rem; line-height: 1.62;
@@ -273,6 +290,13 @@
       Os 24 achados da auditoria organizados em cinco ondas, na ordem em que precisam ser
       atacados. Cada correção começa por um teste que falha. Um branch e um PR por onda.
     </p>
+    <div class="encerrado" style="margin-top:26px">
+      <b>Executado</b>
+      As cinco ondas foram concluídas entre 25/08/2026 e 05/09/2026, na ordem prevista. Os 24
+      achados estão fechados na <code>main</code>. Este documento vira registro do que foi feito:
+      o texto de cada onda continua no tempo em que foi escrito, e o selo verde no cabeçalho de
+      cada uma aponta o merge que a encerrou.
+    </div>
   </header>
 
   <section>
@@ -431,6 +455,7 @@
         <span class="onda-n">00</span>
         <h3>Fundação: banco de teste e migrations</h3>
         <span class="branch">onda-0-fundacao</span>
+        <span class="selo">concluída 25/08 &middot; <span class="sha">be1190e</span></span>
       </div>
       <p class="onda-resumo">
         Nenhuma linha de regra de negócio é tocada nesta onda. O objetivo é único: tornar possível
@@ -544,6 +569,7 @@ npx prisma migrate resolve --applied 0_init</code></pre>
         <span class="onda-n">01</span>
         <h3>Consertar o que o produto promete fazer</h3>
         <span class="branch">onda-1-regra-de-negocio</span>
+        <span class="selo">concluída 25/08 &middot; <span class="sha">08458aa</span></span>
       </div>
       <p class="onda-resumo">
         A onda mais importante e a mais delicada. Três dos quatro achados estão em módulos sem
@@ -670,6 +696,7 @@ npx prisma migrate resolve --applied 0_init</code></pre>
         <span class="onda-n">02</span>
         <h3>Fechar as portas antes de publicar</h3>
         <span class="branch">onda-2-seguranca</span>
+        <span class="selo">concluída 26/08 &middot; <span class="sha">70aeace</span></span>
       </div>
       <p class="onda-resumo">
         Nenhum destes quebra a aplicação hoje. Todos quebram no dia em que ela sair do
@@ -791,6 +818,7 @@ npx prisma migrate resolve --applied 0_init</code></pre>
         <span class="onda-n">03</span>
         <h3>Fechar o buraco de teste e automatizar a verificação</h3>
         <span class="branch">onda-3-cobertura</span>
+        <span class="selo">concluída 05/09 &middot; <span class="sha">c4d50e9</span></span>
       </div>
       <p class="onda-resumo">
         As Ondas 1 e 2 já terão criado boa parte da cobertura que faltava, como efeito colateral do
@@ -914,6 +942,7 @@ npx prisma migrate resolve --applied 0_init</code></pre>
         <span class="onda-n">04</span>
         <h3>Coerência da documentação e arestas operacionais</h3>
         <span class="branch">onda-4-acabamento</span>
+        <span class="selo">concluída 05/09 &middot; <span class="sha">98164c6</span></span>
       </div>
       <p class="onda-resumo">
         Baratos e rápidos, mas é o que um avaliador encontra primeiro — a documentação é lida antes
@@ -973,28 +1002,33 @@ gh pr create --title "Onda 1: regra de negocio (achados 1, 2, 3, 4, 12)"</code><
     <div class="rolagem">
       <table>
         <thead>
-          <tr><th>Onda</th><th>Achados</th><th style="text-align:center">Tamanho</th><th>O que passa a ser verdade no fim</th></tr>
+          <tr><th>Onda</th><th>Achados</th><th style="text-align:center">Tamanho</th><th>O que passa a ser verdade no fim</th><th>Merge</th></tr>
         </thead>
         <tbody>
           <tr>
             <td class="mono-cell">0 &middot; fundação</td><td class="mono-cell">7, 5</td><td class="mid">P</td>
             <td>Dá para rodar teste sem medo, e o schema tem histórico.</td>
+          <td class="mono-cell">be1190e &middot; PR&nbsp;#1</td>
           </tr>
           <tr>
             <td class="mono-cell">1 &middot; regra</td><td class="mono-cell">1, 2, 3, 4, 12</td><td class="mid">G</td>
             <td>A simulação de aporte responde certo, e uma conta nova consegue usar o produto do jeito que ele promete.</td>
+          <td class="mono-cell">08458aa</td>
           </tr>
           <tr>
             <td class="mono-cell">2 &middot; segurança</td><td class="mono-cell">6, 8, 9, 16</td><td class="mid">M</td>
             <td>Publicar deixa de ser arriscado.</td>
+          <td class="mono-cell">70aeace</td>
           </tr>
           <tr>
             <td class="mono-cell">3 &middot; cobertura</td><td class="mono-cell">10, 11, 13, 14, 15</td><td class="mid">G</td>
             <td>Nenhum módulo sem teste, frontend coberto, e um robô conferindo cada commit.</td>
+          <td class="mono-cell">c4d50e9</td>
           </tr>
           <tr>
             <td class="mono-cell">4 &middot; acabamento</td><td class="mono-cell">17&ndash;24</td><td class="mid">P</td>
             <td>Documentação e código dizem a mesma coisa.</td>
+          <td class="mono-cell">98164c6 &middot; PR&nbsp;#2</td>
           </tr>
         </tbody>
       </table>
@@ -1012,8 +1046,11 @@ gh pr create --title "Onda 1: regra de negocio (achados 1, 2, 3, 4, 12)"</code><
       causa e cenário de reprodução. Os números usados aqui são os de lá.
     </p>
     <p>
-      Nada neste plano foi executado ainda. A Onda 0 depende da instalação do Docker Desktop, única
-      etapa que precisa ser feita por você.
+      <strong>Plano concluído.</strong> As cinco ondas entraram na <code>main</code> entre
+      25/08/2026 e 05/09/2026, e os 24 achados estão fechados. A verificação final da última onda:
+      169 testes no backend, 17 no frontend e um percurso ponta a ponta em Playwright, com
+      <code>tsc --noEmit</code>, <code>lint</code> e <code>build</code> limpos nos dois lados — e o
+      CI do achado 14 confirmando o mesmo a cada PR.
     </p>
   </footer>
 
