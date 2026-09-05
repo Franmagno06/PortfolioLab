@@ -1,5 +1,6 @@
 import cookieParser from "cookie-parser";
 import express from "express";
+import { verificarConexao } from "./database/prisma.js";
 import { assetsRoutes } from "./modules/assets/assets.routes.js";
 import { authRoutes } from "./modules/auth/auth.routes.js";
 import { dividendsRoutes } from "./modules/dividends/dividends.routes.js";
@@ -30,8 +31,18 @@ app.use(limitadorGlobal);
 app.use(express.json());
 app.use(cookieParser());
 
-app.get("/health", (_req, res) => {
-  res.json({ status: "ok", service: "portfoliolab-api" });
+// Achado 24: responder "ok" sem consultar o banco escondia o Supabase
+// hibernado — quem descobria era o usuário, no login. Um SELECT 1 custa quase
+// nada e transforma a hibernação em 503 no health check, onde ela é visível.
+app.get("/health", async (_req, res) => {
+  try {
+    await verificarConexao();
+    res.json({ status: "ok", service: "portfoliolab-api", database: "ok" });
+  } catch {
+    res
+      .status(503)
+      .json({ status: "degraded", service: "portfoliolab-api", database: "erro" });
+  }
 });
 
 // Rotas dos módulos — sempre ANTES do errorHandler

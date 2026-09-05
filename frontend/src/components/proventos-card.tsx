@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { api, ApiError } from "@/lib/api";
+import { api, ApiError, type Pagina } from "@/lib/api";
 import { brl } from "@/lib/format";
 
 type Provento = {
@@ -25,7 +25,9 @@ export function ProventosCard({ ativos }: Props) {
   const [salvando, setSalvando] = useState(false);
 
   const carregar = useCallback(() => {
-    api<Provento[]>("/dividends").then(setProventos).catch(() => setProventos([]));
+    api<Pagina<Provento>>("/dividends")
+      .then(({ itens }) => setProventos(itens))
+      .catch(() => setProventos([]));
   }, []);
 
   useEffect(carregar, [carregar]);

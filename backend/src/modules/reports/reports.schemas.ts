@@ -2,7 +2,7 @@ import { z } from "zod";
 
 export const askSchema = z.object({
   question: z.string().min(3, "Pergunta muito curta").max(2000, "Pergunta muito longa"),
-  // histórico do chat mantido pelo cliente (a API do Claude é stateless)
+  // histórico do chat mantido pelo cliente (a API do Gemini é stateless)
   history: z
     .array(
       z.object({

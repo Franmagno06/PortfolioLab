@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import { createDividendSchema } from "./dividends.schemas.js";
 import { dividendsService } from "./dividends.service.js";
+import { paginacaoSchema } from "../../shared/paginacao.js";
 
 export const dividendsController = {
   async create(req: Request, res: Response) {
@@ -10,8 +11,8 @@ export const dividendsController = {
   },
 
   async list(req: Request, res: Response) {
-    const proventos = await dividendsService.list(req.userId as string);
-    res.json(proventos);
+    const pagina = paginacaoSchema.parse(req.query);
+    res.json(await dividendsService.list(req.userId as string, pagina));
   },
 
   async remove(req: Request, res: Response) {

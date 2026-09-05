@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import { createTransactionSchema } from "./transactions.schemas.js";
 import { transactionsService } from "./transactions.service.js";
+import { paginacaoSchema } from "../../shared/paginacao.js";
 
 export const transactionsController = {
   async create(req: Request, res: Response) {
@@ -10,8 +11,8 @@ export const transactionsController = {
   },
 
   async list(req: Request, res: Response) {
-    const transacoes = await transactionsService.list(req.userId as string);
-    res.json(transacoes);
+    const pagina = paginacaoSchema.parse(req.query);
+    res.json(await transactionsService.list(req.userId as string, pagina));
   },
 
   async remove(req: Request, res: Response) {

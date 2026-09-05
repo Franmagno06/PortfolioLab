@@ -123,7 +123,7 @@ describe("DELETE /transactions/:id — não pode corromper a posição", () => {
   it("a posição continua intacta depois da recusa", async () => {
     const res = await request(app).get("/transactions").set("Cookie", cookies);
     expect(res.status).toBe(200);
-    expect(res.body).toHaveLength(2);
+    expect(res.body.itens).toHaveLength(2);
 
     const asset = await prisma.asset.findUniqueOrThrow({ where: { ticker: TICKER } });
     const user = await prisma.user.findUniqueOrThrow({ where: { email } });
@@ -150,7 +150,7 @@ describe("DELETE /transactions/:id — não pode corromper a posição", () => {
     expect(res.status).toBe(204);
 
     const lista = await request(app).get("/transactions").set("Cookie", cookies);
-    expect(lista.body).toHaveLength(0);
+    expect(lista.body.itens).toHaveLength(0);
   });
 });
 

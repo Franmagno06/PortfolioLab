@@ -12,7 +12,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { api, ApiError } from "@/lib/api";
+import { api, ApiError, type Pagina } from "@/lib/api";
 import { brl, coresClasse, nomesClasse, pct } from "@/lib/format";
 
 type Summary = {
@@ -54,10 +54,10 @@ export default function DashboardPage() {
   const [erro, setErro] = useState<string | null>(null);
 
   useEffect(() => {
-    Promise.all([api<Summary>("/portfolio/summary"), api<Provento[]>("/dividends")])
+    Promise.all([api<Summary>("/portfolio/summary"), api<Pagina<Provento>>("/dividends")])
       .then(([s, p]) => {
         setSummary(s);
-        setProventos(p);
+        setProventos(p.itens);
       })
       .catch((err) =>
         setErro(err instanceof ApiError ? err.message : "Falha ao carregar os dados"),
