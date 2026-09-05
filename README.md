@@ -48,6 +48,9 @@ gerenciais por IA.
 
 - **Proventos futuros não aparecem.** A fonte gratuita só expõe dividendos com
   data-ex passada; agenda de proventos anunciados exigiria outra fonte.
+- **Tesouro Direto não tem cotação automática.** Títulos públicos não são
+  negociados em bolsa e não têm ticker; a classe `RENDA_FIXA` existe no schema,
+  mas o preço precisa ser informado à mão.
 - **A data do provento é a data-ex, não a de pagamento** — o Yahoo Finance não
   fornece a segunda.
 - **Nem toda notícia sobre um ativo é reconhecida.** A busca usa o ticker e a
@@ -186,8 +189,14 @@ cd backend
 npm run db:seed:demo    # exige DATABASE_URL local — recusa o Supabase
 ```
 
-Entre com `carteira@portfoliolab.dev` / `demo123456`. São 13 ativos (8 ações e
-5 FII), 23 transações espalhadas de 2024 a 2026 e metas somando 100%.
+Entre com `carteira@portfoliolab.dev` / `demo123456`. São 16 ativos — 8 ações,
+5 FII e 3 ETF —, 27 transações espalhadas de 2024 a 2026 e metas somando 100%.
+
+Os ETF cobrem bolsa brasileira (BOVA11), bolsa americana (IVVB11) e juro real
+(IMAB11). **Tesouro Direto não entra**: título público não é negociado em bolsa
+e não tem ticker, então a API de cotação devolve 404 para ele. IMAB11 é o mais
+próximo que se pode ter com preço real — um ETF do IMA-B, a cesta de NTN-B
+indexadas ao IPCA. Para ter Tesouro Direto na carteira, lance à mão.
 
 O e-mail é diferente do `demo@portfoliolab.dev` que o `npm run db:seed` cria de
 propósito: os dois seeds convivem no mesmo banco, e reusar o endereço faria um

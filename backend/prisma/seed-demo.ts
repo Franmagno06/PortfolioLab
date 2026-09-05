@@ -1,4 +1,4 @@
-import { PrismaClient, TransactionKind } from "@prisma/client";
+import { AssetType, PrismaClient, TransactionKind } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import "dotenv/config";
 import { assertDatabaseUrlIsLocal } from "../src/config/dbGuard.js";
@@ -27,6 +27,15 @@ const SENHA = "demo123456";
  *  - Os FII são os de maior liquidez do IFIX, entre os mais negociados da B3.
  *    MXRF11 entra também porque `relatorios-para-teste/` tem PDFs reais dele,
  *    o que deixa o módulo de IA testável com esta mesma conta.
+ *  - Os ETF cobrem as três exposições que faltavam: bolsa brasileira (BOVA11),
+ *    bolsa americana (IVVB11) e juro real (IMAB11).
+ *
+ * Sobre renda fixa: o Tesouro Direto NÃO entra, porque não existe. Título
+ * público não é negociado em bolsa e não tem ticker — TESOURO, IPCA2035 e
+ * NTNB2035 devolvem 404 na API de cotação. IMAB11 é o mais próximo que se
+ * pode ter com preço real: um ETF que segue o IMA-B, a cesta de NTN-B
+ * indexadas ao IPCA. Quem quiser Tesouro Direto de verdade na carteira
+ * precisa lançar à mão, com o tipo RENDA_FIXA.
  *
  * As QUANTIDADES, DATAS e PREÇOS de compra são inventados. Ninguém publica a
  * posição de outra pessoa, e apresentar número inventado como se fosse de
@@ -43,6 +52,8 @@ type Compra = { em: string; qtd: number; preco: number; taxa?: number };
 type AtivoDemo = {
   ticker: string;
   meta: number;
+  /** Classe usada só no fallback; com rede, o provedor é quem classifica. */
+  tipoFallback: AssetType;
   compras: Compra[];
   vendas?: Compra[];
   /** usado só se o Yahoo não responder no momento do seed */
@@ -50,10 +61,11 @@ type AtivoDemo = {
 };
 
 const CARTEIRA: AtivoDemo[] = [
-  // ── Ações — 55% ────────────────────────────────────────────────────────
+  // ── Ações — 45% ────────────────────────────────────────────────────────
   {
     ticker: "BBAS3",
-    meta: 12,
+    meta: 10,
+    tipoFallback: AssetType.ACAO,
     precoFallback: 24.5,
     compras: [
       { em: "2024-07-12", qtd: 300, preco: 26.4, taxa: 4.9 },
@@ -63,7 +75,8 @@ const CARTEIRA: AtivoDemo[] = [
   },
   {
     ticker: "KLBN4",
-    meta: 8,
+    meta: 6,
+    tipoFallback: AssetType.ACAO,
     precoFallback: 4.2,
     compras: [
       { em: "2024-09-05", qtd: 1500, preco: 4.55, taxa: 4.9 },
@@ -72,7 +85,8 @@ const CARTEIRA: AtivoDemo[] = [
   },
   {
     ticker: "TAEE11",
-    meta: 10,
+    meta: 8,
+    tipoFallback: AssetType.ACAO,
     precoFallback: 36.0,
     compras: [
       { em: "2024-06-18", qtd: 200, preco: 34.2, taxa: 4.9 },
@@ -81,13 +95,15 @@ const CARTEIRA: AtivoDemo[] = [
   },
   {
     ticker: "BRSR6",
-    meta: 5,
+    meta: 4,
+    tipoFallback: AssetType.ACAO,
     precoFallback: 12.0,
     compras: [{ em: "2025-01-15", qtd: 500, preco: 11.4, taxa: 4.9 }],
   },
   {
     ticker: "SANB11",
-    meta: 6,
+    meta: 5,
+    tipoFallback: AssetType.ACAO,
     precoFallback: 28.0,
     // A venda parcial existe para o teste ficar interessante: pela regra da
     // Receita ela reduz a quantidade e NÃO altera o preço médio.
@@ -99,27 +115,31 @@ const CARTEIRA: AtivoDemo[] = [
   },
   {
     ticker: "AURE3",
-    meta: 5,
+    meta: 4,
+    tipoFallback: AssetType.ACAO,
     precoFallback: 11.5,
     compras: [{ em: "2025-04-08", qtd: 600, preco: 10.9, taxa: 4.9 }],
   },
   {
     ticker: "CMIG4",
-    meta: 5,
+    meta: 4,
+    tipoFallback: AssetType.ACAO,
     precoFallback: 11.0,
     compras: [{ em: "2025-09-25", qtd: 700, preco: 10.6, taxa: 4.9 }],
   },
   {
     ticker: "UNIP6",
     meta: 4,
+    tipoFallback: AssetType.ACAO,
     precoFallback: 62.0,
     compras: [{ em: "2024-12-03", qtd: 90, preco: 68.5, taxa: 4.9 }],
   },
 
-  // ── FII — 45% ──────────────────────────────────────────────────────────
+  // ── FII — 35% ──────────────────────────────────────────────────────────
   {
     ticker: "MXRF11",
-    meta: 10,
+    meta: 8,
+    tipoFallback: AssetType.FII,
     precoFallback: 10.3,
     compras: [
       { em: "2024-08-14", qtd: 900, preco: 10.6, taxa: 3.5 },
@@ -129,7 +149,8 @@ const CARTEIRA: AtivoDemo[] = [
   },
   {
     ticker: "HGLG11",
-    meta: 10,
+    meta: 8,
+    tipoFallback: AssetType.FII,
     precoFallback: 152.0,
     compras: [
       { em: "2024-11-21", qtd: 60, preco: 148.3, taxa: 3.5 },
@@ -138,13 +159,15 @@ const CARTEIRA: AtivoDemo[] = [
   },
   {
     ticker: "KNRI11",
-    meta: 9,
+    meta: 7,
+    tipoFallback: AssetType.FII,
     precoFallback: 148.0,
     compras: [{ em: "2025-02-27", qtd: 80, preco: 143.2, taxa: 3.5 }],
   },
   {
     ticker: "XPML11",
-    meta: 8,
+    meta: 6,
+    tipoFallback: AssetType.FII,
     precoFallback: 105.0,
     compras: [
       { em: "2025-07-03", qtd: 70, preco: 101.8, taxa: 3.5 },
@@ -153,9 +176,38 @@ const CARTEIRA: AtivoDemo[] = [
   },
   {
     ticker: "VISC11",
-    meta: 8,
+    meta: 6,
+    tipoFallback: AssetType.FII,
     precoFallback: 98.0,
     compras: [{ em: "2025-12-11", qtd: 90, preco: 95.6, taxa: 3.5 }],
+  },
+
+  // ── ETF — 20% ──────────────────────────────────────────────────────────
+  {
+    ticker: "BOVA11",
+    meta: 8,
+    tipoFallback: AssetType.ETF,
+    precoFallback: 180.0,
+    compras: [
+      { em: "2024-08-28", qtd: 40, preco: 122.4, taxa: 4.9 },
+      { em: "2025-09-15", qtd: 25, preco: 148.9, taxa: 4.9 },
+    ],
+  },
+  {
+    ticker: "IVVB11",
+    meta: 7,
+    tipoFallback: AssetType.ETF,
+    precoFallback: 445.0,
+    compras: [{ em: "2025-03-06", qtd: 25, preco: 358.2, taxa: 4.9 }],
+  },
+  {
+    // O mais perto de Tesouro IPCA+ que a B3 negocia: ETF do IMA-B, a cesta
+    // de NTN-B. Título público não tem ticker, então não há cotação para ele.
+    ticker: "IMAB11",
+    meta: 5,
+    tipoFallback: AssetType.ETF,
+    precoFallback: 115.0,
+    compras: [{ em: "2025-06-19", qtd: 60, preco: 108.7, taxa: 4.9 }],
   },
 ];
 
@@ -195,7 +247,9 @@ async function main() {
         data: {
           ticker: ativo.ticker,
           name: ativo.ticker,
-          type: ativo.ticker.endsWith("11") ? "FII" : "ACAO",
+          // o sufixo 11 não distingue FII de ETF (MXRF11 e BOVA11 terminam
+          // igual), então a classe vem declarada em cada ativo
+          type: ativo.tipoFallback,
           currentPrice: ativo.precoFallback,
         },
       });
