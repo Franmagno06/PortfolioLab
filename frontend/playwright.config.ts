@@ -22,7 +22,10 @@ export default defineConfig({
       cwd: "../backend",
       url: "http://localhost:3333/health",
       env: { DATABASE_URL: DATABASE_URL_LOCAL, NODE_ENV: "development" },
-      reuseExistingServer: !process.env.CI,
+      // Nunca reusar: um backend já no ar carregou backend/.env, que aponta
+      // para o Supabase de produção — o override de DATABASE_URL acima só
+      // vale para um processo que ESTE config sobe.
+      reuseExistingServer: false,
       timeout: 30_000,
     },
     {

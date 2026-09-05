@@ -1,8 +1,25 @@
 import { randomUUID } from "node:crypto";
 import request from "supertest";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { app } from "../../app.js";
 import { prisma } from "../../database/prisma.js";
+
+// Provider fixo: mesmo molde de goals.api.test.ts/dividends.api.test.ts — evita bater na B3 real.
+vi.mock("../quotes/quotes.provider.js", () => ({
+  buscarCotacao: async (ticker: string) => {
+    const simbolo = ticker.toUpperCase();
+    if (simbolo === "NAOEXISTE11") return null; // ticker que não existe na B3
+    return { ticker: simbolo, nome: "Ativo de Teste S.A.", preco: 20, tipo: "ACAO" };
+  },
+  buscarCotacoes: async (tickers: string[]) =>
+    new Map(
+      tickers.map((t) => [
+        t.toUpperCase(),
+        { ticker: t.toUpperCase(), nome: "Ativo de Teste S.A.", preco: 20, tipo: "ACAO" },
+      ]),
+    ),
+  classificar: () => "ACAO",
+}));
 
 // Testes de INTEGRAÇÃO da carteira: fluxo completo
 // registrar → logar → comprar → consultar posição → resumo

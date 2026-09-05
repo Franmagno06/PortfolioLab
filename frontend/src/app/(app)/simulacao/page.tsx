@@ -67,7 +67,7 @@ export default function SimulacaoPage() {
   const jaTemMeta = metas?.metas.some((m) => m.ticker === novoTicker) ?? false;
 
   async function salvarMetas() {
-    if (!metas) return;
+    if (!metas || metas.metas.length === 0) return;
     setErroMetas(null);
     setSalvando(true);
     try {
