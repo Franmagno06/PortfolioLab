@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import { prisma } from "../../database/prisma.js";
 import { argumentosDeCursor } from "../../shared/paginacao.js";
 
@@ -15,6 +16,51 @@ export const dividendsRepository = {
       orderBy: [{ paidAt: "desc" }, { id: "desc" }],
       take: pagina.take,
       ...argumentosDeCursor(pagina.cursor),
+    });
+  },
+
+  /**
+   * Todas as transações do usuário, com o ticker do ativo, para a
+   * sincronização cruzar posição e data-ex. Traz seq porque calcularPosicao
+   * usa esse campo para desempatar operações da mesma data.
+   */
+  findTransacoesDoUsuario(userId: string) {
+    return prisma.transaction.findMany({
+      where: { userId },
+      select: {
+        seq: true,
+        kind: true,
+        quantity: true,
+        unitPrice: true,
+        fee: true,
+        executedAt: true,
+        assetId: true,
+        asset: { select: { ticker: true } },
+      },
+      orderBy: [{ executedAt: "asc" }, { seq: "asc" }],
+    });
+  },
+
+  /**
+   * Grava um provento vindo do provedor. O @@unique(userId, assetId, paidAt,
+   * source) é o que torna a sincronização idempotente: rodar de novo atualiza
+   * a linha em vez de duplicar. Proventos MANUAIS ficam noutra origem e nunca
+   * são tocados por aqui.
+   */
+  upsertDoProvedor(data: {
+    userId: string;
+    assetId: string;
+    paidAt: Date;
+    amount: Prisma.Decimal;
+    unitAmount: Prisma.Decimal;
+  }) {
+    const { userId, assetId, paidAt, amount, unitAmount } = data;
+    return prisma.dividend.upsert({
+      where: {
+        userId_assetId_paidAt_source: { userId, assetId, paidAt, source: "PROVEDOR" },
+      },
+      create: { userId, assetId, paidAt, amount, unitAmount, source: "PROVEDOR" },
+      update: { amount, unitAmount },
     });
   },
 

@@ -118,16 +118,33 @@ model Report {
   @@map("reports")
 }
 
+/// De onde veio o provento. MANUAL é o que o usuário lançou à mão; PROVEDOR é
+/// o que a sincronização importou do Yahoo Finance e recalculou pela posição.
+enum DividendSource {
+  MANUAL
+  PROVEDOR
+}
+
 model Dividend {
   id      String   @id @default(uuid())
   userId  String   @map("user_id")
   assetId String   @map("asset_id")
   amount  Decimal  @db.Decimal(12, 2)
+  /// Valor por cota anunciado pela empresa. Só o PROVEDOR preenche: no lançamento
+  /// manual o usuário informa o total recebido, não a taxa por cota.
+  unitAmount Decimal? @map("unit_amount") @db.Decimal(12, 6)
+  /// Para MANUAL, a data que o usuário informou. Para PROVEDOR, a data-ex do
+  /// Yahoo — quem tinha a posição antes dela recebe. Não é a data de pagamento,
+  /// que a fonte não fornece.
   paidAt  DateTime @map("paid_at")
+  source  DividendSource @default(MANUAL)
 
   user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
   asset Asset @relation(fields: [assetId], references: [id], onDelete: Restrict)
 
   @@index([userId])
+  /// Torna a sincronização idempotente: rodar de novo atualiza a linha em vez
+  /// de duplicar o provento. Não atrapalha o manual, que fica noutra origem.
+  @@unique([userId, assetId, paidAt, source])
   @@map("dividends")
 }

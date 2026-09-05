@@ -11,7 +11,9 @@ assertDatabaseUrlIsLocal(process.env.DATABASE_URL);
 
 const prisma = new PrismaClient();
 
-const EMAIL = "demo@portfoliolab.dev";
+// E-mail próprio, e não o demo@ do prisma/seed.ts: os dois seeds coexistem no
+// mesmo banco, e reusar o endereço faria um apagar a conta do outro sem aviso.
+const EMAIL = "carteira@portfoliolab.dev";
 const SENHA = "demo123456";
 
 /**

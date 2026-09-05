@@ -33,7 +33,7 @@ gerenciais por IA.
   desconhecido, o ativo é criado a partir da cotação real, com a classe
   deduzida do nome. Não há lista fixa: qualquer ação ou FII da B3 serve.
 - **Arquitetura em camadas** (Routes → Controller → Service → Repository) com
-  TypeScript estrito e 186 testes automatizados (169 no backend, 17 no
+  TypeScript estrito e 198 testes automatizados (181 no backend, 17 no
   frontend), mais um percurso ponta a ponta em Playwright.
 
 ## Stack
@@ -131,6 +131,7 @@ Rotas com 🔒 exigem login (cookie HttpOnly).
 | DELETE 🔒 | `/transactions/:id` | Apagar transação |
 | POST 🔒 | `/dividends` | Registrar provento (`ticker`, `amount`, `paidAt`) |
 | GET 🔒 | `/dividends` | Histórico de proventos (paginado) |
+| POST 🔒 | `/dividends/sync` | Importar da B3 os proventos dos ativos da carteira |
 | DELETE 🔒 | `/dividends/:id` | Apagar provento |
 | GET 🔒 | `/portfolio` | Posição consolidada por ativo |
 | GET 🔒 | `/portfolio/summary` | Patrimônio, lucro e alocação por classe |
@@ -153,7 +154,7 @@ anterior. `proximoCursor` nulo significa que acabou.
 
 ```bash
 cd backend
-npm test          # 169 testes
+npm test          # 181 testes
 npm run typecheck
 ```
 
@@ -166,8 +167,12 @@ cd backend
 npm run db:seed:demo    # exige DATABASE_URL local — recusa o Supabase
 ```
 
-Entre com `demo@portfoliolab.dev` / `demo123456`. São 13 ativos (8 ações e 5
-FII), 23 transações espalhadas de 2024 a 2026 e metas somando 100%.
+Entre com `carteira@portfoliolab.dev` / `demo123456`. São 13 ativos (8 ações e
+5 FII), 23 transações espalhadas de 2024 a 2026 e metas somando 100%.
+
+O e-mail é diferente do `demo@portfoliolab.dev` que o `npm run db:seed` cria de
+propósito: os dois seeds convivem no mesmo banco, e reusar o endereço faria um
+apagar a conta do outro sem aviso.
 
 Os tickers são reais e a escolha deles é pública: as ações são as que a imprensa
 financeira atribui à carteira de Luiz Barsi, e os FII estão entre os mais

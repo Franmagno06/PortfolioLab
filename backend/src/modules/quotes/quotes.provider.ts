@@ -91,3 +91,63 @@ export async function buscarCotacoes(tickers: string[]): Promise<Map<string, Cot
   }
   return porTicker;
 }
+
+/** Um provento anunciado pela empresa, como o Yahoo o devolve. */
+export type ProventoDoProvedor = {
+  /** Data-ex: quem tinha a posição ANTES dela recebe; quem comprou nela, não. */
+  dataEx: Date;
+  /** Valor por cota, em reais. */
+  valorPorCota: number;
+};
+
+/**
+ * Histórico de proventos de um ticker.
+ *
+ * Mesma API de cotação, com `events=div`. O Yahoo devolve a data-ex (não a de
+ * pagamento, que ele não expõe) e o valor por cota — nunca o total recebido,
+ * que depende da posição de cada investidor.
+ *
+ * Devolve lista vazia se a API falhar: proventos são enfeite da carteira, não
+ * podem derrubar a rota. Mesmo contrato defensivo de buscarCotacao.
+ */
+export async function buscarProventos(
+  ticker: string,
+  desde: Date,
+): Promise<ProventoDoProvedor[]> {
+  const simbolo = ticker.toUpperCase().trim();
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8000);
+
+  // segundos desde a época — o formato que a API espera
+  const inicio = Math.floor(desde.getTime() / 1000);
+  const fim = Math.floor(Date.now() / 1000);
+
+  try {
+    const res = await fetch(
+      `${BASE}/${simbolo}.SA?period1=${inicio}&period2=${fim}&interval=1d&events=div`,
+      { headers: CABECALHOS, signal: controller.signal },
+    );
+    if (!res.ok) return [];
+
+    const json = (await res.json()) as {
+      chart?: {
+        result?: { events?: { dividends?: Record<string, { amount?: number; date?: number }> } }[];
+      };
+    };
+
+    const eventos = json.chart?.result?.[0]?.events?.dividends;
+    if (!eventos) return [];
+
+    return Object.values(eventos)
+      .filter(
+        (e): e is { amount: number; date: number } =>
+          typeof e.amount === "number" && e.amount > 0 && typeof e.date === "number",
+      )
+      .map((e) => ({ dataEx: new Date(e.date * 1000), valorPorCota: e.amount }))
+      .sort((a, b) => a.dataEx.getTime() - b.dataEx.getTime());
+  } catch {
+    return [];
+  } finally {
+    clearTimeout(timer);
+  }
+}
