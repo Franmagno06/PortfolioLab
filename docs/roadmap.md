@@ -9,7 +9,7 @@ Plano em 9 sprints (1 semana cada), do banco de dados ao módulo de IA. Os itens
 - [x] Estrutura de pastas do backend com TypeScript estrito
 - [x] PostgreSQL local via `docker-compose.yml`
 - [x] `schema.prisma` com as 5 entidades: `User`, `Asset`, `Transaction`, `AssetGoal`, `Dividend`
-- [x] `seed.ts` com dados de exemplo (mesmos ativos do protótipo Figma)
+- [x] `seed.ts` com dados de exemplo
 - [x] Rodar a primeira migration e o seed
 
 **Decisões técnicas:**
@@ -55,16 +55,16 @@ Plano em 9 sprints (1 semana cada), do banco de dados ao módulo de IA. Os itens
 - [x] Telas de login/registro consumindo a API (com auto-login após registro)
 - [x] `proxy.ts` protegendo rotas autenticadas (convenção nova do Next 16, ex-`middleware.ts`)
 - [x] Rewrite `/api/*` → backend: sem CORS e cookie funcionando naturalmente
-- [x] Layout base com a sidebar do [protótipo Figma](https://www.figma.com/design/G153Uuy3Gwt3I0SNarOn6f)
+- [x] Layout base com a sidebar de navegação
 - [x] Dashboard inicial com dados reais: cards de patrimônio/lucro/proventos e barras de alocação por classe
 
-## 📊 Sprint 6 — Dashboard e Carteira (telas 1 e 2 do Figma)
+## 📊 Sprint 6 — Dashboard e Carteira
 
 - [x] Recharts: rosca (alocação por classe) e barras (proventos mês a mês); exposição setorial fica para quando houver dados de setor por posição
 - [x] Tabela de ativos completa: preço médio, resultado colorido, % da carteira com barras
 - [x] Identidade visual "editorial financeiro": Space Grotesk + JetBrains Mono (números tabulares), navy/papel/esmeralda, animações de entrada escalonadas, logomarca SVG
 
-## 🧮 Sprint 7 — Calculadora de Aportes (tela 3 do Figma)
+## 🧮 Sprint 7 — Calculadora de Aportes
 
 - [x] Formulário de simulação + resultado com prioridades e comparação antes/depois (barras com marcador de meta)
 - [x] Editor de metas de alocação na própria tela (soma validada, adicionar/editar)
