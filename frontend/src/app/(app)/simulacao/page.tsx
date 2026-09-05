@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, ApiError } from "@/lib/api";
 import { brl, coresClasse } from "@/lib/format";
+import { somarMetas } from "@/lib/goals";
 import { normalizarTicker, useBuscaTicker } from "@/lib/use-busca-ticker";
 
 type Metas = {
@@ -56,26 +57,33 @@ export default function SimulacaoPage() {
   }, []);
 
   useEffect(() => {
+    // Carga inicial: setErro aqui trata a falha do fetch de metas no mount,
+    // não é um efeito colateral de render — supressão intencional e escopada.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     carregar().catch(() => setErro("Falha ao carregar as metas"));
   }, [carregar]);
 
-  const somaEditada = Object.values(edicao).reduce((s, v) => s + (Number(v) || 0), 0);
+  const somaEditada = somarMetas(edicao);
   const jaTemMeta = metas?.metas.some((m) => m.ticker === novoTicker) ?? false;
 
   async function salvarMetas() {
-    if (!metas) return;
+    if (!metas || metas.metas.length === 0) return;
     setErroMetas(null);
     setSalvando(true);
     try {
-      for (const meta of metas.metas) {
-        const novo = Number(edicao[meta.ticker]);
-        if (novo !== meta.targetWeight) {
-          await api("/goals", {
-            method: "PUT",
-            body: JSON.stringify({ ticker: meta.ticker, targetWeight: novo }),
-          });
-        }
-      }
+      // Achado 11 da auditoria: uma chamada só, em vez de uma PUT /goals por
+      // meta alterada — o laço anterior recusava o estado intermediário ao
+      // trocar duas metas entre si (ex: 60%/10% → 10%/60%, que passa por
+      // 120% no meio do caminho).
+      await api("/goals/batch", {
+        method: "PUT",
+        body: JSON.stringify({
+          metas: Object.entries(edicao).map(([ticker, valor]) => ({
+            ticker,
+            targetWeight: Number(valor),
+          })),
+        }),
+      });
       await carregar();
     } catch (err) {
       setErroMetas(err instanceof ApiError ? err.message : "Falha ao salvar as metas");

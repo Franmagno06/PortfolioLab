@@ -1,7 +1,23 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { extractText } from "unpdf";
+import { analisarRelatorio } from "./gemini.js";
 import type { AppError } from "../../shared/errors/AppError.js";
 import { reportsRepository } from "./reports.repository.js";
 import { COTA_RELATORIOS, reportsService } from "./reports.service.js";
+
+vi.mock("unpdf", () => ({
+  getDocumentProxy: vi.fn().mockResolvedValue({}),
+  extractText: vi.fn().mockResolvedValue({ text: "" }),
+}));
+
+vi.mock("./gemini.js", () => ({
+  analisarRelatorio: vi.fn().mockResolvedValue({
+    tipoDocumento: "Relatório de teste",
+    resumoExecutivo: ["ponto 1"],
+    alertas: [],
+    indicadores: [],
+  }),
+}));
 
 // Achado 8: além do teto por requisição, uma cota de relatórios ARMAZENADOS por
 // usuário. A cota é uma comparação de inteiro — não precisa de banco para ser
@@ -59,5 +75,51 @@ describe("cota de relatórios por usuário", () => {
     await statusDe("usuario-especifico");
 
     expect(espia).toHaveBeenCalledWith("usuario-especifico");
+  });
+});
+
+describe("extração de texto do PDF", () => {
+  it("recusa PDF sem texto extraível com 400", async () => {
+    comRelatoriosGuardados(0);
+    vi.mocked(extractText).mockResolvedValueOnce({ text: "   " } as Awaited<
+      ReturnType<typeof extractText>
+    >);
+
+    expect(await statusDe("usuario-qualquer")).toBe(400);
+  });
+
+  it("recusa texto maior que o limite de caracteres com 400", async () => {
+    comRelatoriosGuardados(0);
+    vi.mocked(extractText).mockResolvedValueOnce({ text: "a".repeat(2_000_001) } as Awaited<
+      ReturnType<typeof extractText>
+    >);
+
+    expect(await statusDe("usuario-qualquer")).toBe(400);
+  });
+
+  it("envia o texto extraído para a IA e persiste a análise", async () => {
+    comRelatoriosGuardados(0);
+    vi.mocked(extractText).mockResolvedValueOnce({ text: "conteúdo do relatório" } as Awaited<
+      ReturnType<typeof extractText>
+    >);
+    const criar = vi.spyOn(reportsRepository, "create").mockResolvedValue({
+      id: "relatorio-1",
+      userId: "usuario-qualquer",
+      fileName: arquivoQualquer.originalname,
+      extractedText: "conteúdo do relatório",
+      analysis: {},
+      createdAt: new Date(),
+    } as Awaited<ReturnType<typeof reportsRepository.create>>);
+
+    const resultado = await reportsService.analisar("usuario-qualquer", arquivoQualquer);
+
+    expect(vi.mocked(analisarRelatorio)).toHaveBeenCalledWith("conteúdo do relatório");
+    expect(criar).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: "usuario-qualquer",
+        extractedText: "conteúdo do relatório",
+      }),
+    );
+    expect(resultado.analysis.tipoDocumento).toBe("Relatório de teste");
   });
 });

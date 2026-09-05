@@ -1,8 +1,25 @@
 import { randomUUID } from "node:crypto";
 import request from "supertest";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { app } from "../../app.js";
 import { prisma } from "../../database/prisma.js";
+
+// Provider fixo: mesmo molde de goals.api.test.ts/dividends.api.test.ts — evita bater na B3 real.
+vi.mock("../quotes/quotes.provider.js", () => ({
+  buscarCotacao: async (ticker: string) => {
+    const simbolo = ticker.toUpperCase();
+    if (simbolo === "NAOEXISTE11") return null; // ticker que não existe na B3
+    return { ticker: simbolo, nome: "Ativo de Teste S.A.", preco: 20, tipo: "ACAO" };
+  },
+  buscarCotacoes: async (tickers: string[]) =>
+    new Map(
+      tickers.map((t) => [
+        t.toUpperCase(),
+        { ticker: t.toUpperCase(), nome: "Ativo de Teste S.A.", preco: 20, tipo: "ACAO" },
+      ]),
+    ),
+  classificar: () => "ACAO",
+}));
 
 // Testes de INTEGRAÇÃO da carteira: fluxo completo
 // registrar → logar → comprar → consultar posição → resumo
@@ -118,5 +135,62 @@ describe("Fluxo: comprar → posição → resumo", () => {
     expect(res.body.alocacaoPorClasse).toHaveLength(1);
     expect(res.body.alocacaoPorClasse[0].classe).toBe("ACAO");
     expect(res.body.alocacaoPorClasse[0].percentual).toBe(100);
+  });
+
+  it("totalTaxas soma as taxas de compra e venda de todo o histórico", async () => {
+    // As duas compras do início do arquivo usam fee padrão (0). Esta compra e
+    // esta venda somam R$4,00 em taxa — a venda especialmente, porque hoje o
+    // service descarta a taxa da venda (achado 10 da auditoria).
+    await request(app).post("/transactions").set("Cookie", cookies).send({
+      ticker: "PETR4",
+      kind: "COMPRA",
+      quantity: 5,
+      unitPrice: 30,
+      fee: 2.5,
+      executedAt: "2026-05-01",
+    });
+    await request(app).post("/transactions").set("Cookie", cookies).send({
+      ticker: "PETR4",
+      kind: "VENDA",
+      quantity: 5,
+      unitPrice: 32,
+      fee: 1.5,
+      executedAt: "2026-06-01",
+    });
+
+    const res = await request(app).get("/portfolio/summary").set("Cookie", cookies);
+    expect(res.status).toBe(200);
+    expect(res.body.totalTaxas).toBe(4);
+  });
+
+  it("totalTaxas conta a taxa mesmo de um ativo já totalmente vendido", async () => {
+    const compra = await request(app).post("/transactions").set("Cookie", cookies).send({
+      ticker: "VALE3",
+      kind: "COMPRA",
+      quantity: 10,
+      unitPrice: 60,
+      fee: 3,
+      executedAt: "2026-07-01",
+    });
+    expect(compra.status).toBe(201);
+
+    const venda = await request(app).post("/transactions").set("Cookie", cookies).send({
+      ticker: "VALE3",
+      kind: "VENDA",
+      quantity: 10,
+      unitPrice: 62,
+      fee: 2,
+      executedAt: "2026-07-02",
+    });
+    expect(venda.status).toBe(201);
+
+    const carteira = await request(app).get("/portfolio").set("Cookie", cookies);
+    expect(carteira.body.some((a: { ticker: string }) => a.ticker === "VALE3")).toBe(false);
+
+    const res = await request(app).get("/portfolio/summary").set("Cookie", cookies);
+    expect(res.status).toBe(200);
+    // 4 (do teste anterior) + 3 + 2 = 9 — a taxa da VALE3 conta mesmo o
+    // ativo tendo sumido da carteira (posição zerada)
+    expect(res.body.totalTaxas).toBe(9);
   });
 });

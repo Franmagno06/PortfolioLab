@@ -121,6 +121,18 @@ export const portfolioService = {
     return posicoes;
   },
 
+  /**
+   * Soma de TODAS as taxas pagas pelo usuário — compra e venda, inclusive de
+   * ativos já totalmente vendidos (que não aparecem em posicoesPorAtivo,
+   * porque a posição zerada some da carteira, mas a taxa foi paga do mesmo
+   * jeito). Por isso não usa calcularPosicao nem o agrupamento por ativo: é
+   * uma soma plana sobre o histórico inteiro.
+   */
+  async totalTaxasPagas(userId: string): Promise<Prisma.Decimal> {
+    const transacoes = await portfolioRepository.transacoesComAtivo(userId);
+    return transacoes.reduce((soma, t) => soma.plus(t.fee), ZERO);
+  },
+
   // Posição consolidada com valores de mercado, para a tela de Carteira
   async getCarteira(userId: string) {
     const posicoes = await this.posicoesPorAtivo(userId);
@@ -159,9 +171,10 @@ export const portfolioService = {
 
   // Resumo do patrimônio: totais e alocação percentual por classe
   async getSummary(userId: string) {
-    const [ativos, proventos] = await Promise.all([
+    const [ativos, proventos, taxasPagas] = await Promise.all([
       this.getCarteira(userId),
       portfolioRepository.totalProventos(userId),
+      this.totalTaxasPagas(userId),
     ]);
 
     const patrimonioTotal = ativos.reduce((soma, a) => soma + a.valorAtual, 0);
@@ -190,6 +203,7 @@ export const portfolioService = {
       lucroPct:
         totalAplicado === 0 ? 0 : Number(((lucroTotal / totalAplicado) * 100).toFixed(2)),
       totalProventos: proventos ? em2Casas(proventos) : 0,
+      totalTaxas: em2Casas(taxasPagas),
       quantidadeAtivos: ativos.length,
       alocacaoPorClasse,
     };

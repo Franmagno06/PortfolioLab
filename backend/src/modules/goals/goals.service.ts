@@ -1,7 +1,7 @@
 import { AppError } from "../../shared/errors/AppError.js";
 import { assetsRepository } from "../assets/assets.repository.js";
 import { quotesService } from "../quotes/quotes.service.js";
-import type { UpsertGoalInput } from "./goals.schemas.js";
+import type { BatchGoalsInput, UpsertGoalInput } from "./goals.schemas.js";
 import { goalsRepository } from "./goals.repository.js";
 
 export const goalsService = {
@@ -48,6 +48,34 @@ export const goalsService = {
     }
 
     await goalsRepository.upsert(userId, asset.id, input.targetWeight);
+    return this.list(userId);
+  },
+
+  async batchUpsert(userId: string, input: BatchGoalsInput) {
+    const somaTotal = input.metas.reduce((soma, m) => soma + m.targetWeight, 0);
+    if (somaTotal > 100) {
+      throw new AppError(
+        `A soma das metas passaria de 100% (ficaria em ${somaTotal.toFixed(2)}%)`,
+        400,
+      );
+    }
+
+    // Resolve todos os tickers ANTES da transação: buscarOuCadastrar pode
+    // bater na B3, e isso não deve acontecer com uma transação de banco aberta.
+    const resolvidas = await Promise.all(
+      input.metas.map(async (meta) => {
+        const asset = await quotesService.buscarOuCadastrar(meta.ticker);
+        if (!asset) {
+          throw new AppError(
+            `Ativo ${meta.ticker} não encontrado na B3. Confira o ticker (ex: PETR4, MXRF11).`,
+            404,
+          );
+        }
+        return { assetId: asset.id, targetWeight: meta.targetWeight };
+      }),
+    );
+
+    await goalsRepository.replaceAll(userId, resolvidas);
     return this.list(userId);
   },
 

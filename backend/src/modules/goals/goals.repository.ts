@@ -31,6 +31,21 @@ export const goalsRepository = {
     });
   },
 
+  // Substitui o conjunto INTEIRO de metas do usuário numa transação: apaga
+  // tudo e recria. É o que torna "trocar A de 60% para 10% e B de 10% para
+  // 60%" atômico — quem lê no meio do caminho nunca vê os 120% intermediários,
+  // porque o array de $transaction só confirma se todas as operações passarem.
+  replaceAll(userId: string, metas: { assetId: string; targetWeight: number }[]) {
+    return prisma.$transaction([
+      prisma.assetGoal.deleteMany({ where: { userId } }),
+      ...metas.map((m) =>
+        prisma.assetGoal.create({
+          data: { userId, assetId: m.assetId, targetWeight: m.targetWeight },
+        }),
+      ),
+    ]);
+  },
+
   deleteByUserAndAsset(userId: string, assetId: string) {
     return prisma.assetGoal.deleteMany({ where: { userId, assetId } });
   },

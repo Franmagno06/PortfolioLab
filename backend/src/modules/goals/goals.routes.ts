@@ -5,4 +5,5 @@ export const goalsRoutes = Router();
 
 goalsRoutes.get("/", goalsController.list);
 goalsRoutes.put("/", goalsController.upsert);
+goalsRoutes.put("/batch", goalsController.batchUpsert);
 goalsRoutes.delete("/:ticker", goalsController.remove);
