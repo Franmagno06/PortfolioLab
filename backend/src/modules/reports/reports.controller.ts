@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import { AppError } from "../../shared/errors/AppError.js";
 import { askSchema } from "./reports.schemas.js";
 import { reportsService } from "./reports.service.js";
+import { paginacaoSchema } from "../../shared/paginacao.js";
 
 export const reportsController = {
   async create(req: Request, res: Response) {
@@ -13,7 +14,8 @@ export const reportsController = {
   },
 
   async list(req: Request, res: Response) {
-    res.json(await reportsService.list(req.userId as string));
+    const pagina = paginacaoSchema.parse(req.query);
+    res.json(await reportsService.list(req.userId as string, pagina));
   },
 
   async ask(req: Request, res: Response) {

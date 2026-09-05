@@ -33,7 +33,7 @@ gerenciais por IA.
   desconhecido, o ativo é criado a partir da cotação real, com a classe
   deduzida do nome. Não há lista fixa: qualquer ação ou FII da B3 serve.
 - **Arquitetura em camadas** (Routes → Controller → Service → Repository) com
-  TypeScript estrito e 172 testes automatizados (155 no backend, 17 no
+  TypeScript estrito e 186 testes automatizados (169 no backend, 17 no
   frontend), mais um percurso ponta a ponta em Playwright.
 
 ## Stack
@@ -127,10 +127,10 @@ Rotas com 🔒 exigem login (cookie HttpOnly).
 | GET 🔒 | `/assets` · `/assets/:ticker` | Ativos já cadastrados / busca por ticker |
 | GET 🔒 | `/quotes/:ticker` | Cotação ao vivo na B3 (nome, preço e classe) sem cadastrar |
 | POST 🔒 | `/transactions` | Registrar compra/venda (`ticker`, `kind`, `quantity`, `unitPrice`, `fee?`, `executedAt`) |
-| GET 🔒 | `/transactions` | Histórico de transações |
+| GET 🔒 | `/transactions` | Histórico de transações (paginado) |
 | DELETE 🔒 | `/transactions/:id` | Apagar transação |
 | POST 🔒 | `/dividends` | Registrar provento (`ticker`, `amount`, `paidAt`) |
-| GET 🔒 | `/dividends` | Histórico de proventos |
+| GET 🔒 | `/dividends` | Histórico de proventos (paginado) |
 | DELETE 🔒 | `/dividends/:id` | Apagar provento |
 | GET 🔒 | `/portfolio` | Posição consolidada por ativo |
 | GET 🔒 | `/portfolio/summary` | Patrimônio, lucro e alocação por classe |
@@ -140,15 +140,20 @@ Rotas com 🔒 exigem login (cookie HttpOnly).
 | POST 🔒 | `/rebalance/simulate` | Simular aporte (`amount`) |
 | GET 🔒 | `/news` | Notícias, separando as que citam ativos da carteira |
 | POST 🔒 | `/reports` | Enviar PDF (campo `file`) → análise por IA |
-| GET 🔒 | `/reports` | Relatórios já analisados |
+| GET 🔒 | `/reports` | Relatórios já analisados (paginado) |
 | POST 🔒 | `/reports/:id/ask` | Chat "Pergunte ao Relatório" (`question`, `history?`) |
 | DELETE 🔒 | `/reports/:id` | Apagar relatório |
+
+As três rotas marcadas como paginadas devolvem
+`{ "itens": [...], "proximoCursor": "<id>" | null }` em vez de um array. Aceitam
+`?limite=` (1 a 100, padrão 50) e `?cursor=`, que é o `proximoCursor` da página
+anterior. `proximoCursor` nulo significa que acabou.
 
 ## Testes
 
 ```bash
 cd backend
-npm test          # 155 testes
+npm test          # 169 testes
 npm run typecheck
 ```
 

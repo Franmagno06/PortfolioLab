@@ -4,6 +4,7 @@ import { calcularPosicao } from "../portfolio/portfolio.service.js";
 import { quotesService } from "../quotes/quotes.service.js";
 import type { CreateTransactionInput } from "./transactions.schemas.js";
 import { transactionsRepository } from "./transactions.repository.js";
+import { montarPagina, type PaginacaoInput } from "../../shared/paginacao.js";
 
 // Maior valor de um BIGINT no Postgres: nenhuma linha gravada pode ter seq
 // maior que este, então a transação ainda-não-persistida ordena por último.
@@ -76,8 +77,14 @@ export const transactionsService = {
     });
   },
 
-  list(userId: string) {
-    return transactionsRepository.findManyByUser(userId);
+  async list(userId: string, { limite, cursor }: PaginacaoInput) {
+    // busca uma linha a mais do que o cliente pediu: é ela que revela se há
+    // página seguinte, sem custar um count() sobre o extrato inteiro
+    const linhas = await transactionsRepository.findManyByUser(userId, {
+      take: limite + 1,
+      ...(cursor ? { cursor } : {}),
+    });
+    return montarPagina(linhas, limite);
   },
 
   async remove(userId: string, id: string) {

@@ -2,6 +2,7 @@ import { AppError } from "../../shared/errors/AppError.js";
 import { quotesService } from "../quotes/quotes.service.js";
 import type { CreateDividendInput } from "./dividends.schemas.js";
 import { dividendsRepository } from "./dividends.repository.js";
+import { montarPagina, type PaginacaoInput } from "../../shared/paginacao.js";
 
 export const dividendsService = {
   async create(userId: string, input: CreateDividendInput) {
@@ -22,8 +23,12 @@ export const dividendsService = {
     });
   },
 
-  list(userId: string) {
-    return dividendsRepository.findManyByUser(userId);
+  async list(userId: string, { limite, cursor }: PaginacaoInput) {
+    const linhas = await dividendsRepository.findManyByUser(userId, {
+      take: limite + 1,
+      ...(cursor ? { cursor } : {}),
+    });
+    return montarPagina(linhas, limite);
   },
 
   async remove(userId: string, id: string) {

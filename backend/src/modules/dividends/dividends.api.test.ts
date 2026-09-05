@@ -86,20 +86,20 @@ describe("GET /dividends — isolamento por usuário", () => {
   it("cada usuário só vê os próprios proventos", async () => {
     const deA = await request(app).get("/dividends").set("Cookie", cookiesA);
     expect(deA.status).toBe(200);
-    expect(deA.body.some((p: { asset: { ticker: string } }) => p.asset.ticker === TICKER)).toBe(
+    expect(deA.body.itens.some((p: { asset: { ticker: string } }) => p.asset.ticker === TICKER)).toBe(
       true,
     );
 
     const deB = await request(app).get("/dividends").set("Cookie", cookiesB);
     expect(deB.status).toBe(200);
-    expect(deB.body).toHaveLength(0);
+    expect(deB.body.itens).toHaveLength(0);
   });
 });
 
 describe("DELETE /dividends/:id — isolamento por usuário", () => {
   it("outro usuário não consegue apagar (404), e o provento continua existindo", async () => {
     const lista = await request(app).get("/dividends").set("Cookie", cookiesA);
-    const id = lista.body[0].id as string;
+    const id = lista.body.itens[0].id as string;
 
     const tentativa = await request(app).delete(`/dividends/${id}`).set("Cookie", cookiesB);
     expect(tentativa.status).toBe(404);
@@ -110,12 +110,12 @@ describe("DELETE /dividends/:id — isolamento por usuário", () => {
 
   it("o dono consegue apagar o próprio provento", async () => {
     const lista = await request(app).get("/dividends").set("Cookie", cookiesA);
-    const id = lista.body[0].id as string;
+    const id = lista.body.itens[0].id as string;
 
     const res = await request(app).delete(`/dividends/${id}`).set("Cookie", cookiesA);
     expect(res.status).toBe(204);
 
     const depois = await request(app).get("/dividends").set("Cookie", cookiesA);
-    expect(depois.body).toHaveLength(0);
+    expect(depois.body.itens).toHaveLength(0);
   });
 });

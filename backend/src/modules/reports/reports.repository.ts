@@ -1,5 +1,6 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "../../database/prisma.js";
+import { argumentosDeCursor } from "../../shared/paginacao.js";
 
 export const reportsRepository = {
   create(data: {
@@ -12,11 +13,15 @@ export const reportsRepository = {
   },
 
   // lista sem o extractedText (pode ter centenas de KB por relatório)
-  findManyByUser(userId: string) {
+  findManyByUser(userId: string, pagina: { take: number; cursor?: string }) {
     return prisma.report.findMany({
       where: { userId },
       select: { id: true, fileName: true, analysis: true, createdAt: true },
-      orderBy: { createdAt: "desc" },
+      // o id desempata relatórios enviados no mesmo instante, pelo mesmo motivo
+      // que em dividends: o cursor exige ordem total
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      take: pagina.take,
+      ...argumentosDeCursor(pagina.cursor),
     });
   },
 

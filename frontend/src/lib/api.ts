@@ -24,6 +24,10 @@ export async function apiUpload<T>(path: string, form: FormData): Promise<T> {
   return body as T;
 }
 
+// As listas paginadas do backend (transactions, dividends, reports) devolvem
+// este envelope em vez de um array. proximoCursor null significa última página.
+export type Pagina<T> = { itens: T[]; proximoCursor: string | null };
+
 export async function api<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`/api${path}`, {
     ...options,

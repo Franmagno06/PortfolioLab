@@ -1,5 +1,6 @@
 import type { TransactionKind } from "@prisma/client";
 import { prisma } from "../../database/prisma.js";
+import { argumentosDeCursor } from "../../shared/paginacao.js";
 
 // Tudo o que a transação expõe pela API. seq não entra: existe só para ordenar
 // operações da mesma data dentro de calcularPosicao.
@@ -29,7 +30,7 @@ export const transactionsRepository = {
     return prisma.transaction.create({ data, select: CAMPOS_PUBLICOS });
   },
 
-  findManyByUser(userId: string) {
+  findManyByUser(userId: string, pagina: { take: number; cursor?: string }) {
     return prisma.transaction.findMany({
       where: { userId },
       select: {
@@ -39,6 +40,8 @@ export const transactionsRepository = {
       // o extrato mostra do mais recente para o mais antigo; dentro do mesmo dia,
       // o inverso exato da ordem em que o preço médio foi calculado
       orderBy: [{ executedAt: "desc" }, { seq: "desc" }],
+      take: pagina.take,
+      ...argumentosDeCursor(pagina.cursor),
     });
   },
 

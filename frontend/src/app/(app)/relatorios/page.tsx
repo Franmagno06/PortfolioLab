@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { api, ApiError, apiUpload } from "@/lib/api";
+import { api, ApiError, apiUpload, type Pagina } from "@/lib/api";
 
 type Alerta = { titulo: string; severidade: "info" | "atencao" | "critico"; detalhe: string };
 
@@ -38,10 +38,10 @@ export default function RelatoriosPage() {
   const inputArquivo = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    api<Relatorio[]>("/reports")
-      .then((lista) => {
-        setRelatorios(lista);
-        if (lista.length > 0) setSelecionado(lista[0] ?? null);
+    api<Pagina<Relatorio>>("/reports")
+      .then(({ itens }) => {
+        setRelatorios(itens);
+        if (itens.length > 0) setSelecionado(itens[0] ?? null);
       })
       .catch(() => setRelatorios([]));
   }, []);

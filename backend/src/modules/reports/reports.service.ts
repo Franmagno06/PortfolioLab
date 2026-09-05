@@ -3,6 +3,7 @@ import { AppError } from "../../shared/errors/AppError.js";
 import { analisarRelatorio, perguntarAoRelatorio, type Analise } from "./gemini.js";
 import type { AskInput } from "./reports.schemas.js";
 import { reportsRepository } from "./reports.repository.js";
+import { montarPagina, type PaginacaoInput } from "../../shared/paginacao.js";
 
 // Releases trimestrais de banco passam de 300 páginas (o do Banco do Brasil
 // tem 760 mil caracteres), então o limite precisa acomodar documentos grandes.
@@ -67,8 +68,12 @@ export const reportsService = {
     };
   },
 
-  list(userId: string) {
-    return reportsRepository.findManyByUser(userId);
+  async list(userId: string, { limite, cursor }: PaginacaoInput) {
+    const linhas = await reportsRepository.findManyByUser(userId, {
+      take: limite + 1,
+      ...(cursor ? { cursor } : {}),
+    });
+    return montarPagina(linhas, limite);
   },
 
   async ask(userId: string, reportId: string, input: AskInput) {
