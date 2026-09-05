@@ -6,7 +6,7 @@ type TransacaoComAtivo = Awaited<
   ReturnType<typeof portfolioRepository.transacoesComAtivo>
 >[number];
 
-type TransacaoParaCalculo = {
+export type TransacaoParaCalculo = {
   /** Autoincrement do banco: a ordem de cadastro. Desempata a mesma data. */
   seq: bigint;
   kind: "COMPRA" | "VENDA";

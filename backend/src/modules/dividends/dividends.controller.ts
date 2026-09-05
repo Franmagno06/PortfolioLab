@@ -10,6 +10,10 @@ export const dividendsController = {
     res.status(201).json(provento);
   },
 
+  async sync(req: Request, res: Response) {
+    res.json(await dividendsService.sincronizar(req.userId as string));
+  },
+
   async list(req: Request, res: Response) {
     const pagina = paginacaoSchema.parse(req.query);
     res.json(await dividendsService.list(req.userId as string, pagina));

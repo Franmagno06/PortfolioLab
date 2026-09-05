@@ -33,7 +33,7 @@ gerenciais por IA.
   desconhecido, o ativo é criado a partir da cotação real, com a classe
   deduzida do nome. Não há lista fixa: qualquer ação ou FII da B3 serve.
 - **Arquitetura em camadas** (Routes → Controller → Service → Repository) com
-  TypeScript estrito e 186 testes automatizados (169 no backend, 17 no
+  TypeScript estrito e 214 testes automatizados (197 no backend, 17 no
   frontend), mais um percurso ponta a ponta em Playwright.
 
 ## Stack
@@ -131,14 +131,15 @@ Rotas com 🔒 exigem login (cookie HttpOnly).
 | DELETE 🔒 | `/transactions/:id` | Apagar transação |
 | POST 🔒 | `/dividends` | Registrar provento (`ticker`, `amount`, `paidAt`) |
 | GET 🔒 | `/dividends` | Histórico de proventos (paginado) |
+| POST 🔒 | `/dividends/sync` | Importar da B3 os proventos dos ativos da carteira |
 | DELETE 🔒 | `/dividends/:id` | Apagar provento |
 | GET 🔒 | `/portfolio` | Posição consolidada por ativo |
 | GET 🔒 | `/portfolio/summary` | Patrimônio, lucro e alocação por classe |
 | GET 🔒 | `/goals` | Metas de alocação e soma total |
 | PUT 🔒 | `/goals` | Criar/atualizar meta (`ticker`, `targetWeight`) — soma ≤ 100% |
 | DELETE 🔒 | `/goals/:ticker` | Remover meta |
-| POST 🔒 | `/rebalance/simulate` | Simular aporte (`amount`) |
-| GET 🔒 | `/news` | Notícias, separando as que citam ativos da carteira |
+| POST 🔒 | `/rebalance/simulate` | Simular aporte (`amount`) — só os ativos com meta entram na conta |
+| GET 🔒 | `/news` | Notícias, separando as que citam ativos da carteira (busca no título e no resumo) |
 | POST 🔒 | `/reports` | Enviar PDF (campo `file`) → análise por IA |
 | GET 🔒 | `/reports` | Relatórios já analisados (paginado) |
 | POST 🔒 | `/reports/:id/ask` | Chat "Pergunte ao Relatório" (`question`, `history?`) |
@@ -153,11 +154,47 @@ anterior. `proximoCursor` nulo significa que acabou.
 
 ```bash
 cd backend
-npm test          # 169 testes
+npm test          # 197 testes
 npm run typecheck
 ```
 
+## Conta de demonstração
+
+Uma carteira pronta para explorar o produto sem cadastrar nada à mão:
+
+```bash
+cd backend
+npm run db:seed:demo    # exige DATABASE_URL local — recusa o Supabase
+```
+
+Entre com `carteira@portfoliolab.dev` / `demo123456`. São 13 ativos (8 ações e
+5 FII), 23 transações espalhadas de 2024 a 2026 e metas somando 100%.
+
+O e-mail é diferente do `demo@portfoliolab.dev` que o `npm run db:seed` cria de
+propósito: os dois seeds convivem no mesmo banco, e reusar o endereço faria um
+apagar a conta do outro sem aviso.
+
+Os tickers são reais e a escolha deles é pública: as ações são as que a imprensa
+financeira atribui à carteira de Luiz Barsi, e os FII estão entre os mais
+líquidos do IFIX. **As quantidades, datas e preços de compra são inventados** —
+ninguém publica a posição de outra pessoa. Nada ali é recomendação de
+investimento.
+
+Diferente de `npm run db:seed`, este script apaga apenas a conta de demonstração
+e recria — o resto do banco fica intacto.
+
 ## Problemas comuns
+
+**`EPERM` ao rodar `npx prisma generate`**
+
+O `npm run dev` mantém aberto o `query_engine-windows.dll.node`, e o Windows não
+deixa substituir arquivo em uso. Pare o servidor antes de gerar o client. Para
+descobrir qual processo o segura:
+
+```powershell
+Get-Process node | Where-Object { $_.Modules.ModuleName -like '*query_engine*' }
+```
+
 
 **"Erro interno do servidor" no login**
 

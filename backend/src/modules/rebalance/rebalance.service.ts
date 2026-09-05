@@ -174,12 +174,32 @@ export const rebalanceService = {
     const precoDe = (ticker: string) => precos.get(ticker) ?? new Prisma.Decimal(0);
 
     const quantidadePorTicker = new Map(posicoes.map((p) => [p.asset.ticker, p.quantidade]));
+    const tickersComMeta = new Set(metas.map((m) => m.asset.ticker));
 
-    // patrimônio total inclui TODOS os ativos, mesmo os sem meta
-    const patrimonioAtual = posicoes.reduce(
-      (soma, p) => soma.plus(p.quantidade.times(precoDe(p.asset.ticker))),
+    // Só o que tem meta entra no denominador. Antes o patrimônio somava TODOS
+    // os ativos: com metas em parte da carteira, o alvo de cada ativo era
+    // calculado sobre um bolo que ele nunca poderia ocupar, e o déficit saía
+    // inflado. Você rebalanceia a parte da carteira que decidiu gerenciar.
+    const patrimonioConsiderado = posicoes.reduce(
+      (soma, p) =>
+        tickersComMeta.has(p.asset.ticker)
+          ? soma.plus(p.quantidade.times(precoDe(p.asset.ticker)))
+          : soma,
       new Prisma.Decimal(0),
     );
+
+    // O que ficou de fora não some em silêncio: a tela precisa dizer quanto
+    // dinheiro a simulação não está considerando, e de quais ativos.
+    const fora = posicoes
+      .filter((p) => !tickersComMeta.has(p.asset.ticker))
+      .map((p) => ({
+        ticker: p.asset.ticker,
+        valor: em2Casas(p.quantidade.times(precoDe(p.asset.ticker))),
+      }))
+      .filter((a) => a.valor > 0)
+      .sort((a, b) => b.valor - a.valor);
+
+    const somaMetas = metas.reduce((soma, m) => soma + m.targetWeight.toNumber(), 0);
 
     const candidatos: CandidatoAporte[] = metas.map((m) => {
       const preco = precoDe(m.asset.ticker);
@@ -194,6 +214,14 @@ export const rebalanceService = {
       };
     });
 
-    return calcularAporte(candidatos, valorAporte, em2Casas(patrimonioAtual));
+    return {
+      ...calcularAporte(candidatos, valorAporte, em2Casas(patrimonioConsiderado)),
+      patrimonioConsiderado: em2Casas(patrimonioConsiderado),
+      somaMetas,
+      foraDaSimulacao: {
+        valor: fora.reduce((soma, a) => soma + a.valor, 0),
+        ativos: fora,
+      },
+    };
   },
 };

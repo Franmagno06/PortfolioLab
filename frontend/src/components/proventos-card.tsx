@@ -7,7 +7,9 @@ import { brl } from "@/lib/format";
 type Provento = {
   id: string;
   amount: string; // Decimal chega como string no JSON
+  unitAmount: string | null;
   paidAt: string;
+  source: "MANUAL" | "PROVEDOR";
   asset: { ticker: string; name: string };
 };
 
@@ -23,6 +25,8 @@ export function ProventosCard({ ativos }: Props) {
   const [paidAt, setPaidAt] = useState(new Date().toISOString().slice(0, 10));
   const [erro, setErro] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
+  const [sincronizando, setSincronizando] = useState(false);
+  const [manual, setManual] = useState(false);
 
   const carregar = useCallback(() => {
     api<Pagina<Provento>>("/dividends")
@@ -31,6 +35,21 @@ export function ProventosCard({ ativos }: Props) {
   }, []);
 
   useEffect(carregar, [carregar]);
+
+  // A importação é POST explícito, não efeito do GET: o backend recusa gravar
+  // no meio de uma leitura. Quem quiser proventos novos pede.
+  async function sincronizar() {
+    setErro(null);
+    setSincronizando(true);
+    try {
+      await api("/dividends/sync", { method: "POST" });
+      carregar();
+    } catch (err) {
+      setErro(err instanceof ApiError ? err.message : "Falha ao buscar os proventos");
+    } finally {
+      setSincronizando(false);
+    }
+  }
 
   async function registrar(e: React.FormEvent) {
     e.preventDefault();
@@ -54,15 +73,41 @@ export function ProventosCard({ ativos }: Props) {
 
   return (
     <section className="reveal reveal-3 rounded-2xl border border-[--color-line] bg-white p-6">
-      <div className="flex items-baseline justify-between">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="font-semibold">Proventos</h2>
-        <span className="tnum font-mono text-sm font-semibold text-[#1e9e63]">
-          {brl(total)} recebidos
-        </span>
+        <div className="flex items-center gap-3">
+          <span className="tnum font-mono text-sm font-semibold text-[#1e9e63]">
+            {brl(total)} recebidos
+          </span>
+          <button
+            type="button"
+            onClick={sincronizar}
+            disabled={sincronizando}
+            className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold transition hover:bg-slate-50 disabled:opacity-60"
+          >
+            {sincronizando ? "Buscando..." : "Buscar proventos"}
+          </button>
+        </div>
       </div>
+      <p className="mt-1 text-xs text-slate-500">
+        Os proventos dos seus ativos são importados da B3 e calculados sobre a quantidade
+        que você tinha na data-ex. Use o lançamento manual só para o que a fonte não cobre.
+      </p>
 
-      {/* registrar novo */}
-      <form onSubmit={registrar} className="mt-4 flex flex-wrap items-end gap-2">
+      {/* registrar novo — recolhido, porque o caminho normal é a importação */}
+      <button
+        type="button"
+        onClick={() => setManual((v) => !v)}
+        className="mt-4 text-xs font-semibold text-slate-500 underline-offset-2 hover:underline"
+      >
+        {manual ? "Esconder lançamento manual" : "Lançar um provento à mão"}
+      </button>
+
+      <form
+        onSubmit={registrar}
+        hidden={!manual}
+        className="mt-3 flex flex-wrap items-end gap-2"
+      >
         <label className="block min-w-40 flex-1">
           <span className="mb-1 block text-xs font-medium text-slate-600">Ativo</span>
           <select required value={ticker} onChange={(e) => setTicker(e.target.value)} className={`${campo} w-full`}>
@@ -119,7 +164,14 @@ export function ProventosCard({ ativos }: Props) {
           {proventos.slice(0, 8).map((p) => (
             <li key={p.id} className="flex items-center gap-3 py-2.5 text-sm">
               <span className="w-20 font-mono font-semibold">{p.asset.ticker}</span>
-              <span className="truncate text-slate-500">{p.asset.name}</span>
+              {p.source === "MANUAL" && (
+                <span className="rounded border border-slate-300 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                  manual
+                </span>
+              )}
+              <span className="truncate text-slate-500">
+                {p.unitAmount ? `${brl(Number(p.unitAmount))} por cota` : p.asset.name}
+              </span>
               <span className="tnum ml-auto font-mono font-semibold text-[#1e9e63]">
                 {brl(Number(p.amount))}
               </span>
