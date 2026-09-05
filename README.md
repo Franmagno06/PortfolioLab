@@ -33,7 +33,7 @@ gerenciais por IA.
   desconhecido, o ativo é criado a partir da cotação real, com a classe
   deduzida do nome. Não há lista fixa: qualquer ação ou FII da B3 serve.
 - **Arquitetura em camadas** (Routes → Controller → Service → Repository) com
-  TypeScript estrito e 198 testes automatizados (181 no backend, 17 no
+  TypeScript estrito e 203 testes automatizados (186 no backend, 17 no
   frontend), mais um percurso ponta a ponta em Playwright.
 
 ## Stack
@@ -138,7 +138,7 @@ Rotas com 🔒 exigem login (cookie HttpOnly).
 | GET 🔒 | `/goals` | Metas de alocação e soma total |
 | PUT 🔒 | `/goals` | Criar/atualizar meta (`ticker`, `targetWeight`) — soma ≤ 100% |
 | DELETE 🔒 | `/goals/:ticker` | Remover meta |
-| POST 🔒 | `/rebalance/simulate` | Simular aporte (`amount`) |
+| POST 🔒 | `/rebalance/simulate` | Simular aporte (`amount`) — só os ativos com meta entram na conta |
 | GET 🔒 | `/news` | Notícias, separando as que citam ativos da carteira |
 | POST 🔒 | `/reports` | Enviar PDF (campo `file`) → análise por IA |
 | GET 🔒 | `/reports` | Relatórios já analisados (paginado) |
@@ -154,7 +154,7 @@ anterior. `proximoCursor` nulo significa que acabou.
 
 ```bash
 cd backend
-npm test          # 181 testes
+npm test          # 186 testes
 npm run typecheck
 ```
 
@@ -184,6 +184,17 @@ Diferente de `npm run db:seed`, este script apaga apenas a conta de demonstraç�
 e recria — o resto do banco fica intacto.
 
 ## Problemas comuns
+
+**`EPERM` ao rodar `npx prisma generate`**
+
+O `npm run dev` mantém aberto o `query_engine-windows.dll.node`, e o Windows não
+deixa substituir arquivo em uso. Pare o servidor antes de gerar o client. Para
+descobrir qual processo o segura:
+
+```powershell
+Get-Process node | Where-Object { $_.Modules.ModuleName -like '*query_engine*' }
+```
+
 
 **"Erro interno do servidor" no login**
 

@@ -26,6 +26,10 @@ type Simulacao = {
   totalGasto: number;
   restante: number;
   alocacao: { ticker: string; alvoPct: number; atualPct: number; aposAportePct: number }[];
+  /** Patrimônio dos ativos COM meta — o denominador da simulação. */
+  patrimonioConsiderado: number;
+  somaMetas: number;
+  foraDaSimulacao: { valor: number; ativos: { ticker: string; valor: number }[] };
 };
 
 const campo =
@@ -333,8 +337,46 @@ export default function SimulacaoPage() {
                   <p className="tnum mt-1 font-mono text-lg font-bold">
                     {brl(resultado.patrimonioFinal)}
                   </p>
+                  <p className="mt-1 text-[11px] text-slate-400">só os ativos com meta</p>
                 </div>
               </div>
+
+              {resultado.somaMetas < 100 && (
+                <div className="reveal rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+                  <p className="font-semibold">
+                    Suas metas somam {resultado.somaMetas.toFixed(0)}%, não 100%
+                  </p>
+                  <p className="mt-1 text-xs leading-relaxed">
+                    O aporte só é distribuído até onde as metas alcançam. Os{" "}
+                    {(100 - resultado.somaMetas).toFixed(0)}% restantes não têm dono, e por
+                    isso parte do dinheiro pode sobrar mesmo havendo ativo abaixo da meta.
+                  </p>
+                </div>
+              )}
+
+              {resultado.foraDaSimulacao.valor > 0 && (
+                <div className="reveal rounded-2xl border border-[--color-line] bg-white p-5 text-sm">
+                  <p className="font-semibold">
+                    {brl(resultado.foraDaSimulacao.valor)} fora desta simulação
+                  </p>
+                  <p className="mt-1 text-xs leading-relaxed text-slate-500">
+                    Estes ativos estão na sua carteira mas não têm meta, então não entram
+                    nem como destino do aporte nem no cálculo dos percentuais. Cadastre uma
+                    meta para incluí-los.
+                  </p>
+                  <ul className="mt-3 flex flex-wrap gap-2">
+                    {resultado.foraDaSimulacao.ativos.map((a) => (
+                      <li
+                        key={a.ticker}
+                        className="rounded-lg border border-[--color-line] px-2.5 py-1 text-xs"
+                      >
+                        <span className="font-mono font-semibold">{a.ticker}</span>{" "}
+                        <span className="tnum text-slate-500">{brl(a.valor)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
 
               <section className="reveal reveal-2 rounded-2xl border border-[--color-line] bg-white p-6">
                 <h2 className="font-semibold">O que comprar</h2>
