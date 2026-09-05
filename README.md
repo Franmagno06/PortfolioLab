@@ -11,10 +11,11 @@ gerenciais por IA.
 
 | Módulo | O que resolve |
 |--------|---------------|
-| **Carteira** | Posição consolidada calculada a partir das transações — preço médio ponderado, lucro/prejuízo e alocação por classe, com **cotações ao vivo da B3** |
-| **Simulação de aportes** | Dado um valor, calcula **o que comprar** para aproximar a carteira das metas de alocação |
+| **Carteira** | Posição consolidada calculada a partir das transações — preço médio ponderado, lucro/prejuízo, taxas pagas e alocação por classe, com **cotações ao vivo da B3** |
+| **Simulação de aportes** | Dado um valor, calcula **o que comprar** para aproximar a carteira das metas. Considera só os ativos que têm meta e declara quanto da carteira ficou fora da conta |
+| **Proventos** | **Importados da B3 e calculados sozinhos**: para cada dividendo anunciado, cruza o valor por cota com a quantidade que você tinha na data-ex. O lançamento manual continua disponível para o que a fonte não cobre |
 | **Relatórios com IA** | Envie o PDF de um relatório gerencial (FII) ou release trimestral (ação) e receba resumo executivo, alertas por severidade e indicadores — com chat para tirar dúvidas sobre o documento |
-| **Notícias** | Feed de mercado que destaca automaticamente o que cita ativos da sua carteira |
+| **Notícias** | Feed de mercado que destaca o que cita ativos da sua carteira, procurando no título e no resumo, por ticker e pela marca da empresa |
 
 ## Destaques técnicos
 
@@ -25,6 +26,13 @@ gerenciais por IA.
   (`O(n log n)`) e aloca em unidades inteiras (`O(n)`). Documentado com exemplo
   numérico e análise de complexidade em
   [docs/algoritmo-rebalanceamento.md](docs/algoritmo-rebalanceamento.md).
+- **Provento é derivado, não digitado** — a mesma `calcularPosicao` que monta
+  a carteira diz quantas cotas você tinha na data-ex de cada dividendo. Quem
+  comprou depois não recebe, quem vendeu recebeu na época, e o período com
+  posição zerada não conta. A importação é idempotente e nunca encosta no que
+  foi lançado à mão.
+- **Listas paginadas por cursor** em transações, proventos e relatórios: a
+  resposta não cresce junto com o histórico da conta.
 - **Saída estruturada da IA** via JSON Schema — a análise vem em formato
   garantido pela API, sem parsing de texto livre.
 - **Auditoria de alucinação**: `scripts/verificar-analise.mjs` confere se cada
@@ -35,6 +43,17 @@ gerenciais por IA.
 - **Arquitetura em camadas** (Routes → Controller → Service → Repository) com
   TypeScript estrito e 214 testes automatizados (197 no backend, 17 no
   frontend), mais um percurso ponta a ponta em Playwright.
+
+## Limitações conhecidas
+
+- **Proventos futuros não aparecem.** A fonte gratuita só expõe dividendos com
+  data-ex passada; agenda de proventos anunciados exigiria outra fonte.
+- **A data do provento é a data-ex, não a de pagamento** — o Yahoo Finance não
+  fornece a segunda.
+- **Nem toda notícia sobre um ativo é reconhecida.** A busca usa o ticker e a
+  marca extraída da razão social; empresas cuja marca não deriva do nome
+  oficial (TAEE11 → “Taesa”) só casam quando a notícia cita o ticker.
+- **Metas são por ticker**, não por classe de ativo.
 
 ## Stack
 
