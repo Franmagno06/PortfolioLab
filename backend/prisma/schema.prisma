@@ -40,6 +40,8 @@ model Asset {
   ticker       String    @unique
   name         String
   type         AssetType
+  // Opcional: o Yahoo Finance devolve setor para ações, mas quase nunca
+  // para FII e ETF. Null significa "a fonte não informou", não "sem setor".
   sector       String?
   // Decimal, nunca Float: dinheiro exige precisão exata
   currentPrice Decimal   @map("current_price") @db.Decimal(12, 2)

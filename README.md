@@ -33,7 +33,8 @@ gerenciais por IA.
   desconhecido, o ativo é criado a partir da cotação real, com a classe
   deduzida do nome. Não há lista fixa: qualquer ação ou FII da B3 serve.
 - **Arquitetura em camadas** (Routes → Controller → Service → Repository) com
-  TypeScript estrito e 54 testes automatizados.
+  TypeScript estrito e 172 testes automatizados (155 no backend, 17 no
+  frontend), mais um percurso ponta a ponta em Playwright.
 
 ## Stack
 
@@ -147,7 +148,7 @@ Rotas com 🔒 exigem login (cookie HttpOnly).
 
 ```bash
 cd backend
-npm test          # 44 testes
+npm test          # 155 testes
 npm run typecheck
 ```
 

@@ -1,6 +1,6 @@
 # Roadmap de Desenvolvimento — PortfolioLab
 
-Plano em 8 sprints (1 semana cada), do banco de dados ao módulo de IA. Os itens mais complexos ficam no final para manter a evolução incremental.
+Plano em 9 sprints (1 semana cada), do banco de dados ao módulo de IA. Os itens mais complexos ficam no final para manter a evolução incremental.
 
 ## 🏗️ Sprint 1 — Fundações e Banco de Dados
 
@@ -10,7 +10,7 @@ Plano em 8 sprints (1 semana cada), do banco de dados ao módulo de IA. Os itens
 - [x] PostgreSQL local via `docker-compose.yml`
 - [x] `schema.prisma` com as 5 entidades: `User`, `Asset`, `Transaction`, `AssetGoal`, `Dividend`
 - [x] `seed.ts` com dados de exemplo (mesmos ativos do protótipo Figma)
-- [ ] Rodar a primeira migration e o seed
+- [x] Rodar a primeira migration e o seed
 
 **Decisões técnicas:**
 - `Decimal` para valores monetários — nunca `Float` (evita erros de arredondamento binário)
@@ -73,7 +73,7 @@ Plano em 8 sprints (1 semana cada), do banco de dados ao módulo de IA. Os itens
 
 ## 🤖 Sprint 8 — Módulo IA de Relatórios
 
-- [x] Upload de PDF (`multer` em memória, limite 10 MB) e extração de texto (`unpdf`)
+- [x] Upload de PDF (`multer` em memória, limite 25 MB) e extração de texto (`unpdf`)
 - [x] Integração com a API do Gemini (`@google/genai`, modelo `gemini-3.6-flash`): resumo executivo, alertas com severidade (vacância, emissões, dividendos) e indicadores citados
 - [x] **Structured outputs** (JSON Schema): a análise volta como JSON válido garantido pela API
 - [x] Erros da IA traduzidos (chave inválida, cota estourada, sem permissão) — nunca um 500 genérico

@@ -106,6 +106,7 @@ Next.js com App Router, organização também por feature:
 - `app/(app)/` — rotas protegidas (dashboard, carteira, simulação)
 - `components/` — `ui/` (shadcn), `charts/`, `tables/`, `forms/`
 - `lib/api.ts` — cliente HTTP único para falar com o backend
-- `middleware.ts` — bloqueia rotas protegidas sem cookie de sessão
+- `proxy.ts` — bloqueia rotas protegidas sem cookie de sessão (era
+  `middleware.ts` até o Next 16 renomeá-lo)
 
 O design segue o [protótipo no Figma](https://www.figma.com/design/G153Uuy3Gwt3I0SNarOn6f).

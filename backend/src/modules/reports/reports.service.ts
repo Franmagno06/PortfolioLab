@@ -48,7 +48,7 @@ export const reportsService = {
       );
     }
 
-    // 2. envia para o Claude com structured outputs
+    // 2. envia para o Gemini com structured outputs
     const analise = await analisarRelatorio(texto);
 
     // 3. persiste (o texto extraído alimenta o chat depois)
