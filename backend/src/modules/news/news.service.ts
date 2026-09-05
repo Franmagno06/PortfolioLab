@@ -23,29 +23,88 @@ async function noticiasComCache(): Promise<ItemNoticia[]> {
 }
 
 /** Remove acentos e caixa para comparar "Itaú" com "itau". */
-function normalizar(texto: string): string {
+export function normalizar(texto: string): string {
   return texto
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "")
     .toLowerCase();
 }
 
-// Sufixos de classe da ação/cota que não ajudam a identificar a empresa
-const SUFIXOS = /\s+(on|pn|pna|pnb|unt|units?|fii|etf|s\.a\.?|sa)$/i;
+// Ruído societário: classe da ação, forma jurídica e a papelada que todo FII
+// carrega no nome. Nada disso identifica a empresa.
+const RUIDO =
+  /[\s.]*\b(on|pn|pna|pnb|unt|units?|fii|etf|s\s?\.?\s?a|sa|ltda|holding|participacoes)\b\.?\s*$/i;
+const PAPELADA_DE_FUNDO =
+  /\s*\bfundos?\s+(de\s+)?investimentos?\s+imobiliari[oa]s?\b\s*/gi;
+
+// Termos que sozinhos casariam com metade do noticiário. Só barram quando são
+// o resultado inteiro: "Auren Energia" passa, "Energia" não.
+const GENERICOS = new Set([
+  "banco",
+  "brasil",
+  "energia",
+  "renda",
+  "companhia",
+  "industria",
+  "comercio",
+  "participacoes",
+  "shopping",
+  "logistica",
+]);
+
+/** Um candidato a nome só serve se for longo e não for palavra genérica. */
+function ehTermoUtil(termo: string): boolean {
+  return termo.length >= 5 && !GENERICOS.has(termo);
+}
 
 /**
  * Monta os termos que identificam um ativo numa notícia.
- * - o ticker sempre entra (alta precisão: "PETR4")
- * - o nome da empresa só entra com 5+ caracteres, porque nomes curtos como
- *   "Vale" casariam com o verbo ("vale a pena") e poluiriam o resultado
+ *
+ * O ticker sempre entra: é o identificador de maior precisão, e a imprensa
+ * brasileira costuma citá-lo entre parênteses — "Banco do Brasil (BBAS3)".
+ *
+ * O nome exige tratamento. O que o provedor devolve é a razão social, e quase
+ * nunca é como a notícia escreve: "Companhia Energética de Minas Gerais -
+ * CEMIG" vira "Cemig", e "Kinea Renda Imobiliária Fundo de Investimento
+ * Imobiliário" vira "Kinea". Por isso o nome é quebrado no hífen — a marca
+ * costuma estar de um dos lados — e limpo da papelada societária. Termo curto
+ * ou genérico é descartado, senão "Energia" casaria com o setor inteiro.
  */
-function termosDoAtivo(ticker: string, nome: string): string[] {
-  const termos = [normalizar(ticker)];
+export function termosDoAtivo(ticker: string, nome: string): string[] {
+  const termos = new Set([normalizar(ticker)]);
 
-  const nomeLimpo = nome.replace(SUFIXOS, "").trim();
-  if (nomeLimpo.length >= 5) termos.push(normalizar(nomeLimpo));
+  for (const parte of nome.split(/\s+-\s+/)) {
+    const limpo = normalizar(parte)
+      .replace(PAPELADA_DE_FUNDO, " ")
+      .replace(/[()]/g, " ")
+      .replace(RUIDO, "")
+      .replace(/\s+/g, " ")
+      .trim();
 
-  return termos;
+    if (ehTermoUtil(limpo)) termos.add(limpo);
+  }
+
+  return [...termos];
+}
+
+/** Escapa o que for especial em regex, para o termo entrar como texto puro. */
+function comoRegex(termo: string): string {
+  return termo.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Diz se a notícia cita o ativo, olhando título e resumo.
+ *
+ * O resumo entra porque a manchete brasileira costuma ser genérica — "Bancos
+ * puxam o Ibovespa" — e é o lead que nomeia quem subiu.
+ *
+ * A busca exige palavra inteira: sem isso "banco do brasil" casaria dentro de
+ * "banco do brasilia", e "vale" dentro de "valeu".
+ */
+export function citaAtivo(titulo: string, resumo: string, termos: string[]): boolean {
+  const alvo = normalizar(`${titulo} ${resumo}`);
+  const limite = "\\b";
+  return termos.some((termo) => new RegExp(limite + comoRegex(termo) + limite).test(alvo));
 }
 
 export const newsService = {
@@ -62,8 +121,7 @@ export const newsService = {
     }));
 
     const classificadas: NoticiaClassificada[] = noticias.map((n) => {
-      const alvo = normalizar(n.titulo);
-      const tickers = ativos.filter((a) => a.termos.some((t) => alvo.includes(t)));
+      const tickers = ativos.filter((a) => citaAtivo(n.titulo, n.resumo ?? "", a.termos));
       return { ...n, tickers: tickers.map((a) => a.ticker) };
     });
 

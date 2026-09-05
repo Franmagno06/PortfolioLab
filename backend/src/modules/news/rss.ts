@@ -5,6 +5,8 @@ import { XMLParser } from "fast-xml-parser";
 
 export type ItemNoticia = {
   titulo: string;
+  /** Lead da notícia, do <description> do feed. Vazio quando a fonte não traz. */
+  resumo: string;
   link: string;
   fonte: string;
   publicadoEm: string; // ISO 8601
@@ -20,7 +22,25 @@ const FONTES = [
 
 const parser = new XMLParser({ ignoreAttributes: false, trimValues: true });
 
-type ItemRss = { title?: unknown; link?: unknown; pubDate?: unknown };
+type ItemRss = {
+  title?: unknown;
+  link?: unknown;
+  pubDate?: unknown;
+  description?: unknown;
+};
+
+// O <description> vem com o lead embrulhado em HTML e, às vezes, com o link
+// "leia mais" no fim. Só o texto interessa para procurar o nome de um ativo.
+const LIMITE_RESUMO = 600;
+
+function limparResumo(bruto: string): string {
+  return decodificarEntidades(
+    bruto
+      .replace(/<[^>]*>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim(),
+  ).slice(0, LIMITE_RESUMO);
+}
 
 const ENTIDADES: Record<string, string> = {
   amp: "&",
@@ -94,10 +114,13 @@ async function lerFeed(fonte: { nome: string; url: string }): Promise<ItemNotici
       const link = texto(item.link);
       if (!titulo || !link) return [];
 
+      const resumo = limparResumo(texto(item.description));
+
       const data = new Date(texto(item.pubDate));
       return [
         {
           titulo,
+          resumo,
           link,
           fonte: fonte.nome,
           publicadoEm: isNaN(data.getTime()) ? new Date().toISOString() : data.toISOString(),

@@ -33,7 +33,7 @@ gerenciais por IA.
   desconhecido, o ativo é criado a partir da cotação real, com a classe
   deduzida do nome. Não há lista fixa: qualquer ação ou FII da B3 serve.
 - **Arquitetura em camadas** (Routes → Controller → Service → Repository) com
-  TypeScript estrito e 203 testes automatizados (186 no backend, 17 no
+  TypeScript estrito e 214 testes automatizados (197 no backend, 17 no
   frontend), mais um percurso ponta a ponta em Playwright.
 
 ## Stack
@@ -139,7 +139,7 @@ Rotas com 🔒 exigem login (cookie HttpOnly).
 | PUT 🔒 | `/goals` | Criar/atualizar meta (`ticker`, `targetWeight`) — soma ≤ 100% |
 | DELETE 🔒 | `/goals/:ticker` | Remover meta |
 | POST 🔒 | `/rebalance/simulate` | Simular aporte (`amount`) — só os ativos com meta entram na conta |
-| GET 🔒 | `/news` | Notícias, separando as que citam ativos da carteira |
+| GET 🔒 | `/news` | Notícias, separando as que citam ativos da carteira (busca no título e no resumo) |
 | POST 🔒 | `/reports` | Enviar PDF (campo `file`) → análise por IA |
 | GET 🔒 | `/reports` | Relatórios já analisados (paginado) |
 | POST 🔒 | `/reports/:id/ask` | Chat "Pergunte ao Relatório" (`question`, `history?`) |
@@ -154,7 +154,7 @@ anterior. `proximoCursor` nulo significa que acabou.
 
 ```bash
 cd backend
-npm test          # 186 testes
+npm test          # 197 testes
 npm run typecheck
 ```
 
