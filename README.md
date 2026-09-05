@@ -248,8 +248,6 @@ node scripts/medir-pdf.mjs <pdf>       # páginas, caracteres e tokens
 - [Roadmap](docs/roadmap.md) — os 9 sprints, do schema ao módulo de IA
 - [Arquitetura](docs/arquitetura.md) — camadas e decisões técnicas
 - [Algoritmo de rebalanceamento](docs/algoritmo-rebalanceamento.md) — estratégia, complexidade e limitações
-- [Guia de deploy](docs/deploy.md) — variáveis de ambiente e checklist
-- [Protótipo no Figma](https://www.figma.com/design/G153Uuy3Gwt3I0SNarOn6f)
 
 ## Estrutura
 
@@ -269,7 +267,7 @@ node scripts/medir-pdf.mjs <pdf>       # páginas, caracteres e tokens
 │       ├── app/(app)/    # dashboard, carteira, simulação, relatórios, notícias
 │       ├── components/   # sidebar e formulários
 │       └── lib/          # cliente HTTP e formatação
-├── docs/                 # roadmap, arquitetura, algoritmo e deploy
+├── docs/                 # roadmap, arquitetura e algoritmo
 └── relatorios-para-teste/# PDFs reais para testar o módulo de IA
 ```
 
