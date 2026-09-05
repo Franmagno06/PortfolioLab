@@ -157,6 +157,27 @@ npm test          # 169 testes
 npm run typecheck
 ```
 
+## Conta de demonstração
+
+Uma carteira pronta para explorar o produto sem cadastrar nada à mão:
+
+```bash
+cd backend
+npm run db:seed:demo    # exige DATABASE_URL local — recusa o Supabase
+```
+
+Entre com `demo@portfoliolab.dev` / `demo123456`. São 13 ativos (8 ações e 5
+FII), 23 transações espalhadas de 2024 a 2026 e metas somando 100%.
+
+Os tickers são reais e a escolha deles é pública: as ações são as que a imprensa
+financeira atribui à carteira de Luiz Barsi, e os FII estão entre os mais
+líquidos do IFIX. **As quantidades, datas e preços de compra são inventados** —
+ninguém publica a posição de outra pessoa. Nada ali é recomendação de
+investimento.
+
+Diferente de `npm run db:seed`, este script apaga apenas a conta de demonstração
+e recria — o resto do banco fica intacto.
+
 ## Problemas comuns
 
 **"Erro interno do servidor" no login**
