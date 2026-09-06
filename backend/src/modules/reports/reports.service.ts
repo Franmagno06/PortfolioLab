@@ -1,6 +1,7 @@
 import { extractText, getDocumentProxy } from "unpdf";
 import { AppError } from "../../shared/errors/AppError.js";
 import { analisarRelatorio, perguntarAoRelatorio, type Analise } from "./gemini.js";
+import { selecionarSecoesRelevantes } from "./trechos.js";
 import type { AskInput } from "./reports.schemas.js";
 import { reportsRepository } from "./reports.repository.js";
 import { montarPagina, type PaginacaoInput } from "../../shared/paginacao.js";
@@ -14,6 +15,43 @@ const LIMITE_CARACTERES = 2_000_000;
 // Achado 8: cada análise custa cota paga do Gemini e cada relatório guardado
 // carrega o texto inteiro do PDF no banco. A cota limita os dois de uma vez.
 export const COTA_RELATORIOS = 50;
+
+// Teto do que a análise inicial manda para a IA. O release trimestral do Banco
+// do Brasil tem 760 mil caracteres: mandado inteiro levava ~70s e consumia a
+// cota de um minuto inteiro numa tacada. 150 mil (~43 mil tokens) cobrem as
+// seções de resultado com folga.
+const CONTEXTO_ANALISE = 150_000;
+
+/**
+ * Extrai o texto do PDF silenciando os avisos do pdf.js.
+ *
+ * A biblioteca imprime coisas como "Warning: TT: undefined function: 21" ao
+ * interpretar programas de fontes TrueType que ela não reconhece. O aviso é
+ * inofensivo — o texto sai completo mesmo assim —, mas assusta quem lê o log e
+ * some no meio de erros de verdade. Um relatório de banco produz dezenas deles.
+ */
+async function extrairTexto(buffer: Buffer): Promise<string> {
+  const avisoOriginal = console.warn;
+  const logOriginal = console.log;
+  const ehRuidoDePdf = (args: unknown[]) =>
+    typeof args[0] === "string" && /^Warning: TT:/.test(args[0]);
+
+  console.warn = (...args: unknown[]) => {
+    if (!ehRuidoDePdf(args)) avisoOriginal(...args);
+  };
+  console.log = (...args: unknown[]) => {
+    if (!ehRuidoDePdf(args)) logOriginal(...args);
+  };
+
+  try {
+    const pdf = await getDocumentProxy(new Uint8Array(buffer));
+    const { text } = await extractText(pdf, { mergePages: true });
+    return text;
+  } finally {
+    console.warn = avisoOriginal;
+    console.log = logOriginal;
+  }
+}
 
 export const reportsService = {
   async analisar(userId: string, arquivo: { originalname: string; buffer: Buffer }) {
@@ -32,9 +70,7 @@ export const reportsService = {
     }
 
     // 1. extrai o texto do PDF
-    const pdf = await getDocumentProxy(new Uint8Array(arquivo.buffer));
-    const { text } = await extractText(pdf, { mergePages: true });
-    const texto = text.trim();
+    const texto = (await extrairTexto(arquivo.buffer)).trim();
 
     if (!texto) {
       throw new AppError(
@@ -49,8 +85,13 @@ export const reportsService = {
       );
     }
 
-    // 2. envia para o Gemini com structured outputs
-    const analise = await analisarRelatorio(texto);
+    // 2. envia para o Gemini com structured outputs.
+    // Documento grande é recortado antes: mandar 760 mil caracteres numa
+    // tacada levava ~70s e queimava a cota de um minuto inteiro. O recorte
+    // fica com as seções de maior densidade financeira, e o prompt avisa a
+    // IA de que ela não recebeu o documento completo.
+    const paraAnalise = selecionarSecoesRelevantes(texto, CONTEXTO_ANALISE);
+    const analise = await analisarRelatorio(paraAnalise, paraAnalise.length < texto.length);
 
     // 3. persiste (o texto extraído alimenta o chat depois)
     const relatorio = await reportsRepository.create({
