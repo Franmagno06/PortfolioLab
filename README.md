@@ -14,7 +14,7 @@ gerenciais por IA.
 | **Carteira** | Posição consolidada calculada a partir das transações — preço médio ponderado, lucro/prejuízo, taxas pagas e alocação por classe, com **cotações ao vivo da B3** |
 | **Simulação de aportes** | Dado um valor, calcula **o que comprar** para aproximar a carteira das metas. Considera só os ativos que têm meta e declara quanto da carteira ficou fora da conta |
 | **Proventos** | **Importados da B3 e calculados sozinhos**: para cada dividendo anunciado, cruza o valor por cota com a quantidade que você tinha na data-ex. O lançamento manual continua disponível para o que a fonte não cobre |
-| **Relatórios com IA** | Envie o PDF de um relatório gerencial (FII) ou release trimestral (ação) e receba resumo executivo, alertas por severidade e indicadores — com chat para tirar dúvidas sobre o documento |
+| **Relatórios com IA** | Envie o PDF de um relatório gerencial (FII) ou release trimestral (ação) e receba resumo executivo, alertas por severidade e indicadores, no tom de um analista sênior — com chat para tirar dúvidas sobre o documento |
 | **Notícias** | Feed de mercado que destaca o que cita ativos da sua carteira, procurando no título e no resumo, por ticker e pela marca da empresa |
 
 ## Destaques técnicos
@@ -35,13 +35,18 @@ gerenciais por IA.
   resposta não cresce junto com o histórico da conta.
 - **Saída estruturada da IA** via JSON Schema — a análise vem em formato
   garantido pela API, sem parsing de texto livre.
+- **Recorte por relevância antes de chamar a IA** — o release trimestral de um
+  banco tem 760 mil caracteres (~217 mil tokens). Mandá-lo inteiro a cada
+  pergunta do chat estourava o limite por minuto da cota. Agora o documento é
+  quebrado em blocos e só os que respondem à pergunta viajam: 40 mil caracteres
+  no chat, 150 mil na análise inicial. Busca léxica, sem banco vetorial.
 - **Auditoria de alucinação**: `scripts/verificar-analise.mjs` confere se cada
   número citado pela IA existe mesmo no PDF original.
 - **Catálogo que cresce sozinho** — ao registrar uma transação com um ticker
   desconhecido, o ativo é criado a partir da cotação real, com a classe
   deduzida do nome. Não há lista fixa: qualquer ação ou FII da B3 serve.
 - **Arquitetura em camadas** (Routes → Controller → Service → Repository) com
-  TypeScript estrito e 214 testes automatizados (197 no backend, 17 no
+  TypeScript estrito e 228 testes automatizados (211 no backend, 17 no
   frontend), mais um percurso ponta a ponta em Playwright.
 
 ## Limitações conhecidas
@@ -57,6 +62,13 @@ gerenciais por IA.
   marca extraída da razão social; empresas cuja marca não deriva do nome
   oficial (TAEE11 → “Taesa”) só casam quando a notícia cita o ticker.
 - **Metas são por ticker**, não por classe de ativo.
+- **A IA analisa um recorte de documentos muito grandes**, não o texto
+  completo. As seções de maior densidade financeira entram; anexos e notas
+  explicativas podem ficar de fora, e o prompt avisa a IA disso para que ela
+  não afirme que algo não existe no relatório.
+- **A cota gratuita do Gemini é apertada.** Análises seguidas de documentos
+  grandes esgotam o limite; a API responde 429 e o backend traduz para uma
+  mensagem explicando que é preciso aguardar.
 
 ## Stack
 
@@ -176,7 +188,7 @@ anterior. `proximoCursor` nulo significa que acabou.
 
 ```bash
 cd backend
-npm test          # 197 testes
+npm test          # 211 testes
 npm run typecheck
 ```
 

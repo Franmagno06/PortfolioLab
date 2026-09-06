@@ -113,7 +113,8 @@ describe("extração de texto do PDF", () => {
 
     const resultado = await reportsService.analisar("usuario-qualquer", arquivoQualquer);
 
-    expect(vi.mocked(analisarRelatorio)).toHaveBeenCalledWith("conteúdo do relatório");
+    // false = documento pequeno, foi inteiro; a IA não precisa se precaver
+    expect(vi.mocked(analisarRelatorio)).toHaveBeenCalledWith("conteúdo do relatório", false);
     expect(criar).toHaveBeenCalledWith(
       expect.objectContaining({
         userId: "usuario-qualquer",
@@ -121,5 +122,30 @@ describe("extração de texto do PDF", () => {
       }),
     );
     expect(resultado.analysis.tipoDocumento).toBe("Relatório de teste");
+  });
+
+  it("recorta o documento grande antes de mandar para a IA, e avisa que recortou", async () => {
+    // O release trimestral do Banco do Brasil tem 760 mil caracteres. Mandado
+    // inteiro, custa ~217 mil tokens e queima a cota de um minuto.
+    comRelatoriosGuardados(0);
+    const gigante = "O lucro liquido somou R$ 3,4 bilhoes, queda de 53,5%. ".repeat(20_000);
+    vi.mocked(extractText).mockResolvedValueOnce({ text: gigante } as Awaited<
+      ReturnType<typeof extractText>
+    >);
+    vi.spyOn(reportsRepository, "create").mockResolvedValue({
+      id: "relatorio-2",
+      userId: "usuario-qualquer",
+      fileName: arquivoQualquer.originalname,
+      extractedText: gigante,
+      analysis: {},
+      createdAt: new Date(),
+    } as Awaited<ReturnType<typeof reportsRepository.create>>);
+
+    await reportsService.analisar("usuario-qualquer", arquivoQualquer);
+
+    const [enviado, recortado] = vi.mocked(analisarRelatorio).mock.calls.at(-1) ?? [];
+    expect(recortado).toBe(true);
+    expect(enviado?.length).toBeLessThanOrEqual(150_000);
+    expect(enviado?.length).toBeLessThan(gigante.length);
   });
 });

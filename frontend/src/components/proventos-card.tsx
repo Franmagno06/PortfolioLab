@@ -26,12 +26,19 @@ export function ProventosCard({ ativos }: Props) {
   const [erro, setErro] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
   const [sincronizando, setSincronizando] = useState(false);
+  const [total, setTotal] = useState<number | null>(null);
   const [manual, setManual] = useState(false);
 
   const carregar = useCallback(() => {
     api<Pagina<Provento>>("/dividends")
       .then(({ itens }) => setProventos(itens))
       .catch(() => setProventos([]));
+
+    // A lista vem paginada, então somar o que está na tela daria menos do que
+    // o recebido de verdade. O total sai do resumo da carteira, que soma tudo.
+    api<{ totalProventos: number }>("/portfolio/summary")
+      .then((s) => setTotal(s.totalProventos))
+      .catch(() => setTotal(null));
   }, []);
 
   useEffect(carregar, [carregar]);
@@ -69,7 +76,7 @@ export function ProventosCard({ ativos }: Props) {
     }
   }
 
-  const total = (proventos ?? []).reduce((s, p) => s + Number(p.amount), 0);
+
 
   return (
     <section className="reveal reveal-3 rounded-2xl border border-[--color-line] bg-white p-6">
@@ -77,7 +84,7 @@ export function ProventosCard({ ativos }: Props) {
         <h2 className="font-semibold">Proventos</h2>
         <div className="flex items-center gap-3">
           <span className="tnum font-mono text-sm font-semibold text-[#1e9e63]">
-            {brl(total)} recebidos
+            {total === null ? "—" : `${brl(total)} recebidos`}
           </span>
           <button
             type="button"
