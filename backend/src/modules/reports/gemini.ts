@@ -15,6 +15,14 @@ let cliente: GoogleGenAI | null = null;
 // (~11 mil tokens) cabem com folga e carregam os trechos que respondem.
 const CONTEXTO_CHAT = 40_000;
 
+// O SDK tenta 5 vezes com espera crescente quando a API recusa. Diante de um
+// 429 por cota estourada isso é inútil: a cota não volta em segundos, e o
+// usuário esperava 136s por um erro que a API já tinha dado em 9s — pior, o
+// timeout de 120s cortava antes e culpava a demora, escondendo a causa real.
+// Duas tentativas cobrem a falha passageira de rede sem insistir no que não
+// tem conserto imediato.
+const TENTATIVAS = 2;
+
 
 // A API às vezes demora sem devolver erro. Sem teto, a requisição do usuário
 // fica pendurada até o navegador desistir, e o servidor segue esperando.
@@ -50,7 +58,10 @@ function clienteGemini(): GoogleGenAI {
       503,
     );
   }
-  cliente ??= new GoogleGenAI({ apiKey: env.GEMINI_API_KEY });
+  cliente ??= new GoogleGenAI({
+    apiKey: env.GEMINI_API_KEY,
+    httpOptions: { retryOptions: { attempts: TENTATIVAS } },
+  });
   return cliente;
 }
 
