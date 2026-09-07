@@ -26,7 +26,13 @@ const TENTATIVAS = 2;
 
 // A API às vezes demora sem devolver erro. Sem teto, a requisição do usuário
 // fica pendurada até o navegador desistir, e o servidor segue esperando.
-const TIMEOUT_MS = 120_000;
+//
+// 240s, e não 120s: a análise completa gera saída estruturada longa — resumo,
+// alertas e indicadores — e isso custa tempo de geração, não de leitura.
+// Medido no relatório do MXRF11 com gemini-3.6-flash: 87,9s de média, com
+// picos acima de 120s que o teto anterior cortava. Falhar uma análise que
+// ia responder é pior do que esperar mais.
+const TIMEOUT_MS = 240_000;
 
 /** Aborta a chamada à IA se ela passar do tempo, com erro explicável. */
 async function comTimeout<T>(promessa: Promise<T>, oQue: string): Promise<T> {
