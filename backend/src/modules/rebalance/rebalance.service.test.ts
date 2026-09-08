@@ -125,12 +125,13 @@ describe("achado 16 — ativo sem preço", () => {
     // não por ser caro: R$ 300 caberiam nos R$ 1.000 iniciais. Dizer "aporte
     // insuficiente para 1 unidade" culparia o preço de B pelo que a ordem de
     // alocação causou.
-    // Carteira de R$ 10.000 e aporte de R$ 1.000: os dois ativos têm déficit
-    // de R$ 5.500, muito acima do aporte. A leva os R$ 1.000 inteiros por vir
-    // primeiro, e B fica a zero — apesar de caber 55 cotas no seu déficit.
+    // Carteira de R$ 10.000 e aporte de R$ 100. Os dois têm déficit de
+    // R$ 5.050, muito acima do aporte. A cota de A custa R$ 1 e a de B custa
+    // R$ 80: o aporte inteiro cabe em A, e quando chega a vez de B não há
+    // R$ 80 sobrando. B fica sem compra por falta de dinheiro, não por preço.
     const r = calcularAporte(
-      [ativo("A", 1, 0, 50), ativo("B", 100, 0, 50)],
-      1000,
+      [ativo("A", 1, 0, 50), ativo("B", 80, 0, 50)],
+      100,
       10_000,
     );
 
@@ -183,5 +184,134 @@ describe("achado 16 — ativo sem preço", () => {
 
     expect(r.ignorados.map((i) => i.ticker)).not.toContain("B");
     expect(r.alocacao.map((a) => a.ticker)).toContain("B");
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// Distribuição proporcional ao déficit, com segunda passada
+//
+// O algoritmo guloso anterior dava a cada ativo o mínimo entre o déficit e o
+// dinheiro restante, na ordem do maior déficit. Quando o aporte é menor que a
+// soma dos déficits — o caso normal — o primeiro da fila levava quase tudo.
+// Medido na carteira de demonstração: BBAS3 ficava com 89% de um aporte de
+// R$ 3.000, e metade dos ativos abaixo da meta não recebia nada.
+// ─────────────────────────────────────────────────────────────────────────
+describe("calcularAporte — distribuição proporcional", () => {
+  it("reparte o aporte na proporção do déficit, em vez de encher o primeiro", () => {
+    // Déficits de 3:1. O aporte de R$ 400 não cobre os R$ 800 somados, então
+    // a proporção decide: R$ 300 para A e R$ 100 para B.
+    const r = calcularAporte(
+      [ativo("A", 1, 0, 60), ativo("B", 1, 0, 20)],
+      400,
+      600,
+    );
+
+    const gasto = (t: string) => r.compras.find((c) => c.ticker === t)?.total ?? 0;
+    expect(gasto("A")).toBe(300);
+    expect(gasto("B")).toBe(100);
+  });
+
+  it("nenhum ativo recebe mais do que o próprio déficit", () => {
+    // B tem déficit pequeno; a fatia proporcional dele não pode ultrapassá-lo
+    // só porque sobrou dinheiro.
+    const r = calcularAporte(
+      [ativo("A", 1, 0, 90), ativo("B", 1, 90, 10)],
+      1000,
+      100,
+    );
+
+    for (const c of r.compras) {
+      expect(c.total).toBeLessThanOrEqual(c.deficit);
+    }
+  });
+
+  it("a segunda passada aproveita o troco da primeira", () => {
+    // Déficit de R$ 250 em cada, cota de R$ 100, aporte de R$ 300. A fatia
+    // proporcional é R$ 150 por ativo, que compra 1 cota e deixa R$ 50 parado
+    // em cada. Somados, os R$ 100 de troco compram mais uma cota — e cabem no
+    // déficit de quem a recebe, sem empurrar o ativo acima da meta.
+    const r = calcularAporte(
+      [ativo("A", 100, 0, 50), ativo("B", 100, 0, 50)],
+      300,
+      200,
+    );
+
+    expect(r.totalGasto).toBe(300);
+    expect(r.restante).toBe(0);
+    expect(r.compras.reduce((s, c) => s + c.quantidade, 0)).toBe(3);
+  });
+
+  it("o troco fica em caixa quando gastá-lo passaria da meta", () => {
+    // Déficit de R$ 150 em cada e cota de R$ 100: depois de uma cota para
+    // cada, restam R$ 50 de déficit por ativo e R$ 100 no bolso. Comprar mais
+    // uma cota jogaria um dos dois acima da meta, que é o contrário do que a
+    // simulação existe para fazer. O dinheiro sobra, e a tela diz isso.
+    const r = calcularAporte(
+      [ativo("A", 100, 0, 50), ativo("B", 100, 0, 50)],
+      300,
+      0,
+    );
+
+    expect(r.totalGasto).toBe(200);
+    expect(r.restante).toBe(100);
+  });
+
+  it("cobre o déficit inteiro quando o aporte dá para todos", () => {
+    // Aporte maior que a soma dos déficits: cada ativo chega à meta e o que
+    // sobra não tem onde ser aplicado.
+    const r = calcularAporte(
+      [ativo("A", 1, 0, 50), ativo("B", 1, 0, 50)],
+      1000,
+      0,
+    );
+
+    expect(r.totalGasto).toBe(1000);
+    const gasto = (t: string) => r.compras.find((c) => c.ticker === t)?.total ?? 0;
+    expect(gasto("A")).toBe(500);
+    expect(gasto("B")).toBe(500);
+  });
+
+  it("não gasta mais do que o aporte", () => {
+    const r = calcularAporte(
+      [ativo("A", 7, 0, 40), ativo("B", 13, 0, 35), ativo("C", 3, 0, 25)],
+      1000,
+      5000,
+    );
+
+    expect(r.totalGasto).toBeLessThanOrEqual(1000);
+    expect(r.totalGasto + r.restante).toBe(1000);
+  });
+
+  it("espalha o aporte por mais ativos do que o guloso espalhava", () => {
+    // Reprodução reduzida da carteira de demonstração: um ativo com déficit
+    // grande e vários menores. Antes, o primeiro consumia o aporte e três
+    // ficavam sem nada.
+    const r = calcularAporte(
+      [
+        ativo("GRANDE", 20, 0, 40),
+        ativo("MEDIO1", 20, 0, 20),
+        ativo("MEDIO2", 20, 0, 20),
+        ativo("MEDIO3", 20, 0, 20),
+      ],
+      2000,
+      8000,
+    );
+
+    expect(r.compras).toHaveLength(4);
+    const doGrande = r.compras.find((c) => c.ticker === "GRANDE")?.total ?? 0;
+    expect(doGrande).toBeLessThan(r.totalGasto * 0.6);
+  });
+
+  it("é determinístico: mesma carteira, mesma sugestão", () => {
+    const carteira = () => [
+      ativo("AAA3", 17.5, 120, 30),
+      ativo("BBB4", 33.33, 80, 45),
+      ativo("CCC11", 9.9, 200, 25),
+    ];
+
+    const um = calcularAporte(carteira(), 777, 1234.56);
+    const dois = calcularAporte(carteira(), 777, 1234.56);
+
+    expect(JSON.stringify(um)).toBe(JSON.stringify(dois));
   });
 });

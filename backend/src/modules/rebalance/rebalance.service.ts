@@ -77,46 +77,123 @@ export function calcularAporte(
   // pulado, mas sai daqui nomeado — some da lista de compras, não do resultado.
   const ignorados: { ticker: string; motivo: string }[] = [];
 
-  for (const c of comDeficit) {
+  // Ativos sem preço saem antes de qualquer conta: não há como dividir o
+  // aporte em unidades de um ativo cujo preço é zero.
+  const elegiveis = comDeficit.filter((c) => {
     if (c.precoAtual <= 0) {
       ignorados.push({ ticker: c.ticker, motivo: "sem cotação disponível — preço zerado" });
-      continue;
+      return false;
     }
-    if (c.deficit.lte(0)) continue; // acima da meta: não recebe aporte
+    return c.deficit.gt(0); // acima da meta: não recebe aporte, e isso é normal
+  });
 
-    // orçamento deste ativo: o menor entre o déficit e o dinheiro que sobrou
-    const orcamento = c.deficit.lt(restante) ? c.deficit : restante;
-    const quantidade = orcamento.div(c.precoAtual).floor(); // unidades inteiras
-    if (quantidade.lte(0)) {
+  // Quanto cada ativo já recebeu, em reais. A segunda passada consulta este
+  // mapa para saber quanto ainda falta para o ativo chegar à meta.
+  const gasto = new Map<string, Prisma.Decimal>(
+    elegiveis.map((c) => [c.ticker, new Prisma.Decimal(0)]),
+  );
+
+  /** Compra `quantidade` unidades e atualiza restante e gasto do ativo. */
+  const comprar = (c: (typeof elegiveis)[number], quantidade: Prisma.Decimal) => {
+    const total = quantidade.times(c.precoAtual);
+    restante = restante.minus(total);
+    gasto.set(c.ticker, (gasto.get(c.ticker) ?? new Prisma.Decimal(0)).plus(total));
+  };
+
+  /** O que falta para este ativo chegar à meta, descontado o que já recebeu. */
+  const deficitRestante = (c: (typeof elegiveis)[number]) =>
+    c.deficit.minus(gasto.get(c.ticker) ?? new Prisma.Decimal(0));
+
+  // ── Primeira passada: proporcional ao déficit ───────────────────────────
+  //
+  // O algoritmo guloso anterior dava a cada ativo o mínimo entre o déficit e o
+  // dinheiro restante, do maior déficit para o menor. Quando o aporte é menor
+  // que a soma dos déficits — o caso normal de quem aporta todo mês — o
+  // primeiro da fila levava quase tudo. Na carteira de demonstração, BBAS3
+  // ficava com 89% de um aporte de R$ 3.000 e metade dos ativos abaixo da meta
+  // não recebia nada.
+  //
+  // Aqui cada ativo recebe a fatia do aporte proporcional ao tamanho do seu
+  // buraco, limitada pelo próprio déficit. Todos andam na direção da meta.
+  const deficitTotal = elegiveis.reduce(
+    (soma, c) => soma.plus(c.deficit),
+    new Prisma.Decimal(0),
+  );
+
+  for (const c of elegiveis) {
+    if (deficitTotal.isZero()) break;
+
+    const fatia = new Prisma.Decimal(valorAporte).times(c.deficit).div(deficitTotal);
+    // a fatia nunca ultrapassa o déficit, e nunca ultrapassa o que sobrou
+    const orcamento = Prisma.Decimal.min(fatia, c.deficit, restante);
+    const quantidade = orcamento.div(c.precoAtual).floor();
+
+    if (quantidade.gt(0)) comprar(c, quantidade);
+  }
+
+  // ── Segunda passada: aproveita o troco ──────────────────────────────────
+  //
+  // A primeira passada compra unidades inteiras, então quase sempre sobra
+  // dinheiro: uma fatia de R$ 150 numa cota de R$ 100 deixa R$ 50 parados.
+  // Somadas, essas sobras compram mais cotas. Aqui elas são gastas no ativo
+  // que continua mais longe da meta, repetindo até nada mais caber.
+  //
+  // O laço termina: cada volta ou compra ao menos uma unidade (e reduz
+  // `restante` em pelo menos um preço) ou não compra nada e sai.
+  for (;;) {
+    const candidatos = elegiveis
+      .filter((c) => deficitRestante(c).gte(c.precoAtual) && restante.gte(c.precoAtual))
+      // maior déficit remanescente primeiro; desempate igual ao da ordenação
+      // inicial, para a mesma carteira sugerir sempre a mesma compra
+      .sort((a, b) => {
+        const porDeficit = deficitRestante(b).comparedTo(deficitRestante(a));
+        if (porDeficit !== 0) return porDeficit;
+        if (a.precoAtual !== b.precoAtual) return a.precoAtual - b.precoAtual;
+        return a.ticker < b.ticker ? -1 : a.ticker > b.ticker ? 1 : 0;
+      });
+
+    const alvo = candidatos[0];
+    if (!alvo) break;
+
+    const orcamento = Prisma.Decimal.min(deficitRestante(alvo), restante);
+    const quantidade = orcamento.div(alvo.precoAtual).floor();
+    if (quantidade.lte(0)) break;
+
+    comprar(alvo, quantidade);
+  }
+
+  // ── Resultado: quem comprou vira compra, quem não comprou vira ignorado ──
+  for (const c of elegiveis) {
+    const total = gasto.get(c.ticker) ?? new Prisma.Decimal(0);
+
+    if (total.isZero()) {
       // Duas causas diferentes levam a zero unidades, e confundi-las põe a
       // culpa no lugar errado. Se o ativo ainda tem déficit para uma cota, o
-      // que faltou foi dinheiro: os ativos anteriores da fila consumiram o
-      // aporte. Se nem o déficit paga uma cota, aí sim o preço é a barreira.
+      // que faltou foi dinheiro. Se nem o déficit paga uma cota, aí sim o
+      // preço é a barreira.
       const preco = c.precoAtual.toFixed(2).replace(".", ",");
-      const faltouDinheiro = c.deficit.gte(c.precoAtual);
-
       ignorados.push({
         ticker: c.ticker,
-        motivo: faltouDinheiro
+        motivo: c.deficit.gte(c.precoAtual)
           ? "o aporte acabou antes de sobrar para este ativo"
           : `1 unidade custa R$ ${preco} e o déficit do ativo é menor`,
       });
       continue;
     }
 
-    const total = quantidade.times(c.precoAtual);
-    restante = restante.minus(total);
     gastoPorTicker.set(c.ticker, total);
-
     compras.push({
       ticker: c.ticker,
       name: c.name,
       deficit: em2Casas(c.deficit),
-      quantidade: quantidade.toNumber(),
+      quantidade: total.div(c.precoAtual).toNumber(),
       precoUnitario: c.precoAtual,
       total: em2Casas(total),
     });
   }
+
+  // as compras saem na ordem em que a lista já estava: maior déficit primeiro
+  compras.sort((a, b) => b.deficit - a.deficit || (a.ticker < b.ticker ? -1 : 1));
 
   const totalGasto = new Prisma.Decimal(valorAporte).minus(restante);
 
