@@ -116,8 +116,64 @@ describe("achado 16 — ativo sem preço", () => {
 
     expect(r.compras).toHaveLength(0);
     expect(r.ignorados).toEqual([
-      { ticker: "CARO11", motivo: "aporte insuficiente para 1 unidade (R$ 500,00)" },
+      { ticker: "CARO11", motivo: "1 unidade custa R$ 500,00 e o déficit do ativo é menor" },
     ]);
+  });
+
+  it("separa 'o dinheiro acabou' de 'o déficit não paga uma unidade'", () => {
+    // A leva quase todo o aporte por ter o maior déficit. B fica de fora, mas
+    // não por ser caro: R$ 300 caberiam nos R$ 1.000 iniciais. Dizer "aporte
+    // insuficiente para 1 unidade" culparia o preço de B pelo que a ordem de
+    // alocação causou.
+    // Carteira de R$ 10.000 e aporte de R$ 1.000: os dois ativos têm déficit
+    // de R$ 5.500, muito acima do aporte. A leva os R$ 1.000 inteiros por vir
+    // primeiro, e B fica a zero — apesar de caber 55 cotas no seu déficit.
+    const r = calcularAporte(
+      [ativo("A", 1, 0, 50), ativo("B", 100, 0, 50)],
+      1000,
+      10_000,
+    );
+
+    expect(r.compras.map((c) => c.ticker)).toEqual(["A"]);
+    expect(r.ignorados).toEqual([
+      { ticker: "B", motivo: "o aporte acabou antes de sobrar para este ativo" },
+    ]);
+  });
+
+  it("o déficit menor que uma unidade é reportado como tal", () => {
+    // Aqui sobra dinheiro de verdade: o que não cabe é o déficit de B, de
+    // R$ 50, dentro de uma cota de R$ 500.
+    const r = calcularAporte(
+      [ativo("A", 1, 0, 95), ativo("CARO11", 500, 0, 5)],
+      1000,
+      0,
+    );
+
+    expect(r.restante).toBeGreaterThan(0);
+    expect(r.ignorados).toEqual([
+      { ticker: "CARO11", motivo: "1 unidade custa R$ 500,00 e o déficit do ativo é menor" },
+    ]);
+  });
+
+  it("patrimônio final conta o que virou ativo, não o aporte inteiro", () => {
+    // Aporte de R$ 1.000 numa cota de R$ 300: compra 3 e sobram R$ 100. O
+    // patrimônio final é R$ 900 maior, não R$ 1.000 — o troco não vira ativo.
+    const r = calcularAporte([ativo("A", 300, 0, 100)], 1000, 0);
+
+    expect(r.totalGasto).toBe(900);
+    expect(r.restante).toBe(100);
+    expect(r.patrimonioFinal).toBe(900);
+    expect(r.patrimonioProjetado).toBe(1000);
+  });
+
+  it("o percentual depois usa a mesma base que o patrimônio final", () => {
+    // Sem isto, o alvo é medido numa régua e o resultado noutra: a diferença
+    // é o troco, e ela cresce quando sobra muito.
+    const r = calcularAporte([ativo("A", 300, 0, 100)], 1000, 0);
+    const depois = r.alocacao.find((a) => a.ticker === "A");
+
+    // 3 cotas de R$ 300 = R$ 900, sobre um patrimônio final de R$ 900
+    expect(depois?.aposAportePct).toBe(100);
   });
 
   it("ativo acima da meta não é 'ignorado' — aparece na alocação", () => {

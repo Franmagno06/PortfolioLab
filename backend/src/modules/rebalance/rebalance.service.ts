@@ -41,12 +41,12 @@ export function calcularAporte(
   valorAporte: number,
   patrimonioAtual: number,
 ) {
-  const patrimonioFinal = new Prisma.Decimal(patrimonioAtual).plus(valorAporte);
+  const patrimonioProjetado = new Prisma.Decimal(patrimonioAtual).plus(valorAporte);
 
   // Passo 2: déficit em R$ de cada ativo
   const comDeficit = candidatos.map((c) => ({
     ...c,
-    deficit: patrimonioFinal.times(c.alvoPct).div(100).minus(c.valorAtual),
+    deficit: patrimonioProjetado.times(c.alvoPct).div(100).minus(c.valorAtual),
   }));
 
   // Passo 3: maior déficit primeiro; desempate determinístico
@@ -88,12 +88,18 @@ export function calcularAporte(
     const orcamento = c.deficit.lt(restante) ? c.deficit : restante;
     const quantidade = orcamento.div(c.precoAtual).floor(); // unidades inteiras
     if (quantidade.lte(0)) {
-      // O outro jeito de um ativo sumir das compras: o dinheiro disponível não
-      // paga nem uma unidade. Sem isto, 'ignorados' vazio mentiria dizendo que
-      // todos os ativos foram considerados.
+      // Duas causas diferentes levam a zero unidades, e confundi-las põe a
+      // culpa no lugar errado. Se o ativo ainda tem déficit para uma cota, o
+      // que faltou foi dinheiro: os ativos anteriores da fila consumiram o
+      // aporte. Se nem o déficit paga uma cota, aí sim o preço é a barreira.
+      const preco = c.precoAtual.toFixed(2).replace(".", ",");
+      const faltouDinheiro = c.deficit.gte(c.precoAtual);
+
       ignorados.push({
         ticker: c.ticker,
-        motivo: `aporte insuficiente para 1 unidade (R$ ${c.precoAtual.toFixed(2).replace(".", ",")})`,
+        motivo: faltouDinheiro
+          ? "o aporte acabou antes de sobrar para este ativo"
+          : `1 unidade custa R$ ${preco} e o déficit do ativo é menor`,
       });
       continue;
     }
@@ -114,7 +120,14 @@ export function calcularAporte(
 
   const totalGasto = new Prisma.Decimal(valorAporte).minus(restante);
 
-  // Comparação antes vs. depois (a tela "Antes vs. Depois" do protótipo)
+  // O patrimônio que o usuário realmente terá conta o que virou ativo, não o
+  // aporte inteiro: o troco fica em caixa, fora da carteira. Antes a tela
+  // mostrava patrimônio + aporte enquanto os percentuais usavam
+  // patrimônio + gasto — duas réguas para o mesmo número.
+  //
+  // O déficit continua calculado sobre patrimonioProjetado, e isso é
+  // deliberado: ali o alvo é "se todo o aporte for investido", que é a
+  // pergunta certa ANTES de saber quanto vai sobrar.
   const patrimonioAposCompras = new Prisma.Decimal(patrimonioAtual).plus(totalGasto);
   const alocacao = comDeficit
     .map((c) => {
@@ -137,7 +150,10 @@ export function calcularAporte(
   return {
     valorAporte,
     patrimonioAtual,
-    patrimonioFinal: em2Casas(patrimonioFinal),
+    /** O que vira ativo: patrimônio + o que foi gasto. Base dos percentuais. */
+    patrimonioFinal: em2Casas(patrimonioAposCompras),
+    /** Base do cálculo do déficit: patrimônio + o aporte inteiro. */
+    patrimonioProjetado: em2Casas(patrimonioProjetado),
     compras,
     totalGasto: em2Casas(totalGasto),
     restante: em2Casas(restante),

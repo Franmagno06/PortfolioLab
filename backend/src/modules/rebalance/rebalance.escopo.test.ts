@@ -78,6 +78,7 @@ describe("POST /rebalance/simulate — ativo sem meta fica fora da conta", () =>
     // Se SEM_META entrasse no denominador, o total viraria R$ 2.500 e o
     // déficit de COM_META saltaria para R$ 1.500 — a distorção do defeito.
     expect(res.body.patrimonioConsiderado).toBe(1000);
+    // R$ 1.000 de posição + R$ 500 de aporte, todo investido
     expect(res.body.patrimonioFinal).toBe(1500);
     expect(res.body.compras[0].deficit).toBe(500);
   });

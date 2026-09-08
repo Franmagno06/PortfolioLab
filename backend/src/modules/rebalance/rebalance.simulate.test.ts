@@ -118,7 +118,9 @@ describe("POST /rebalance/simulate — um preço só por ativo", () => {
     expect(res.status).toBe(200);
     // 10 unidades × R$ 32,00 = R$ 320,00 (e não 10 × 38,20 = 382,00)
     expect(res.body.patrimonioAtual).toBe(10 * PRECO_VIVO);
-    expect(res.body.patrimonioFinal).toBe(10 * PRECO_VIVO + 1000);
+    // patrimonioProjetado é a base do déficit: posição a preço vivo mais o
+    // aporte inteiro. patrimonioFinal desconta o troco, que aqui existe.
+    expect(res.body.patrimonioProjetado).toBe(10 * PRECO_VIVO + 1000);
 
     // meta de 100%: o déficit é o aporte inteiro
     const compra = res.body.compras[0];
