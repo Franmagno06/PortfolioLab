@@ -8,6 +8,16 @@ export function pct(valor: number): string {
   return `${valor >= 0 ? "+" : ""}${valor.toFixed(1).replace(".", ",")}%`;
 }
 
+/** Indicador que o provedor não informou (comum em FII e empresa recém-listada). */
+export function indicadorOuTraco(valor: number | null): string {
+  return valor === null ? "—" : valor.toFixed(2).replace(".", ",");
+}
+
+/** Mesma regra de "—" para indicador ausente, mas em pontos percentuais (DY, ROE, margem). */
+export function pctIndicadorOuTraco(valor: number | null): string {
+  return valor === null ? "—" : pct(valor);
+}
+
 /** "há 2 horas", "há 3 dias" — para o feed de notícias */
 export function tempoRelativo(iso: string): string {
   const minutos = Math.round((Date.now() - new Date(iso).getTime()) / 60000);

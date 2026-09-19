@@ -40,7 +40,7 @@ export default function CarteiraPage() {
   }, [carregar]);
 
   if (erro) {
-    return <p className="rounded-lg bg-red-50 px-4 py-3 text-[#d94f5c]">{erro}</p>;
+    return <p className="rounded-lg bg-red-50 px-4 py-3 text-loss">{erro}</p>;
   }
 
   if (!ativos) {
@@ -83,7 +83,7 @@ export default function CarteiraPage() {
         </div>
       ) : (
         <div className="reveal reveal-2 overflow-x-auto rounded-2xl border border-[--color-line] bg-white">
-          <table className="w-full min-w-[820px] text-sm">
+          <table className="w-full min-w-205 text-sm">
             <thead>
               <tr className="border-b border-[--color-line] text-left text-[11px] uppercase tracking-[0.12em] text-slate-400">
                 <th className="px-5 py-3.5 font-semibold">Ativo</th>

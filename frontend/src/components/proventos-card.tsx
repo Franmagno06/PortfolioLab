@@ -158,7 +158,7 @@ export function ProventosCard({ ativos }: Props) {
       </form>
 
       {erro && (
-        <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-[#d94f5c]">{erro}</p>
+        <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-loss">{erro}</p>
       )}
 
       {/* histórico */}
