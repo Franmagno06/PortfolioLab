@@ -13,7 +13,8 @@
     "db:migrate": "prisma migrate dev",
     "db:seed": "prisma db seed",
     "db:seed:demo": "tsx prisma/seed-demo.ts",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "job:indicadores": "tsx scripts/atualizar-indicadores.ts"
   },
   "dependencies": {
     "@google/genai": "^2.13.0",

@@ -14,7 +14,10 @@ type Metas = {
 type Simulacao = {
   valorAporte: number;
   patrimonioAtual: number;
+  /** Patrimônio depois do aporte, contando só o que virou ativo. */
   patrimonioFinal: number;
+  /** Base do cálculo do déficit: patrimônio mais o aporte inteiro. */
+  patrimonioProjetado: number;
   compras: {
     ticker: string;
     name: string;
@@ -337,7 +340,11 @@ export default function SimulacaoPage() {
                   <p className="tnum mt-1 font-mono text-lg font-bold">
                     {brl(resultado.patrimonioFinal)}
                   </p>
-                  <p className="mt-1 text-[11px] text-slate-400">só os ativos com meta</p>
+                  <p className="mt-1 text-[11px] text-slate-400">
+                    {resultado.restante > 0
+                      ? `só os ativos com meta — a sobra de ${brl(resultado.restante)} fica em caixa`
+                      : "só os ativos com meta"}
+                  </p>
                 </div>
               </div>
 

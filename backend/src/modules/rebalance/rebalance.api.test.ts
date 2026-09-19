@@ -89,7 +89,12 @@ describe("Simulação de aporte (/rebalance/simulate)", () => {
 
     expect(res.status).toBe(200);
     expect(res.body.patrimonioAtual).toBe(0);
-    expect(res.body.patrimonioFinal).toBe(200);
+    // Dos R$ 200 do aporte, so parte vira ativo: o resto nao paga uma cota
+    // inteira e fica em caixa. patrimonioProjetado guarda a base do alvo,
+    // patrimonioFinal conta o que de fato foi comprado.
+    expect(res.body.patrimonioProjetado).toBe(200);
+    expect(res.body.patrimonioFinal).toBe(res.body.totalGasto);
+    expect(res.body.patrimonioFinal).toBeLessThan(200);
 
     // Os preços vêm da cotação ao vivo, então as quantidades exatas mudam
     // a cada pregão. O que precisa valer SEMPRE são as regras do algoritmo:

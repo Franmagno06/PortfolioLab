@@ -56,6 +56,15 @@ function IconeDocumento() {
   );
 }
 
+function IconeIndicadores() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 3v18h18" />
+      <path d="M7 15l4-5 3 3 5-7" />
+    </svg>
+  );
+}
+
 function IconeJornal() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -70,6 +79,7 @@ const itens = [
   { href: "/carteira", rotulo: "Carteira", Icone: IconePasta },
   { href: "/simulacao", rotulo: "Simulação", Icone: IconeCalculo },
   { href: "/relatorios", rotulo: "Relatórios IA", Icone: IconeDocumento },
+  { href: "/indicadores", rotulo: "Indicadores", Icone: IconeIndicadores },
   { href: "/noticias", rotulo: "Notícias", Icone: IconeJornal },
 ];
 
@@ -115,7 +125,7 @@ export function Sidebar() {
             >
               {ativo && (
                 <span
-                  className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-full"
+                  className="absolute left-0 top-1/2 h-5 w-0.75 -translate-y-1/2 rounded-full"
                   style={{ background: "#35d68e" }}
                 />
               )}
@@ -126,12 +136,6 @@ export function Sidebar() {
             </Link>
           );
         })}
-
-        <p className="px-3 pb-1 pt-6 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
-          Em breve
-        </p>
-        <p className="px-3 py-1 text-sm text-slate-600">Indicadores</p>
-        <p className="px-3 py-1 text-sm text-slate-600">Histórico</p>
       </nav>
 
       <div className="mt-auto space-y-3">

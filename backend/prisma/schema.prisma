@@ -52,8 +52,50 @@ model Asset {
   transactions Transaction[]
   goals        AssetGoal[]
   dividends    Dividend[]
+  indicator    AssetIndicator?
 
   @@map("assets")
+}
+
+/// Indicadores fundamentalistas, cacheados a partir do Yahoo Finance
+/// (quoteSummary: defaultKeyStatistics, financialData, assetProfile, price)
+/// e do módulo Proventos (Dividend, para o Dividend Yield). Cache global por
+/// ativo — não por usuário — porque o indicador é do ativo, não da carteira
+/// de quem o possui. Atualizado por um job diário
+/// (scripts/atualizar-indicadores.ts), nunca em tempo real na requisição.
+model AssetIndicator {
+  id      String  @id @default(uuid())
+  assetId String  @unique @map("asset_id")
+  /// Preço atual / (lucro líquido dos últimos 4 trimestres ÷ nº de ações).
+  /// Calculado na mão a partir de netIncomeToCommon/sharesOutstanding — o
+  /// campo trailingPE pronto do Yahoo mostrou-se pouco confiável para ações
+  /// da B3 (ex.: TAEE11 vinha ~4x inflado). Pode ser negativo (empresa com
+  /// prejuízo) ou extremo (lucro perto de zero) — isso é legítimo, não é
+  /// filtrado.
+  pl      Decimal? @db.Decimal(10, 2)
+  /// Preço/Valor Patrimonial.
+  pvp     Decimal? @db.Decimal(10, 2)
+  /// Dividend Yield: soma dos proventos por cota pagos nos últimos 12 meses
+  /// (módulo Proventos, não a fonte de cotação) dividida pelo preço atual,
+  /// em pontos percentuais. Null se ninguém sincronizou proventos deste
+  /// ativo ainda — não é erro, é ausência de dado importado.
+  dividendYield Decimal? @map("dividend_yield") @db.Decimal(7, 2)
+  /// Retorno sobre patrimônio líquido, em pontos percentuais.
+  roe     Decimal? @db.Decimal(7, 2)
+  /// Retorno sobre ativos, em pontos percentuais. Padrão de mercado para
+  /// bancos, que exibem isto no lugar da margem líquida (ver indicators.service.ts).
+  roa     Decimal? @db.Decimal(7, 2)
+  /// Margem líquida, em pontos percentuais.
+  margemLiquida Decimal? @map("margem_liquida") @db.Decimal(7, 2)
+  /// Setor/indústria como o Yahoo classifica (ex.: "Banks - Regional").
+  /// Usado só para decidir se a tela mostra ROA no lugar de margem líquida.
+  industria String? @db.Text
+  /// Quando o job gravou estes valores pela última vez.
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  asset Asset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@map("asset_indicators")
 }
 
 model Transaction {

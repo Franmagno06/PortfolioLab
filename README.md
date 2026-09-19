@@ -46,7 +46,7 @@ gerenciais por IA.
   desconhecido, o ativo é criado a partir da cotação real, com a classe
   deduzida do nome. Não há lista fixa: qualquer ação ou FII da B3 serve.
 - **Arquitetura em camadas** (Routes → Controller → Service → Repository) com
-  TypeScript estrito e 228 testes automatizados (211 no backend, 17 no
+  TypeScript estrito e 240 testes automatizados (223 no backend, 17 no
   frontend), mais um percurso ponta a ponta em Playwright.
 
 ## Limitações conhecidas
@@ -188,7 +188,7 @@ anterior. `proximoCursor` nulo significa que acabou.
 
 ```bash
 cd backend
-npm test          # 211 testes
+npm test          # 223 testes
 npm run typecheck
 ```
 
