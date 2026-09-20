@@ -69,10 +69,11 @@ function FitaDeAlocacao({
   desvios: DesvioDeMeta[];
   corDe: (ticker: string) => string;
 }) {
-  let acumuladoMeta = 0;
-  const segmentos = desvios.map((d) => ({
+  // Soma das metas ate cada ativo, sem reatribuir nada de fora do map: a
+  // marca do segmento e o ponto da fita onde a meta dele termina.
+  const segmentos = desvios.map((d, i) => ({
     ...d,
-    marca: (acumuladoMeta += d.alvoPct),
+    marca: desvios.slice(0, i + 1).reduce((soma, x) => soma + x.alvoPct, 0),
   }));
 
   return (

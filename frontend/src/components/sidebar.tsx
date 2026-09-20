@@ -103,19 +103,25 @@ export function Sidebar() {
 /** Barra + gaveta para telas estreitas. */
 export function TopbarMobile() {
   const [aberto, setAberto] = useState(false);
-  const pathname = usePathname();
 
-  // Trocar de rota fecha a gaveta; sem isso ela cobre a página que acabou de abrir.
-  useEffect(() => setAberto(false), [pathname]);
-
-  // Enquanto a gaveta estiver aberta, Esc fecha e a página atrás não rola.
+  // Enquanto a gaveta estiver aberta: Esc fecha, o botão voltar do navegador
+  // fecha, e a página atrás não rola. Clicar num link do menu já fecha pelo
+  // aoNavegar, então o que sobra aqui é só o que vem de fora do React.
   useEffect(() => {
     if (!aberto) return;
-    const aoTeclar = (e: KeyboardEvent) => e.key === "Escape" && setAberto(false);
+
+    const fechar = () => setAberto(false);
+    const aoTeclar = (e: KeyboardEvent) => {
+      if (e.key === "Escape") fechar();
+    };
+
     document.addEventListener("keydown", aoTeclar);
+    window.addEventListener("popstate", fechar);
     document.body.style.overflow = "hidden";
+
     return () => {
       document.removeEventListener("keydown", aoTeclar);
+      window.removeEventListener("popstate", fechar);
       document.body.style.overflow = "";
     };
   }, [aberto]);
@@ -154,7 +160,11 @@ export function TopbarMobile() {
             className="reveal absolute inset-y-0 left-0 flex w-64 flex-col px-3 py-6 text-white"
           >
             <div className="flex items-center justify-between px-3">
-              <Link href="/dashboard" className="flex items-center gap-2.5 rounded-lg">
+              <Link
+                href="/dashboard"
+                onClick={() => setAberto(false)}
+                className="flex items-center gap-2.5 rounded-lg"
+              >
                 <Marca />
                 <Wordmark className="text-lg" />
               </Link>

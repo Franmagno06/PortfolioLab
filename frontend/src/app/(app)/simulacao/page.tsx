@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Botao } from "@/components/ui/botao";
-import { Campo, estiloCampo, estiloCampoCompacto } from "@/components/ui/campo";
+import { Campo, estiloCampoCompacto } from "@/components/ui/campo";
 import { Card, TituloCard } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { IconeCheck, IconeMais } from "@/components/ui/icones";
