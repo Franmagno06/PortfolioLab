@@ -12,15 +12,30 @@
 @theme {
   --color-ink: #0e1b33; /* navy profundo (sidebar, títulos) */
   --color-ink-soft: #16264a; /* navy intermediário */
+  --color-ink-lift: #1a2f5c; /* navy do hover dos botões escuros */
+  --color-mint: #35d68e; /* verde da marca — só sobre navy */
   --color-paper: #f4f4ef; /* fundo "papel", levemente quente */
   --color-card: #ffffff;
   --color-line: #e3e4dc; /* hairlines dos cards */
+
+  /* Preenchimentos: gráficos, pontos de legenda, barras.
+     Contraste de objeto gráfico, não de texto. */
   --color-gain: #1e9e63; /* esmeralda — ganhos */
   --color-loss: #d94f5c; /* coral — perdas */
   --color-acao: #1e9e63;
   --color-fii: #3b6fe0;
   --color-etf: #d98324;
   --color-rf: #7a5af8;
+
+  /* Mesmas cores rebaixadas até 4.5:1 sobre branco E sobre papel.
+     Todo valor que é TEXTO usa estas, nunca as de preenchimento. */
+  --color-gain-ink: #187f50;
+  --color-loss-ink: #bf3c4b;
+
+  /* Cinzas do texto secundário. slate-400 reprova em AA sobre papel
+     (2.3:1), então o tom mais claro que este projeto usa é o mute. */
+  --color-mute: #5d6b7f; /* 4.9:1 sobre papel */
+  --color-mute-soft: #64748b; /* 4.3:1 — só sobre branco */
 }
 
 body {
@@ -33,7 +48,24 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-/* revelação escalonada na carga da página */
+/* Foco de teclado visível em tudo que recebe foco. :where() zera a
+   especificidade — qualquer utilitário continua podendo sobrescrever. */
+:root {
+  --focus-ring: var(--color-ink);
+}
+
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* Sobre o navy da sidebar o anel escuro some: lá ele vira menta. */
+:where([data-superficie="navy"]) {
+  --focus-ring: var(--color-mint);
+}
+
+/* Entrada orquestrada — usada SÓ na carga do dashboard. Nas demais telas
+   o movimento responde a uma ação (abrir, calcular, enviar). */
 @keyframes fade-up {
   from {
     opacity: 0;
@@ -57,11 +89,8 @@ body {
 .reveal-4 {
   animation-delay: 0.21s;
 }
-.reveal-5 {
-  animation-delay: 0.28s;
-}
 
-/* crescimento das barras de progresso */
+/* Crescimento da barra: mostra o que mudou depois de calcular o aporte. */
 @keyframes grow-bar {
   from {
     width: 0;
@@ -69,5 +98,15 @@ body {
 }
 .grow-bar {
   animation: grow-bar 0.9s cubic-bezier(0.22, 0.9, 0.35, 1) both;
-  animation-delay: 0.3s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

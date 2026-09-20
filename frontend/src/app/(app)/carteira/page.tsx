@@ -3,8 +3,15 @@
 import { useCallback, useEffect, useState } from "react";
 import { NovaTransacao } from "@/components/nova-transacao";
 import { ProventosCard } from "@/components/proventos-card";
+import { Botao } from "@/components/ui/botao";
+import { EmptyState } from "@/components/ui/empty-state";
+import { EtiquetaClasse } from "@/components/ui/etiqueta-classe";
+import { MensagemErro } from "@/components/ui/mensagem";
+import { PageHeader, Pilula } from "@/components/ui/page-header";
+import { SkeletonPagina } from "@/components/ui/skeleton";
+import { CabecalhoTabela, CardTabela } from "@/components/ui/tabela";
 import { api, ApiError } from "@/lib/api";
-import { brl, coresClasse, nomesClasse, pct } from "@/lib/format";
+import { brl, coresClasse, pct } from "@/lib/format";
 
 type Posicao = {
   ticker: string;
@@ -21,10 +28,22 @@ type Posicao = {
 
 type Ativo = { ticker: string; name: string };
 
+const colunas = [
+  { rotulo: "Ativo" },
+  { rotulo: "Classe" },
+  { rotulo: "Qtd.", direita: true },
+  { rotulo: "Preço médio", direita: true },
+  { rotulo: "Preço atual", direita: true },
+  { rotulo: "Valor atual", direita: true },
+  { rotulo: "Resultado", direita: true },
+  { rotulo: "% carteira", direita: true },
+];
+
 export default function CarteiraPage() {
   const [ativos, setAtivos] = useState<Posicao[] | null>(null);
   const [disponiveis, setDisponiveis] = useState<Ativo[]>([]);
   const [erro, setErro] = useState<string | null>(null);
+  const [registrando, setRegistrando] = useState(false);
 
   const carregar = useCallback(() => {
     api<Posicao[]>("/portfolio")
@@ -36,21 +55,13 @@ export default function CarteiraPage() {
 
   useEffect(() => {
     carregar();
-    api<Ativo[]>("/assets").then(setDisponiveis).catch(() => setDisponiveis([]));
+    api<Ativo[]>("/assets")
+      .then(setDisponiveis)
+      .catch(() => setDisponiveis([]));
   }, [carregar]);
 
-  if (erro) {
-    return <p className="rounded-lg bg-red-50 px-4 py-3 text-loss">{erro}</p>;
-  }
-
-  if (!ativos) {
-    return (
-      <div className="space-y-4">
-        <div className="h-8 w-48 animate-pulse rounded-lg bg-slate-200" />
-        <div className="h-96 animate-pulse rounded-2xl bg-slate-200" />
-      </div>
-    );
-  }
+  if (erro) return <MensagemErro>{erro}</MensagemErro>;
+  if (!ativos) return <SkeletonPagina blocos={2} />;
 
   const patrimonio = ativos.reduce((s, a) => s + a.valorAtual, 0);
   const totalAplicado = ativos.reduce((s, a) => s + a.valorAplicado, 0);
@@ -58,117 +69,108 @@ export default function CarteiraPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
-      <header className="reveal flex items-end justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Minha Carteira</h1>
-          <p className="text-sm text-slate-500">
-            Posição consolidada — derivada das suas transações
-          </p>
-        </div>
-        <span className="tnum rounded-full border border-[--color-line] bg-white px-3 py-1 font-mono text-xs text-slate-500">
-          {ativos.length} ativos · {brl(patrimonio)}
-        </span>
-      </header>
+      <PageHeader
+        titulo="Minha carteira"
+        descricao="Posição consolidada, derivada das suas transações"
+        contexto={
+          ativos.length > 0 ? (
+            <Pilula>
+              {ativos.length} {ativos.length === 1 ? "ativo" : "ativos"}
+            </Pilula>
+          ) : undefined
+        }
+        acao={
+          !registrando && (
+            <Botao onClick={() => setRegistrando(true)}>Nova transação</Botao>
+          )
+        }
+      />
 
-      <div className="reveal reveal-2">
-        <NovaTransacao aoCriar={carregar} />
-      </div>
+      <NovaTransacao
+        aberto={registrando}
+        aoFechar={() => setRegistrando(false)}
+        aoCriar={carregar}
+      />
 
       {ativos.length === 0 ? (
-        <div className="reveal reveal-2 rounded-2xl border-2 border-dashed border-slate-300 bg-white p-12 text-center">
-          <p className="font-semibold">Sua carteira está vazia</p>
-          <p className="mt-1 text-sm text-slate-500">
-            Registre sua primeira compra no botão acima.
-          </p>
-        </div>
+        <EmptyState
+          titulo="Sua carteira está vazia"
+          descricao="Registre sua primeira compra para ver preço médio, resultado e distribuição por classe."
+        >
+          <Botao onClick={() => setRegistrando(true)}>Registrar primeira compra</Botao>
+        </EmptyState>
       ) : (
-        <div className="reveal reveal-2 overflow-x-auto rounded-2xl border border-[--color-line] bg-white">
-          <table className="w-full min-w-205 text-sm">
-            <thead>
-              <tr className="border-b border-[--color-line] text-left text-[11px] uppercase tracking-[0.12em] text-slate-400">
-                <th className="px-5 py-3.5 font-semibold">Ativo</th>
-                <th className="px-3 py-3.5 font-semibold">Classe</th>
-                <th className="px-3 py-3.5 text-right font-semibold">Qtd.</th>
-                <th className="px-3 py-3.5 text-right font-semibold">Preço médio</th>
-                <th className="px-3 py-3.5 text-right font-semibold">Preço atual</th>
-                <th className="px-3 py-3.5 text-right font-semibold">Valor atual</th>
-                <th className="px-3 py-3.5 text-right font-semibold">Resultado</th>
-                <th className="px-5 py-3.5 text-right font-semibold">% carteira</th>
-              </tr>
-            </thead>
-            <tbody>
-              {ativos.map((a) => {
-                const cor = coresClasse[a.type] ?? "#64748b";
-                const ganhou = a.lucro >= 0;
-                const fatia = patrimonio === 0 ? 0 : (a.valorAtual / patrimonio) * 100;
-                return (
-                  <tr
-                    key={a.ticker}
-                    className="border-b border-[--color-line] last:border-0 hover:bg-[--color-paper]"
-                  >
-                    <td className="px-5 py-3.5">
-                      <p className="font-mono font-semibold">{a.ticker}</p>
-                      <p className="text-xs text-slate-500">{a.name}</p>
-                    </td>
-                    <td className="px-3 py-3.5">
-                      <span
-                        className="rounded-full px-2.5 py-1 text-[11px] font-semibold"
-                        style={{ background: `${cor}1a`, color: cor }}
-                      >
-                        {nomesClasse[a.type] ?? a.type}
-                      </span>
-                    </td>
-                    <td className="tnum px-3 py-3.5 text-right font-mono">{a.quantidade}</td>
-                    <td className="tnum px-3 py-3.5 text-right font-mono text-slate-500">
-                      {brl(a.precoMedio)}
-                    </td>
-                    <td className="tnum px-3 py-3.5 text-right font-mono">
-                      {brl(a.precoAtual)}
-                    </td>
-                    <td className="tnum px-3 py-3.5 text-right font-mono font-semibold">
-                      {brl(a.valorAtual)}
-                    </td>
-                    <td
-                      className="tnum px-3 py-3.5 text-right font-mono font-semibold"
-                      style={{ color: ganhou ? "#1e9e63" : "#d94f5c" }}
-                    >
-                      {brl(a.lucro)}
-                      <span className="ml-1 text-xs opacity-80">({pct(a.lucroPct)})</span>
-                    </td>
-                    <td className="px-5 py-3.5">
-                      <div className="flex items-center justify-end gap-2">
-                        <div className="h-1.5 w-16 overflow-hidden rounded-full bg-slate-100">
-                          <div
-                            className="grow-bar h-full rounded-full"
-                            style={{ width: `${fatia}%`, background: cor }}
-                          />
-                        </div>
-                        <span className="tnum w-12 text-right font-mono text-xs text-slate-500">
-                          {fatia.toFixed(1).replace(".", ",")}%
-                        </span>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-            <tfoot>
-              <tr className="bg-[--color-paper] text-[13px] font-semibold">
-                <td className="px-5 py-3.5" colSpan={5}>
-                  Total
-                </td>
-                <td className="tnum px-3 py-3.5 text-right font-mono">{brl(patrimonio)}</td>
-                <td
-                  className="tnum px-3 py-3.5 text-right font-mono"
-                  style={{ color: lucroTotal >= 0 ? "#1e9e63" : "#d94f5c" }}
+        <CardTabela larguraMinima="min-w-205">
+          <CabecalhoTabela colunas={colunas} />
+          <tbody>
+            {ativos.map((a) => {
+              const cor = coresClasse[a.type] ?? "var(--color-mute)";
+              const ganhou = a.lucro >= 0;
+              const fatia = patrimonio === 0 ? 0 : (a.valorAtual / patrimonio) * 100;
+              return (
+                <tr
+                  key={a.ticker}
+                  className="border-b border-line last:border-0 hover:bg-paper"
                 >
-                  {brl(lucroTotal)}
-                </td>
-                <td className="px-5 py-3.5 text-right font-mono text-xs text-slate-500">100%</td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
+                  <td className="py-3.5 pr-3 pl-5">
+                    <p className="font-mono font-semibold">{a.ticker}</p>
+                    <p className="text-xs text-mute">{a.name}</p>
+                  </td>
+                  <td className="px-3 py-3.5">
+                    <EtiquetaClasse tipo={a.type} />
+                  </td>
+                  <td className="tnum px-3 py-3.5 text-right font-mono">{a.quantidade}</td>
+                  <td className="tnum px-3 py-3.5 text-right font-mono text-mute">
+                    {brl(a.precoMedio)}
+                  </td>
+                  <td className="tnum px-3 py-3.5 text-right font-mono">{brl(a.precoAtual)}</td>
+                  <td className="tnum px-3 py-3.5 text-right font-mono font-semibold">
+                    {brl(a.valorAtual)}
+                  </td>
+                  <td
+                    className={`tnum px-3 py-3.5 text-right font-mono font-semibold ${
+                      ganhou ? "text-gain-ink" : "text-loss-ink"
+                    }`}
+                  >
+                    {brl(a.lucro)}
+                    <span className="ml-1 text-xs opacity-80">({pct(a.lucroPct)})</span>
+                  </td>
+                  <td className="py-3.5 pr-5 pl-3">
+                    <div className="flex items-center justify-end gap-2">
+                      <div className="h-1.5 w-16 overflow-hidden rounded-full bg-paper">
+                        <div
+                          className="h-full rounded-full"
+                          style={{ width: `${fatia}%`, background: cor }}
+                        />
+                      </div>
+                      <span className="tnum w-12 text-right font-mono text-xs text-mute">
+                        {fatia.toFixed(1).replace(".", ",")}%
+                      </span>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+          <tfoot>
+            <tr className="bg-paper text-[13px] font-semibold">
+              <td className="py-3.5 pr-3 pl-5" colSpan={5}>
+                Total
+              </td>
+              <td className="tnum px-3 py-3.5 text-right font-mono">{brl(patrimonio)}</td>
+              <td
+                className={`tnum px-3 py-3.5 text-right font-mono ${
+                  lucroTotal >= 0 ? "text-gain-ink" : "text-loss-ink"
+                }`}
+              >
+                {brl(lucroTotal)}
+              </td>
+              <td className="tnum py-3.5 pr-5 pl-3 text-right font-mono text-xs text-mute">
+                100%
+              </td>
+            </tr>
+          </tfoot>
+        </CardTabela>
       )}
 
       <ProventosCard ativos={disponiveis} />

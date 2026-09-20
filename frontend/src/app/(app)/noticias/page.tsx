@@ -1,6 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { EmptyState } from "@/components/ui/empty-state";
+import { MensagemErro } from "@/components/ui/mensagem";
+import { PageHeader, Pilula } from "@/components/ui/page-header";
+import { Skeleton } from "@/components/ui/skeleton";
 import { api, ApiError } from "@/lib/api";
 import { tempoRelativo } from "@/lib/format";
 
@@ -24,10 +28,10 @@ function CardNoticia({ n, destaque }: { n: Noticia; destaque?: boolean }) {
       href={n.link}
       target="_blank"
       rel="noopener noreferrer"
-      className={`group block rounded-xl border p-4 transition hover:shadow-md ${
+      className={`group block rounded-xl border p-4 transition-colors ${
         destaque
-          ? "border-[#1e9e63]/25 bg-[#1e9e63]/[0.04] hover:border-[#1e9e63]/50"
-          : "border-[--color-line] bg-white hover:border-slate-300"
+          ? "border-gain/30 bg-gain/5 hover:border-gain/60"
+          : "border-line bg-card hover:border-mute-soft"
       }`}
     >
       {n.tickers.length > 0 && (
@@ -35,7 +39,7 @@ function CardNoticia({ n, destaque }: { n: Noticia; destaque?: boolean }) {
           {n.tickers.map((t) => (
             <span
               key={t}
-              className="rounded-md bg-[#1e9e63] px-2 py-0.5 font-mono text-[11px] font-bold text-white"
+              className="rounded-md bg-gain-ink px-2 py-0.5 font-mono text-[11px] font-bold text-white"
             >
               {t}
             </span>
@@ -43,14 +47,33 @@ function CardNoticia({ n, destaque }: { n: Noticia; destaque?: boolean }) {
         </div>
       )}
 
-      <p className="text-sm font-medium leading-snug group-hover:text-[#1e9e63]">{n.titulo}</p>
+      <p className="text-sm leading-snug font-medium group-hover:text-gain-ink">{n.titulo}</p>
 
-      <div className="mt-2 flex items-center gap-2 text-xs text-slate-400">
-        <span>{n.fonte}</span>
-        <span aria-hidden>·</span>
-        <span className="tnum font-mono">{tempoRelativo(n.publicadoEm)}</span>
-      </div>
+      <p className="mt-2 text-xs text-mute">
+        {n.fonte}
+        <span className="tnum ml-2 font-mono">{tempoRelativo(n.publicadoEm)}</span>
+      </p>
     </a>
+  );
+}
+
+function Secao({
+  titulo,
+  quantidade,
+  children,
+}: {
+  titulo: string;
+  quantidade: number;
+  children: React.ReactNode;
+}) {
+  return (
+    <section>
+      <div className="mb-3 flex items-baseline gap-2">
+        <h2 className="font-semibold">{titulo}</h2>
+        <span className="tnum font-mono text-xs text-mute">{quantidade}</span>
+      </div>
+      {children}
+    </section>
   );
 }
 
@@ -66,52 +89,33 @@ export default function NoticiasPage() {
       );
   }, []);
 
-  if (erro) {
-    return <p className="rounded-lg bg-red-50 px-4 py-3 text-sm text-[#d94f5c]">{erro}</p>;
-  }
+  if (erro) return <MensagemErro>{erro}</MensagemErro>;
 
   if (!feed) {
     return (
-      <div className="mx-auto max-w-5xl space-y-4">
-        <div className="h-8 w-52 animate-pulse rounded-lg bg-slate-200" />
-        <div className="h-24 animate-pulse rounded-xl bg-slate-200" />
-        <div className="h-24 animate-pulse rounded-xl bg-slate-200" />
-        <div className="h-24 animate-pulse rounded-xl bg-slate-200" />
+      <div className="mx-auto max-w-5xl space-y-4" role="status" aria-label="Carregando">
+        <Skeleton className="h-8 w-52 rounded-lg" />
+        <Skeleton className="h-24 rounded-xl" />
+        <Skeleton className="h-24 rounded-xl" />
+        <Skeleton className="h-24 rounded-xl" />
       </div>
     );
   }
 
   return (
     <div className="mx-auto max-w-5xl space-y-8">
-      <header className="reveal flex items-end justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Notícias</h1>
-          <p className="text-sm text-slate-500">
-            Mercado brasileiro, com destaque para os ativos da sua carteira
-          </p>
-        </div>
-        <span className="tnum rounded-full border border-[--color-line] bg-white px-3 py-1 font-mono text-xs text-slate-500">
-          atualizado {tempoRelativo(feed.atualizadoEm)}
-        </span>
-      </header>
+      <PageHeader
+        titulo="Notícias"
+        descricao="Mercado brasileiro, com destaque para os ativos da sua carteira"
+        contexto={<Pilula>atualizado {tempoRelativo(feed.atualizadoEm)}</Pilula>}
+      />
 
-      <section className="reveal reveal-2">
-        <div className="mb-3 flex items-baseline gap-2">
-          <h2 className="font-semibold">Da sua carteira</h2>
-          <span className="tnum font-mono text-xs text-slate-400">
-            {feed.daSuaCarteira.length}
-          </span>
-        </div>
-
+      <Secao titulo="Da sua carteira" quantidade={feed.daSuaCarteira.length}>
         {feed.daSuaCarteira.length === 0 ? (
-          <div className="rounded-xl border-2 border-dashed border-slate-300 bg-white p-8 text-center">
-            <p className="text-sm font-medium">
-              Nenhuma notícia recente cita os ativos da sua carteira
-            </p>
-            <p className="mt-1 text-xs text-slate-500">
-              Assim que sair algo sobre eles, aparece aqui em destaque.
-            </p>
-          </div>
+          <EmptyState
+            titulo="Nenhuma notícia recente cita os seus ativos"
+            descricao="Assim que sair algo sobre eles, aparece aqui em destaque."
+          />
         ) : (
           <div className="grid gap-3 sm:grid-cols-2">
             {feed.daSuaCarteira.map((n) => (
@@ -119,18 +123,14 @@ export default function NoticiasPage() {
             ))}
           </div>
         )}
-      </section>
+      </Secao>
 
-      <section className="reveal reveal-3">
-        <div className="mb-3 flex items-baseline gap-2">
-          <h2 className="font-semibold">Mercado</h2>
-          <span className="tnum font-mono text-xs text-slate-400">{feed.mercado.length}</span>
-        </div>
-
+      <Secao titulo="Mercado" quantidade={feed.mercado.length}>
         {feed.mercado.length === 0 ? (
-          <div className="rounded-xl border border-[--color-line] bg-white p-8 text-center">
-            <p className="text-sm text-slate-500">
-              Nenhuma notícia disponível no momento — as fontes podem estar fora do ar.
+          <div className="rounded-xl border border-line bg-card p-8 text-center">
+            <p className="text-sm text-mute">
+              Nenhuma notícia disponível agora. As fontes podem estar fora do ar — recarregue a
+              página em alguns minutos.
             </p>
           </div>
         ) : (
@@ -140,11 +140,11 @@ export default function NoticiasPage() {
             ))}
           </div>
         )}
-      </section>
+      </Secao>
 
-      <p className="reveal reveal-4 text-center text-xs text-slate-400">
-        Notícias de fontes públicas (Money Times e Suno). O PortfolioLab não produz
-        conteúdo jornalístico nem recomenda investimentos.
+      <p className="text-center text-xs text-mute">
+        Notícias de fontes públicas (Money Times e Suno). O PortfolioLab não produz conteúdo
+        jornalístico nem recomenda investimentos.
       </p>
     </div>
   );

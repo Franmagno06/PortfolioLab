@@ -3,6 +3,9 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { Botao } from "@/components/ui/botao";
+import { Campo } from "@/components/ui/campo";
+import { MensagemErro } from "@/components/ui/mensagem";
 import { api, ApiError } from "@/lib/api";
 
 export default function RegistroPage() {
@@ -36,66 +39,52 @@ export default function RegistroPage() {
   }
 
   return (
-    <form onSubmit={criarConta} className="space-y-4">
+    <form onSubmit={criarConta} className="space-y-4" data-superficie="papel">
       <div>
         <h1 className="text-xl font-bold">Criar conta</h1>
-        <p className="text-sm text-slate-500">Comece a acompanhar seus investimentos</p>
+        <p className="text-sm text-mute-soft">Comece a acompanhar seus investimentos</p>
       </div>
 
-      <label className="block">
-        <span className="mb-1 block text-sm font-medium text-slate-700">Nome</span>
-        <input
-          type="text"
-          required
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Seu nome"
-          className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
-        />
-      </label>
+      <Campo
+        rotulo="Nome"
+        type="text"
+        required
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        placeholder="Seu nome"
+        autoComplete="name"
+      />
 
-      <label className="block">
-        <span className="mb-1 block text-sm font-medium text-slate-700">E-mail</span>
-        <input
-          type="email"
-          required
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="voce@exemplo.com"
-          className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
-        />
-      </label>
+      <Campo
+        rotulo="E-mail"
+        type="email"
+        required
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        placeholder="voce@exemplo.com"
+        autoComplete="email"
+      />
 
-      <label className="block">
-        <span className="mb-1 block text-sm font-medium text-slate-700">
-          Senha <span className="font-normal text-slate-400">(mínimo 6 caracteres)</span>
-        </span>
-        <input
-          type="password"
-          required
-          minLength={6}
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          placeholder="••••••"
-          className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
-        />
-      </label>
+      <Campo
+        rotulo="Senha (mínimo 6 caracteres)"
+        type="password"
+        required
+        minLength={6}
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+        placeholder="••••••"
+        autoComplete="new-password"
+      />
 
-      {erro && (
-        <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{erro}</p>
-      )}
+      {erro && <MensagemErro>{erro}</MensagemErro>}
 
-      <button
-        type="submit"
-        disabled={enviando}
-        className="w-full rounded-lg bg-[#0e1b33] py-2.5 text-sm font-semibold text-white transition hover:bg-[#1a2f5c] disabled:opacity-60"
-      >
-        {enviando ? "Criando..." : "Criar conta"}
-      </button>
+      <Botao type="submit" tamanho="bloco" disabled={enviando}>
+        {enviando ? "Criando conta..." : "Criar conta"}
+      </Botao>
 
-      <p className="text-center text-sm text-slate-500">
+      <p className="text-center text-sm text-mute-soft">
         Já tem conta?{" "}
-        <Link href="/login" className="font-semibold text-[#1e9e63] hover:underline">
+        <Link href="/login" className="rounded font-semibold text-gain-ink hover:underline">
           Entrar
         </Link>
       </p>

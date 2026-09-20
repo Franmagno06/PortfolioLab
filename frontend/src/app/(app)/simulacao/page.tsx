@@ -1,6 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { Botao } from "@/components/ui/botao";
+import { Campo, estiloCampo, estiloCampoCompacto } from "@/components/ui/campo";
+import { Card, TituloCard } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
+import { IconeCheck, IconeMais } from "@/components/ui/icones";
+import { MensagemAviso, MensagemErro } from "@/components/ui/mensagem";
+import { PageHeader } from "@/components/ui/page-header";
 import { api, ApiError } from "@/lib/api";
 import { brl, coresClasse } from "@/lib/format";
 import { somarMetas } from "@/lib/goals";
@@ -35,8 +42,28 @@ type Simulacao = {
   foraDaSimulacao: { valor: number; ativos: { ticker: string; valor: number }[] };
 };
 
-const campo =
-  "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100";
+function umaCasa(valor: number) {
+  return valor.toFixed(1).replace(".", ",");
+}
+
+function Resumo({ rotulo, valor, nota, destaque }: {
+  rotulo: string;
+  valor: string;
+  nota?: string;
+  destaque?: boolean;
+}) {
+  return (
+    <Card respiro="compacto">
+      <p className="text-xs text-mute">{rotulo}</p>
+      <p
+        className={`tnum mt-1 font-mono text-lg font-bold ${destaque ? "text-gain-ink" : ""}`}
+      >
+        {valor}
+      </p>
+      {nota && <p className="mt-1 text-[11px] leading-relaxed text-mute">{nota}</p>}
+    </Card>
+  );
+}
 
 export default function SimulacaoPage() {
   const [metas, setMetas] = useState<Metas | null>(null);
@@ -134,343 +161,343 @@ export default function SimulacaoPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
-      <header className="reveal">
-        <h1 className="text-2xl font-bold tracking-tight">Simulação de Aportes</h1>
-        <p className="text-sm text-slate-500">
-          Calcule onde investir para rebalancear sua carteira
-        </p>
-      </header>
+      <PageHeader
+        titulo="Simulação de aportes"
+        descricao="Calcule onde investir para aproximar a carteira das suas metas"
+      />
 
       <div className="grid grid-cols-12 items-start gap-6">
         {/* Coluna esquerda: aporte + metas */}
         <div className="col-span-12 space-y-6 lg:col-span-4">
-          <form
-            onSubmit={simular}
-            className="reveal reveal-2 rounded-2xl border border-[--color-line] bg-white p-6"
-          >
-            <h2 className="font-semibold">Configurar aporte</h2>
-            <label className="mt-4 block">
-              <span className="mb-1 block text-sm font-medium text-slate-700">
-                Valor do aporte (R$)
-              </span>
-              <input
-                type="number"
-                min="1"
-                step="0.01"
-                required
-                value={valor}
-                onChange={(e) => setValor(e.target.value)}
-                className={`${campo} tnum font-mono`}
-              />
-            </label>
+          <Card>
+            <form onSubmit={simular}>
+              <TituloCard>Configurar aporte</TituloCard>
+              <div className="mt-4">
+                <Campo
+                  rotulo="Valor do aporte (R$)"
+                  type="number"
+                  min="1"
+                  step="0.01"
+                  required
+                  value={valor}
+                  onChange={(e) => setValor(e.target.value)}
+                  className="tnum font-mono"
+                />
+              </div>
 
-            {erro && (
-              <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-[#d94f5c]">
-                {erro}
-              </p>
-            )}
+              {erro && (
+                <div className="mt-3">
+                  <MensagemErro>{erro}</MensagemErro>
+                </div>
+              )}
 
-            <button
-              type="submit"
-              disabled={calculando}
-              className="mt-4 w-full rounded-lg bg-[#0e1b33] py-2.5 text-sm font-semibold text-white transition hover:bg-[#1a2f5c] disabled:opacity-60"
+              <Botao type="submit" tamanho="bloco" disabled={calculando} className="mt-4">
+                {calculando ? "Calculando..." : "Calcular aporte"}
+              </Botao>
+            </form>
+          </Card>
+
+          <Card>
+            <TituloCard
+              acessorio={
+                <span
+                  className={`tnum font-mono text-xs font-semibold ${
+                    somaEditada > 100 ? "text-loss-ink" : "text-mute"
+                  }`}
+                >
+                  soma {umaCasa(somaEditada)}%
+                </span>
+              }
             >
-              {calculando ? "Calculando..." : "Calcular aporte"}
-            </button>
-          </form>
-
-          <section className="reveal reveal-3 rounded-2xl border border-[--color-line] bg-white p-6">
-            <div className="flex items-baseline justify-between">
-              <h2 className="font-semibold">Metas de alocação</h2>
-              <span
-                className={`tnum font-mono text-xs font-semibold ${
-                  somaEditada > 100 ? "text-[#d94f5c]" : "text-slate-500"
-                }`}
-              >
-                soma: {somaEditada.toFixed(1).replace(".", ",")}%
-              </span>
-            </div>
+              Metas de alocação
+            </TituloCard>
 
             {!metas ? (
-              <p className="mt-4 text-sm text-slate-500">Carregando...</p>
+              <p className="mt-4 text-sm text-mute">Carregando...</p>
             ) : (
               <>
-                <ul className="mt-4 space-y-2">
-                  {metas.metas.map((m) => (
-                    <li key={m.ticker} className="flex items-center gap-2">
-                      <span
-                        className="h-2 w-2 shrink-0 rounded-full"
-                        style={{ background: coresClasse[m.type] ?? "#94a3b8" }}
-                      />
-                      <span className="w-20 font-mono text-sm font-semibold">{m.ticker}</span>
-                      <input
-                        type="number"
-                        min="0.5"
-                        max="100"
-                        step="0.5"
-                        value={edicao[m.ticker] ?? ""}
-                        onChange={(e) =>
-                          setEdicao((atual) => ({ ...atual, [m.ticker]: e.target.value }))
-                        }
-                        className="tnum ml-auto w-20 rounded-lg border border-slate-300 px-2 py-1 text-right font-mono text-sm outline-none focus:border-emerald-600"
-                      />
-                      <span className="text-xs text-slate-400">%</span>
-                    </li>
-                  ))}
-                </ul>
+                {metas.metas.length > 0 && (
+                  <ul className="mt-4 space-y-2">
+                    {metas.metas.map((m) => (
+                      <li key={m.ticker} className="flex items-center gap-2">
+                        <span
+                          className="h-2 w-2 shrink-0 rounded-full"
+                          style={{ background: coresClasse[m.type] ?? "var(--color-mute)" }}
+                        />
+                        <label htmlFor={`meta-${m.ticker}`} className="font-mono text-sm font-semibold">
+                          {m.ticker}
+                        </label>
+                        <input
+                          id={`meta-${m.ticker}`}
+                          type="number"
+                          min="0.5"
+                          max="100"
+                          step="0.5"
+                          value={edicao[m.ticker] ?? ""}
+                          onChange={(e) =>
+                            setEdicao((atual) => ({ ...atual, [m.ticker]: e.target.value }))
+                          }
+                          className={`${estiloCampoCompacto} tnum ml-auto w-20 text-right font-mono`}
+                        />
+                        <span className="text-xs text-mute">%</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
 
                 {/* Qualquer ticker da B3 — inclusive um que ainda não se possui,
                     que é justamente o de maior déficit no rebalanceamento */}
-                <div className="mt-3 space-y-2 border-t border-[--color-line] pt-3">
+                <div
+                  className={`space-y-2 ${
+                    metas.metas.length > 0 ? "mt-3 border-t border-line pt-3" : "mt-4"
+                  }`}
+                >
                   <div className="flex items-center gap-2">
                     <input
                       type="text"
                       value={novoTicker}
                       onChange={(e) => setNovoTicker(normalizarTicker(e.target.value))}
                       placeholder="Adicionar meta: PETR4"
+                      aria-label="Ticker da nova meta"
                       maxLength={6}
-                      className="flex-1 rounded-lg border border-slate-300 px-2 py-1.5 font-mono text-sm uppercase outline-none focus:border-emerald-600"
+                      className={`${estiloCampoCompacto} min-w-0 flex-1 font-mono uppercase`}
                     />
                     <input
                       type="number"
                       placeholder="%"
+                      aria-label="Percentual da nova meta"
                       value={novoPct}
                       onChange={(e) => setNovoPct(e.target.value)}
-                      className="tnum w-16 rounded-lg border border-slate-300 px-2 py-1.5 text-right font-mono text-sm outline-none"
+                      className={`${estiloCampoCompacto} tnum w-16 text-right font-mono`}
                     />
                     <button
                       type="button"
                       onClick={adicionarMeta}
                       disabled={!cotacaoNova || buscandoTicker || !novoPct}
-                      className="rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm font-semibold hover:bg-slate-50 disabled:opacity-40"
+                      aria-label="Adicionar meta"
+                      className="rounded-lg border border-line p-2 transition-colors hover:bg-paper disabled:opacity-40"
                     >
-                      +
+                      <IconeMais />
                     </button>
                   </div>
 
                   {buscandoTicker && (
-                    <p className="text-xs text-slate-400">Buscando {novoTicker} na B3...</p>
+                    <p className="text-xs text-mute">Buscando {novoTicker} na B3...</p>
                   )}
 
                   {cotacaoNova && !buscandoTicker && (
-                    <p className="flex flex-wrap items-center gap-2 rounded-lg bg-[#1e9e63]/[0.06] px-2.5 py-1.5 text-xs">
-                      <span className="font-semibold text-[#1e9e63]">✓ {cotacaoNova.ticker}</span>
-                      <span className="text-slate-700">{cotacaoNova.nome}</span>
-                      <span className="tnum ml-auto font-mono text-slate-500">
+                    <p className="flex flex-wrap items-center gap-2 rounded-lg bg-gain/7 px-2.5 py-1.5 text-xs">
+                      <span className="flex items-center gap-1 font-semibold text-gain-ink">
+                        <IconeCheck tamanho={12} />
+                        {cotacaoNova.ticker}
+                      </span>
+                      <span className="text-ink-soft">{cotacaoNova.nome}</span>
+                      <span className="tnum ml-auto font-mono text-mute">
                         {brl(cotacaoNova.preco)}
                       </span>
                     </p>
                   )}
 
                   {jaTemMeta && !buscandoTicker && (
-                    <p className="text-xs text-slate-500">
-                      {novoTicker} já tem meta — o valor acima substitui o atual.
+                    <p className="text-xs text-mute">
+                      {novoTicker} já tem meta. O valor acima substitui o atual.
                     </p>
                   )}
 
                   {erroBuscaTicker && !buscandoTicker && (
-                    <p className="rounded-lg bg-amber-50 px-2.5 py-1.5 text-xs text-amber-800">
-                      {erroBuscaTicker}
-                    </p>
+                    <MensagemAviso titulo={erroBuscaTicker} />
                   )}
                 </div>
 
                 {erroMetas && (
-                  <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-[#d94f5c]">
-                    {erroMetas}
-                  </p>
+                  <div className="mt-3">
+                    <MensagemErro>{erroMetas}</MensagemErro>
+                  </div>
                 )}
 
-                <button
-                  type="button"
-                  onClick={salvarMetas}
-                  disabled={salvando}
-                  className="mt-4 w-full rounded-lg border border-slate-300 py-2 text-sm font-semibold transition hover:bg-slate-50 disabled:opacity-60"
-                >
-                  {salvando ? "Salvando..." : "Salvar metas"}
-                </button>
+                {metas.metas.length > 0 && (
+                  <Botao
+                    type="button"
+                    variante="secundario"
+                    onClick={salvarMetas}
+                    tamanho="bloco"
+                    disabled={salvando}
+                    className="mt-4"
+                  >
+                    {salvando ? "Salvando..." : "Salvar metas"}
+                  </Botao>
+                )}
               </>
             )}
-          </section>
+          </Card>
 
-          <aside className="reveal reveal-4 rounded-2xl border border-amber-200 bg-amber-50 p-5">
-            <p className="text-sm font-semibold text-amber-900">
-              💡 O que é rebalanceamento?
+          <Card>
+            <h2 className="text-sm font-semibold">O que é rebalanceamento por aporte</h2>
+            <p className="mt-1.5 text-xs leading-relaxed text-ink-soft">
+              Em vez de vender o que passou da meta, o que geraria imposto, o dinheiro novo vai
+              para os ativos mais abaixo dela. Cada um recebe uma fatia proporcional ao próprio
+              buraco, sempre em unidades inteiras.
             </p>
-            <p className="mt-1 text-xs leading-relaxed text-amber-800">
-              Em vez de vender o que passou da meta (gerando impostos), o aporte novo vai
-              para os ativos mais abaixo dela. O algoritmo ataca sempre o maior déficit
-              primeiro, comprando unidades inteiras.
-            </p>
-          </aside>
+          </Card>
         </div>
 
         {/* Coluna direita: resultado */}
         <div className="col-span-12 lg:col-span-8">
           {!resultado ? (
-            <div className="reveal reveal-3 rounded-2xl border-2 border-dashed border-slate-300 bg-white p-14 text-center">
-              <p className="font-semibold">Configure o aporte e clique em Calcular</p>
-              <p className="mt-1 text-sm text-slate-500">
-                O resultado mostra o que comprar, quanto sobra e como fica a alocação.
-              </p>
-            </div>
+            <EmptyState
+              titulo="Configure o aporte e calcule"
+              descricao="O resultado mostra o que comprar, quanto sobra e como a alocação fica depois."
+            />
           ) : (
-            <div className="space-y-6">
-              <div className="reveal grid grid-cols-3 gap-4">
-                <div className="rounded-2xl border border-[--color-line] bg-white p-4">
-                  <p className="text-[11px] uppercase tracking-wide text-slate-400">
-                    Total investido
-                  </p>
-                  <p className="tnum mt-1 font-mono text-lg font-bold text-[#1e9e63]">
-                    {brl(resultado.totalGasto)}
-                  </p>
-                </div>
-                <div className="rounded-2xl border border-[--color-line] bg-white p-4">
-                  <p className="text-[11px] uppercase tracking-wide text-slate-400">
-                    Sobra para o próximo
-                  </p>
-                  <p className="tnum mt-1 font-mono text-lg font-bold">
-                    {brl(resultado.restante)}
-                  </p>
-                </div>
-                <div className="rounded-2xl border border-[--color-line] bg-white p-4">
-                  <p className="text-[11px] uppercase tracking-wide text-slate-400">
-                    Patrimônio final
-                  </p>
-                  <p className="tnum mt-1 font-mono text-lg font-bold">
-                    {brl(resultado.patrimonioFinal)}
-                  </p>
-                  <p className="mt-1 text-[11px] text-slate-400">
-                    {resultado.restante > 0
+            <div className="reveal space-y-6">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                <Resumo
+                  rotulo="Total investido"
+                  valor={brl(resultado.totalGasto)}
+                  destaque
+                />
+                <Resumo rotulo="Sobra para o próximo" valor={brl(resultado.restante)} />
+                <Resumo
+                  rotulo="Patrimônio final"
+                  valor={brl(resultado.patrimonioFinal)}
+                  nota={
+                    resultado.restante > 0
                       ? `só os ativos com meta — a sobra de ${brl(resultado.restante)} fica em caixa`
-                      : "só os ativos com meta"}
-                  </p>
-                </div>
+                      : "só os ativos com meta"
+                  }
+                />
               </div>
 
               {resultado.somaMetas < 100 && (
-                <div className="reveal rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
-                  <p className="font-semibold">
-                    Suas metas somam {resultado.somaMetas.toFixed(0)}%, não 100%
-                  </p>
-                  <p className="mt-1 text-xs leading-relaxed">
-                    O aporte só é distribuído até onde as metas alcançam. Os{" "}
-                    {(100 - resultado.somaMetas).toFixed(0)}% restantes não têm dono, e por
-                    isso parte do dinheiro pode sobrar mesmo havendo ativo abaixo da meta.
-                  </p>
-                </div>
+                <MensagemAviso
+                  titulo={`Suas metas somam ${resultado.somaMetas.toFixed(0)}%, não 100%`}
+                >
+                  O aporte só é distribuído até onde as metas alcançam. Os{" "}
+                  {(100 - resultado.somaMetas).toFixed(0)}% restantes não têm dono, e por isso
+                  parte do dinheiro pode sobrar mesmo havendo ativo abaixo da meta.
+                </MensagemAviso>
               )}
 
               {resultado.foraDaSimulacao.valor > 0 && (
-                <div className="reveal rounded-2xl border border-[--color-line] bg-white p-5 text-sm">
-                  <p className="font-semibold">
+                <Card respiro="compacto">
+                  <p className="text-sm font-semibold">
                     {brl(resultado.foraDaSimulacao.valor)} fora desta simulação
                   </p>
-                  <p className="mt-1 text-xs leading-relaxed text-slate-500">
-                    Estes ativos estão na sua carteira mas não têm meta, então não entram
-                    nem como destino do aporte nem no cálculo dos percentuais. Cadastre uma
-                    meta para incluí-los.
+                  <p className="mt-1 text-xs leading-relaxed text-mute">
+                    Estes ativos estão na sua carteira mas não têm meta, então não entram nem
+                    como destino do aporte nem no cálculo dos percentuais. Cadastre uma meta
+                    para incluí-los.
                   </p>
                   <ul className="mt-3 flex flex-wrap gap-2">
                     {resultado.foraDaSimulacao.ativos.map((a) => (
                       <li
                         key={a.ticker}
-                        className="rounded-lg border border-[--color-line] px-2.5 py-1 text-xs"
+                        className="rounded-lg border border-line px-2.5 py-1 text-xs"
                       >
                         <span className="font-mono font-semibold">{a.ticker}</span>{" "}
-                        <span className="tnum text-slate-500">{brl(a.valor)}</span>
+                        <span className="tnum text-mute">{brl(a.valor)}</span>
                       </li>
                     ))}
                   </ul>
-                </div>
+                </Card>
               )}
 
-              <section className="reveal reveal-2 rounded-2xl border border-[--color-line] bg-white p-6">
-                <h2 className="font-semibold">O que comprar</h2>
+              <Card>
+                <TituloCard>O que comprar</TituloCard>
                 {resultado.compras.length === 0 ? (
-                  <p className="mt-3 text-sm text-slate-500">
-                    Nenhuma compra sugerida — ou o aporte não paga 1 unidade do que está em
+                  <p className="mt-3 text-sm text-mute">
+                    Nenhuma compra sugerida. Ou o aporte não paga uma unidade do que está em
                     déficit, ou toda a carteira já está na meta.
                   </p>
                 ) : (
-                  <table className="mt-3 w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-[--color-line] text-left text-[11px] uppercase tracking-[0.12em] text-slate-400">
-                        <th className="py-2.5 font-semibold">Ativo</th>
-                        <th className="py-2.5 text-right font-semibold">Déficit</th>
-                        <th className="py-2.5 text-right font-semibold">Qtd.</th>
-                        <th className="py-2.5 text-right font-semibold">Preço</th>
-                        <th className="py-2.5 text-right font-semibold">Total</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {resultado.compras.map((c, i) => (
-                        <tr key={c.ticker} className="border-b border-[--color-line] last:border-0">
-                          <td className="py-3">
-                            <span className="mr-2 inline-flex h-5 w-5 items-center justify-center rounded-full bg-[#0e1b33] font-mono text-[10px] font-bold text-white">
-                              {i + 1}
-                            </span>
-                            <span className="font-mono font-semibold">{c.ticker}</span>
-                          </td>
-                          <td className="tnum py-3 text-right font-mono text-[#d94f5c]">
-                            {brl(c.deficit)}
-                          </td>
-                          <td className="tnum py-3 text-right font-mono font-semibold">
-                            {c.quantidade}
-                          </td>
-                          <td className="tnum py-3 text-right font-mono text-slate-500">
-                            {brl(c.precoUnitario)}
-                          </td>
-                          <td className="tnum py-3 text-right font-mono font-semibold">
-                            {brl(c.total)}
-                          </td>
+                  <div className="mt-3 overflow-x-auto">
+                    <table className="w-full min-w-120 text-sm">
+                      <thead>
+                        <tr className="border-b border-line text-left text-xs text-mute">
+                          <th scope="col" className="py-2.5 font-semibold">
+                            Ativo
+                          </th>
+                          <th scope="col" className="py-2.5 text-right font-semibold">
+                            Déficit
+                          </th>
+                          <th scope="col" className="py-2.5 text-right font-semibold">
+                            Qtd.
+                          </th>
+                          <th scope="col" className="py-2.5 text-right font-semibold">
+                            Preço
+                          </th>
+                          <th scope="col" className="py-2.5 text-right font-semibold">
+                            Total
+                          </th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {resultado.compras.map((c) => (
+                          <tr key={c.ticker} className="border-b border-line last:border-0">
+                            <td className="py-3 font-mono font-semibold">{c.ticker}</td>
+                            <td className="tnum py-3 text-right font-mono text-loss-ink">
+                              {brl(c.deficit)}
+                            </td>
+                            <td className="tnum py-3 text-right font-mono font-semibold">
+                              {c.quantidade}
+                            </td>
+                            <td className="tnum py-3 text-right font-mono text-mute">
+                              {brl(c.precoUnitario)}
+                            </td>
+                            <td className="tnum py-3 text-right font-mono font-semibold">
+                              {brl(c.total)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 )}
-              </section>
+              </Card>
 
-              <section className="reveal reveal-3 rounded-2xl border border-[--color-line] bg-white p-6">
-                <div className="flex items-baseline justify-between">
-                  <h2 className="font-semibold">Antes vs. depois do aporte</h2>
-                  <p className="text-xs text-slate-400">▪ meta</p>
-                </div>
+              <Card>
+                <TituloCard>Antes e depois do aporte</TituloCard>
                 <div className="mt-4 space-y-4">
                   {resultado.alocacao.map((a) => (
                     <div key={a.ticker}>
-                      <div className="mb-1.5 flex items-baseline justify-between text-sm">
+                      <div className="mb-1.5 flex flex-wrap items-baseline justify-between gap-x-3 text-sm">
                         <span className="font-mono font-semibold">{a.ticker}</span>
-                        <span className="tnum font-mono text-xs text-slate-500">
-                          {a.atualPct.toFixed(1).replace(".", ",")}% →{" "}
-                          <span className="font-semibold text-[#1e9e63]">
-                            {a.aposAportePct.toFixed(1).replace(".", ",")}%
-                          </span>{" "}
-                          · meta {a.alvoPct.toFixed(1).replace(".", ",")}%
+                        <span className="tnum font-mono text-xs text-mute">
+                          {umaCasa(a.atualPct)}% vira{" "}
+                          <span className="font-semibold text-gain-ink">
+                            {umaCasa(a.aposAportePct)}%
+                          </span>
+                          , meta {umaCasa(a.alvoPct)}%
                         </span>
                       </div>
                       <div className="relative space-y-1">
-                        <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+                        <div className="h-2 overflow-hidden rounded-full bg-paper">
                           <div
-                            className="h-full rounded-full bg-slate-400"
+                            className="h-full rounded-full bg-mute-soft"
                             style={{ width: `${Math.min(a.atualPct, 100)}%` }}
                           />
                         </div>
-                        <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+                        <div className="h-2 overflow-hidden rounded-full bg-paper">
                           <div
-                            className="grow-bar h-full rounded-full bg-[#1e9e63]"
+                            className="grow-bar h-full rounded-full bg-gain"
                             style={{ width: `${Math.min(a.aposAportePct, 100)}%` }}
                           />
                         </div>
+                        {/* marca da meta, atravessando as duas barras */}
                         <span
-                          className="absolute -top-0.5 bottom-0.5 w-[2px] rounded bg-[#0e1b33]"
+                          className="absolute -top-0.5 bottom-0.5 w-0.5 rounded bg-ink"
                           style={{ left: `${Math.min(a.alvoPct, 100)}%` }}
+                          aria-hidden
                         />
                       </div>
                     </div>
                   ))}
                 </div>
-              </section>
+                <p className="mt-4 text-xs text-mute">
+                  A barra de cima é a alocação de hoje, a de baixo é como ela fica depois do
+                  aporte. O traço vertical marca a meta.
+                </p>
+              </Card>
             </div>
           )}
         </div>
