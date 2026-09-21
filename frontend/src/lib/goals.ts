@@ -71,3 +71,18 @@ export function calcularDesvios(
     somaMetas: metas.reduce((soma, m) => soma + m.targetWeight, 0),
   };
 }
+
+/**
+ * Frase curta pro tooltip de um segmento da fita de alocação e pro texto de
+ * "o que a carteira pede agora" no herói do dashboard — um formatador só,
+ * pros dois lugares nunca descreverem o mesmo desvio com palavras diferentes.
+ *
+ * Abaixo de meio ponto percentual o desvio é oscilação de cotação, não
+ * decisão de aporte — mesmo limiar que o dashboard usa pra decidir se a
+ * carteira "está na meta".
+ */
+export function formatarDesvio(d: DesvioDeMeta): string {
+  const pontos = Math.abs(d.desvioPct).toFixed(1).replace(".", ",");
+  if (Math.abs(d.desvioPct) < 0.5) return "na meta";
+  return d.desvioPct < 0 ? `${pontos} pontos abaixo da meta` : `${pontos} pontos acima da meta`;
+}

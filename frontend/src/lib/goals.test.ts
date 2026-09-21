@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calcularDesvios, somarMetas } from "./goals";
+import { calcularDesvios, formatarDesvio, somarMetas } from "./goals";
 
 describe("somarMetas", () => {
   it("soma os valores numéricos do mapa ticker → percentual", () => {
@@ -76,5 +76,31 @@ describe("calcularDesvios", () => {
     expect(r.desvios).toEqual([]);
     expect(r.somaMetas).toBe(0);
     expect(r.maiorDeficit).toBeNull();
+  });
+});
+
+describe("formatarDesvio", () => {
+  it("desvio negativo relevante: abaixo da meta", () => {
+    expect(formatarDesvio({ ticker: "PETR4", alvoPct: 50, atualPct: 30, desvioPct: -20 })).toBe(
+      "20,0 pontos abaixo da meta",
+    );
+  });
+
+  it("desvio positivo relevante: acima da meta", () => {
+    expect(formatarDesvio({ ticker: "PETR4", alvoPct: 50, atualPct: 65, desvioPct: 15 })).toBe(
+      "15,0 pontos acima da meta",
+    );
+  });
+
+  it("abaixo de meio ponto percentual é oscilação, não desvio — mesmo negativo", () => {
+    expect(formatarDesvio({ ticker: "PETR4", alvoPct: 50, atualPct: 49.8, desvioPct: -0.2 })).toBe(
+      "na meta",
+    );
+  });
+
+  it("exatamente na meta", () => {
+    expect(formatarDesvio({ ticker: "PETR4", alvoPct: 50, atualPct: 50, desvioPct: 0 })).toBe(
+      "na meta",
+    );
   });
 });

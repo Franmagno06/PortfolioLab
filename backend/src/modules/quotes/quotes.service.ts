@@ -1,5 +1,5 @@
 import { Prisma, type Asset } from "@prisma/client";
-import { buscarCotacao, buscarCotacoes } from "./quotes.provider.js";
+import { buscarCotacao, buscarCotacoes, buscarHistoricoMensal } from "./quotes.provider.js";
 import { quotesRepository } from "./quotes.repository.js";
 
 // Cotação com menos de 15 minutos é considerada fresca. A B3 opera em
@@ -98,5 +98,25 @@ export const quotesService = {
       type: cotacao.tipo,
       currentPrice: cotacao.preco,
     });
+  },
+
+  /**
+   * Fechamento mensal de cada ativo cotado em bolsa, para o dashboard
+   * reconstruir a evolução real do patrimônio (ver
+   * portfolio.service.ts:calcularEvolucaoPatrimonial).
+   *
+   * Renda fixa fica de fora: não é negociada em bolsa, e o preço dela já é
+   * tratado como constante em todo o resto do app (ver resolverPrecos) — não
+   * há "fechamento do mês" para buscar.
+   */
+  async historicoMensal(
+    ativos: AtivoParaCotacao[],
+    meses: number,
+  ): Promise<Map<string, Map<string, number>>> {
+    const cotados = ativos.filter((a) => a.type !== "RENDA_FIXA");
+    const resultados = await Promise.all(
+      cotados.map(async (a) => [a.ticker, await buscarHistoricoMensal(a.ticker, meses)] as const),
+    );
+    return new Map(resultados);
   },
 };

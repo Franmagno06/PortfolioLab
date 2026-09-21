@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { Botao } from "@/components/ui/botao";
 import { Campo, estiloCampoCompacto } from "@/components/ui/campo";
 import { Card, TituloCard } from "@/components/ui/card";
@@ -65,7 +66,20 @@ function Resumo({ rotulo, valor, nota, destaque }: {
   );
 }
 
+// useSearchParams suspende no carregamento da página (Next 16 só conhece a
+// query string depois de hidratar) — isolar quem a lê num componente próprio
+// deixa o resto da árvore livre pra ser pré-renderizado. Ver
+// node_modules/next/dist/docs/.../use-search-params.md#prerendering.
 export default function SimulacaoPage() {
+  return (
+    <Suspense fallback={<div className="mx-auto max-w-6xl" />}>
+      <SimulacaoConteudo />
+    </Suspense>
+  );
+}
+
+function SimulacaoConteudo() {
+  const tickerFocado = useSearchParams().get("ticker");
   const [metas, setMetas] = useState<Metas | null>(null);
   const [edicao, setEdicao] = useState<Record<string, string>>({});
   const [novoTicker, setNovoTicker] = useState("");
@@ -81,6 +95,10 @@ export default function SimulacaoPage() {
   const [erroMetas, setErroMetas] = useState<string | null>(null);
   const [calculando, setCalculando] = useState(false);
   const [salvando, setSalvando] = useState(false);
+  const [tickerDestacado, setTickerDestacado] = useState<string | null>(null);
+  const linhasMeta = useRef<Record<string, HTMLLIElement | null>>({});
+  const inputNovoTicker = useRef<HTMLInputElement>(null);
+  const aplicouFoco = useRef(false);
 
   const carregar = useCallback(async () => {
     const m = await api<Metas>("/goals");
@@ -96,6 +114,30 @@ export default function SimulacaoPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     carregar().catch(() => setErro("Falha ao carregar as metas"));
   }, [carregar]);
+
+  useEffect(() => {
+    // Chegada com ?ticker= (clique na fita de alocação do dashboard):
+    // sincroniza a tela com a URL depois que as metas terminam de carregar.
+    // Roda uma vez só (aplicouFoco) — sem o guard, toda vez que carregar()
+    // troca a referência de `metas` (ex.: depois de salvar) o foco voltaria
+    // a saltar para o mesmo ticker.
+    if (!metas || aplicouFoco.current || !tickerFocado) return;
+    aplicouFoco.current = true;
+    const ticker = normalizarTicker(tickerFocado);
+    const linha = linhasMeta.current[ticker];
+
+    if (linha) {
+      linha.scrollIntoView({ behavior: "smooth", block: "center" });
+      setTickerDestacado(ticker);
+      const desligar = setTimeout(() => setTickerDestacado(null), 2000);
+      return () => clearTimeout(desligar);
+    } else {
+      // o ativo não tem meta ainda: pré-preenche o formulário de adicionar
+      setNovoTicker(ticker);
+      inputNovoTicker.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      inputNovoTicker.current?.focus();
+    }
+  }, [metas, tickerFocado]);
 
   const somaEditada = somarMetas(edicao);
   const jaTemMeta = metas?.metas.some((m) => m.ticker === novoTicker) ?? false;
@@ -219,7 +261,15 @@ export default function SimulacaoPage() {
                 {metas.metas.length > 0 && (
                   <ul className="mt-4 space-y-2">
                     {metas.metas.map((m) => (
-                      <li key={m.ticker} className="flex items-center gap-2">
+                      <li
+                        key={m.ticker}
+                        ref={(el) => {
+                          linhasMeta.current[m.ticker] = el;
+                        }}
+                        className={`-mx-2 flex items-center gap-2 rounded-lg px-2 py-1 transition-colors ${
+                          tickerDestacado === m.ticker ? "bg-gain/10 ring-1 ring-gain-ink" : ""
+                        }`}
+                      >
                         <span
                           className="h-2 w-2 shrink-0 rounded-full"
                           style={{ background: coresClasse[m.type] ?? "var(--color-mute)" }}
@@ -254,6 +304,7 @@ export default function SimulacaoPage() {
                 >
                   <div className="flex items-center gap-2">
                     <input
+                      ref={inputNovoTicker}
                       type="text"
                       value={novoTicker}
                       onChange={(e) => setNovoTicker(normalizarTicker(e.target.value))}

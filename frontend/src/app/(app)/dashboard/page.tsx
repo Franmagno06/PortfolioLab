@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   Bar,
@@ -19,7 +20,7 @@ import { PageHeader, Pilula } from "@/components/ui/page-header";
 import { SkeletonPagina } from "@/components/ui/skeleton";
 import { api, ApiError, type Pagina } from "@/lib/api";
 import { brl, coresClasse, nomesClasse, pct } from "@/lib/format";
-import { calcularDesvios, type DesvioDeMeta } from "@/lib/goals";
+import { calcularDesvios, formatarDesvio, type DesvioDeMeta } from "@/lib/goals";
 
 type Summary = {
   patrimonioTotal: number;
@@ -40,6 +41,9 @@ type Provento = {
 type Posicao = { ticker: string; type: string; valorAtual: number };
 type Metas = { metas: { ticker: string; targetWeight: number }[] };
 
+/** "AAAA-MM" — mesmo formato que o backend devolve em /portfolio/evolution. */
+type PontoEvolucao = { mes: string; aplicado: number; resultado: number; patrimonio: number };
+
 function agruparPorMes(proventos: Provento[]) {
   const porMes = new Map<string, { rotulo: string; total: number }>();
   for (const p of proventos) {
@@ -55,12 +59,23 @@ function agruparPorMes(proventos: Provento[]) {
     .map(([, v]) => ({ mes: v.rotulo, total: Number(v.total.toFixed(2)) }));
 }
 
+/** "2026-03" → "mar". Mesma ideia de agruparPorMes, mas a chave já vem pronta do backend. */
+function rotuloMes(mes: string): string {
+  const [ano, mesNum] = mes.split("-").map(Number);
+  if (!ano || !mesNum) return mes;
+  return new Date(Date.UTC(ano, mesNum - 1, 1))
+    .toLocaleDateString("pt-BR", { month: "short", timeZone: "UTC" })
+    .replace(".", "");
+}
+
 /**
  * Fita de alocação: cada segmento é a fatia REAL de um ativo, cada marca acima
  * é onde a meta dele termina. Meta cumprida = marca no fim do segmento.
  *
  * É o gesto central do produto — "o quanto a carteira saiu do lugar" — em uma
- * linha só, sem repetir as barras da tela de simulação.
+ * linha só, sem repetir as barras da tela de simulação. Cada segmento é um
+ * botão: o tooltip mostra o desvio exato e o clique leva à Simulação com
+ * aquele ativo em foco.
  */
 function FitaDeAlocacao({
   desvios,
@@ -69,6 +84,8 @@ function FitaDeAlocacao({
   desvios: DesvioDeMeta[];
   corDe: (ticker: string) => string;
 }) {
+  const router = useRouter();
+
   // Soma das metas ate cada ativo, sem reatribuir nada de fora do map: a
   // marca do segmento e o ponto da fita onde a meta dele termina.
   const segmentos = desvios.map((d, i) => ({
@@ -77,8 +94,12 @@ function FitaDeAlocacao({
   }));
 
   return (
-    <div className="relative h-6" aria-hidden>
-      <div className="absolute inset-x-0 top-2.5 flex h-2 overflow-hidden rounded-full bg-white/10">
+    <div className="relative h-6">
+      {/* camada visual: decorativa, o texto acessível vive nos botões abaixo */}
+      <div
+        className="absolute inset-x-0 top-2.5 flex h-2 overflow-hidden rounded-full bg-white/10"
+        aria-hidden
+      >
         {segmentos.map((s) => (
           <span
             key={s.ticker}
@@ -92,8 +113,39 @@ function FitaDeAlocacao({
           key={s.ticker}
           className="absolute top-0.5 h-5 w-px -translate-x-1/2 bg-white/70"
           style={{ left: `${Math.min(s.marca, 100)}%` }}
+          aria-hidden
         />
       ))}
+
+      {/* camada interativa: mesma geometria da fita, sem overflow-hidden —
+          o tooltip precisa poder escapar da moldura arredondada de cima */}
+      <div className="absolute inset-0 flex">
+        {segmentos.map((s, i) => (
+          <button
+            key={s.ticker}
+            type="button"
+            onClick={() => router.push(`/simulacao?ticker=${encodeURIComponent(s.ticker)}`)}
+            style={{ width: `${s.atualPct}%` }}
+            className="group relative h-full min-w-0.75 rounded-sm"
+            aria-label={`${s.ticker}: ${s.atualPct.toFixed(1).replace(".", ",")}% da carteira, ${formatarDesvio(s)}. Abrir na simulação.`}
+          >
+            {/* puramente visual — o texto acessível já está no aria-label do
+                botão; duplicar como role="tooltip" só confundiria o leitor de tela */}
+            <span
+              aria-hidden
+              className={`pointer-events-none absolute bottom-full mb-2 whitespace-nowrap rounded-lg border border-white/10 bg-ink-lift px-2.5 py-1.5 text-xs text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 ${
+                i === 0 ? "left-0" : i === segmentos.length - 1 ? "right-0" : "left-1/2 -translate-x-1/2"
+              }`}
+            >
+              <span className="font-mono font-semibold">{s.ticker}</span>{" "}
+              <span className="tnum text-slate-300">
+                {s.atualPct.toFixed(1).replace(".", ",")}%
+              </span>{" "}
+              · {formatarDesvio(s)}
+            </span>
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
@@ -103,6 +155,7 @@ export default function DashboardPage() {
   const [proventos, setProventos] = useState<Provento[] | null>(null);
   const [posicoes, setPosicoes] = useState<Posicao[]>([]);
   const [metas, setMetas] = useState<Metas["metas"]>([]);
+  const [evolucao, setEvolucao] = useState<PontoEvolucao[] | null>(null);
   const [erro, setErro] = useState<string | null>(null);
 
   useEffect(() => {
@@ -111,12 +164,14 @@ export default function DashboardPage() {
       api<Pagina<Provento>>("/dividends"),
       api<Posicao[]>("/portfolio"),
       api<Metas>("/goals"),
+      api<PontoEvolucao[]>("/portfolio/evolution"),
     ])
-      .then(([s, p, pos, m]) => {
+      .then(([s, p, pos, m, ev]) => {
         setSummary(s);
         setProventos(p.itens);
         setPosicoes(pos);
         setMetas(m.metas);
+        setEvolucao(ev);
       })
       .catch((err) =>
         setErro(err instanceof ApiError ? err.message : "Falha ao carregar os dados"),
@@ -124,7 +179,7 @@ export default function DashboardPage() {
   }, []);
 
   if (erro) return <MensagemErro>{erro}</MensagemErro>;
-  if (!summary || !proventos) return <SkeletonPagina blocos={2} />;
+  if (!summary || !proventos || !evolucao) return <SkeletonPagina blocos={2} />;
 
   const ganhou = summary.lucroTotal >= 0;
   const proventosPorMes = agruparPorMes(proventos);
@@ -134,13 +189,22 @@ export default function DashboardPage() {
     cor: coresClasse[a.classe] ?? "#5d6b7f",
     pct: a.percentual,
   }));
+  const serieEvolucao = evolucao.map((p) => ({ ...p, rotulo: rotuloMes(p.mes) }));
 
   const rebal = calcularDesvios(metas, posicoes);
   const tipoPorTicker = new Map(posicoes.map((p) => [p.ticker, p.type]));
   const corDe = (ticker: string) => coresClasse[tipoPorTicker.get(ticker) ?? ""] ?? "#5d6b7f";
 
-  // Uma frase só: o que a carteira pede agora. Abaixo de meio ponto percentual
-  // não vale mandar ninguém aportar — nessa faixa o desvio é oscilação de cotação.
+  // O ativo que mais pesa na frase do herói: o de maior desvio em módulo,
+  // seja ele déficit (abaixo da meta) ou excesso (acima dela) — os desvios
+  // já vêm ordenados do mais negativo ao mais positivo.
+  const piorDesvio =
+    rebal.desvios.length === 0
+      ? null
+      : Math.abs(rebal.desvios[0]!.desvioPct) >= Math.abs(rebal.desvios.at(-1)!.desvioPct)
+        ? rebal.desvios[0]!
+        : rebal.desvios.at(-1)!;
+
   const temFita = rebal.desvios.length > 0 && rebal.patrimonioConsiderado > 0;
   const naMeta = rebal.maiorDesvioPct < 0.5;
   const chamada =
@@ -149,14 +213,10 @@ export default function DashboardPage() {
           texto: "Defina metas de alocação para ver o quanto a carteira saiu do lugar.",
           rotulo: "Definir metas",
         }
-      : naMeta
+      : naMeta || !piorDesvio
         ? { texto: "Sua carteira está na meta.", rotulo: "Simular aporte" }
         : {
-            texto: `${rebal.maiorDeficit?.ticker ?? "Um ativo"} está ${Math.abs(
-              rebal.maiorDeficit?.desvioPct ?? 0,
-            )
-              .toFixed(1)
-              .replace(".", ",")} pontos abaixo da meta.`,
+            texto: `${piorDesvio.ticker} está ${formatarDesvio(piorDesvio)}.`,
             rotulo: "Simular aporte",
           };
 
@@ -296,8 +356,74 @@ export default function DashboardPage() {
           )}
         </Card>
 
-        {/* Proventos mês a mês */}
+        {/* Evolução do patrimônio: valor aplicado + resultado, mês a mês */}
         <Card className="reveal reveal-3 col-span-12">
+          <TituloCard
+            acessorio={
+              serieEvolucao.length > 0 ? (
+                <span className="text-xs text-mute">
+                  {serieEvolucao.length} {serieEvolucao.length === 1 ? "mês" : "meses"} de
+                  histórico
+                </span>
+              ) : undefined
+            }
+          >
+            Evolução do patrimônio
+          </TituloCard>
+
+          {serieEvolucao.length === 0 ? (
+            <p className="mt-4 text-sm text-mute">
+              Ainda não há histórico suficiente. O gráfico aparece a partir do primeiro mês
+              fechado depois da sua primeira transação.
+            </p>
+          ) : (
+            <div className="mt-4 h-56">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={serieEvolucao} barSize={28}>
+                  <XAxis
+                    dataKey="rotulo"
+                    tickLine={false}
+                    axisLine={false}
+                    tick={{ fontSize: 12, fill: "#5d6b7f" }}
+                  />
+                  <YAxis hide />
+                  <Tooltip
+                    cursor={{ fill: "rgba(14,27,51,0.04)" }}
+                    formatter={(v, nome) => [
+                      brl(Number(v)),
+                      nome === "aplicado" ? "Aplicado" : "Resultado",
+                    ]}
+                    labelFormatter={(rotulo, item) => item[0]?.payload?.mes ?? rotulo}
+                  />
+                  {/* aplicado é sempre a base da pilha. Quando o resultado do mês é
+                      negativo, o Recharts desenha o déficit como uma barra à parte
+                      abaixo do zero, então o quadrado no topo do aplicado não
+                      incomoda — não há nada "encaixando" ali naquele mês. */}
+                  <Bar
+                    dataKey="aplicado"
+                    stackId="patrimonio"
+                    fill="var(--color-mute-soft)"
+                    radius={[0, 0, 0, 0]}
+                  />
+                  <Bar dataKey="resultado" stackId="patrimonio" radius={[6, 6, 0, 0]}>
+                    {serieEvolucao.map((p) => (
+                      <Cell
+                        key={p.mes}
+                        fill={p.resultado >= 0 ? "var(--color-gain)" : "var(--color-loss)"}
+                      />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+          <p className="mt-3 text-xs text-mute">
+            Cinza é o quanto você aplicou; verde ou coral é o resultado acumulado naquele mês.
+          </p>
+        </Card>
+
+        {/* Proventos mês a mês */}
+        <Card className="reveal reveal-4 col-span-12">
           <TituloCard
             acessorio={
               <span className="tnum font-mono text-sm font-semibold text-gain-ink">

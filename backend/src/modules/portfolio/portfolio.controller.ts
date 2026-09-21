@@ -11,4 +11,9 @@ export const portfolioController = {
     const resumo = await portfolioService.getSummary(req.userId as string);
     res.json(resumo);
   },
+
+  async evolucao(req: Request, res: Response) {
+    const pontos = await portfolioService.getEvolucaoPatrimonial(req.userId as string);
+    res.json(pontos);
+  },
 };

@@ -48,3 +48,4 @@ export const coresClasse: Record<string, string> = {
   ETF: "#d98324",
   RENDA_FIXA: "#7a5af8",
 };
+
