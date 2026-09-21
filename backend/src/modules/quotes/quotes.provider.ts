@@ -278,6 +278,70 @@ export async function buscarCotacoes(tickers: string[]): Promise<Map<string, Cot
   return porTicker;
 }
 
+/**
+ * Fechamento de cada mês nos últimos `meses` meses — usado para reconstruir
+ * a evolução real do patrimônio (dashboard), NUNCA para inventar um número:
+ * cada barra de interval=1mo já representa o fechamento daquele mês, então a
+ * chave "AAAA-MM" do mapa é literalmente o dado que o dashboard precisa.
+ *
+ * Mesmo endpoint de buscarCotacao, com period1/period2 explícitos em vez de
+ * `range` — um intervalo de datas preciso é mais fácil de alinhar com os
+ * cortes mensais de calcularEvolucaoPatrimonial do que um atalho como "13mo".
+ *
+ * Defensivo como o resto do módulo: mapa vazio se a API falhar ou se o
+ * ticker não tiver histórico (ex.: IPO recente). Quem chama cai para o
+ * preço atual nesse mês — o mesmo tratamento que resolverPrecos já dá a
+ * qualquer falha de cotação.
+ */
+export async function buscarHistoricoMensal(
+  ticker: string,
+  meses: number,
+): Promise<Map<string, number>> {
+  const simbolo = ticker.toUpperCase().trim();
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8000);
+
+  const agora = new Date();
+  const inicio = new Date(agora.getFullYear(), agora.getMonth() - meses, 1);
+  const period1 = Math.floor(inicio.getTime() / 1000);
+  const period2 = Math.floor(agora.getTime() / 1000);
+
+  try {
+    const res = await fetch(
+      `${BASE}/${simbolo}.SA?period1=${period1}&period2=${period2}&interval=1mo`,
+      { headers: CABECALHOS, signal: controller.signal },
+    );
+    if (!res.ok) return new Map();
+
+    const json = (await res.json()) as {
+      chart?: {
+        result?: {
+          timestamp?: number[];
+          indicators?: { quote?: { close?: (number | null)[] }[] };
+        }[];
+      };
+    };
+
+    const resultado = json.chart?.result?.[0];
+    const timestamps = resultado?.timestamp ?? [];
+    const fechamentos = resultado?.indicators?.quote?.[0]?.close ?? [];
+
+    const porMes = new Map<string, number>();
+    timestamps.forEach((ts, i) => {
+      const fechamento = fechamentos[i];
+      if (typeof fechamento !== "number") return; // mês sem pregão registrado
+      const data = new Date(ts * 1000);
+      const chave = `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, "0")}`;
+      porMes.set(chave, fechamento);
+    });
+    return porMes;
+  } catch {
+    return new Map();
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /** Um provento anunciado pela empresa, como o Yahoo o devolve. */
 export type ProventoDoProvedor = {
   /** Data-ex: quem tinha a posição ANTES dela recebe; quem comprou nela, não. */

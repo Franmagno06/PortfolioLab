@@ -23,7 +23,7 @@ test("registrar, lançar transação e simular aporte", async ({ page }) => {
   await expect(page).toHaveURL(/\/dashboard/, { timeout: 15_000 });
 
   await page.goto("/carteira");
-  await page.getByRole("button", { name: "+ Nova transação" }).click();
+  await page.getByRole("button", { name: "Nova transação" }).click();
   // Escopado ao formulário "Registrar transação": a carteira também tem o
   // card de Proventos, que tem seu próprio campo "Ativo" (um <select>), então
   // getByLabel("Ativo") na página inteira é ambíguo.
@@ -31,7 +31,9 @@ test("registrar, lançar transação e simular aporte", async ({ page }) => {
     has: page.getByRole("heading", { name: "Registrar transação" }),
   });
   await novaTransacao.getByLabel("Ativo").fill("PETR4");
-  await expect(novaTransacao.getByText("✓ PETR4")).toBeVisible({ timeout: 15_000 });
+  // A confirmação do ticker é ícone SVG + texto, então o que se espera é o
+  // nome da empresa que veio da B3 — o "✓" deixou de ser texto na página.
+  await expect(novaTransacao.getByText("cotação hoje:")).toBeVisible({ timeout: 15_000 });
   await novaTransacao.getByLabel("Qtd.").fill("10");
   await novaTransacao.getByRole("button", { name: "Registrar compra" }).click();
 
@@ -39,9 +41,12 @@ test("registrar, lançar transação e simular aporte", async ({ page }) => {
 
   await page.goto("/simulacao");
   await page.getByPlaceholder("Adicionar meta: PETR4").fill("PETR4");
-  await expect(page.getByText("✓ PETR4")).toBeVisible({ timeout: 15_000 });
   await page.getByPlaceholder("%").fill("100");
-  await page.getByRole("button", { name: "+" }).click();
+  // O botão só habilita depois que a busca do ticker na B3 devolve a cotação:
+  // esperar por ele é esperar exatamente a precondição do clique.
+  const adicionarMeta = page.getByRole("button", { name: "Adicionar meta" });
+  await expect(adicionarMeta).toBeEnabled({ timeout: 15_000 });
+  await adicionarMeta.click();
 
   await page.getByLabel("Valor do aporte (R$)").fill("1500");
   await page.getByRole("button", { name: "Calcular aporte" }).click();

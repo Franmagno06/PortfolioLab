@@ -1,17 +1,19 @@
 "use client";
 
 import { useState } from "react";
+import { Botao } from "@/components/ui/botao";
+import { Campo, Selecao } from "@/components/ui/campo";
+import { IconeCheck, IconeFechar } from "@/components/ui/icones";
+import { MensagemAviso, MensagemErro } from "@/components/ui/mensagem";
 import { api, ApiError } from "@/lib/api";
 import { brl, nomesClasse } from "@/lib/format";
 import { normalizarTicker, useBuscaTicker } from "@/lib/use-busca-ticker";
 
-type Props = { aoCriar: () => void };
+// Controlado pela página: o gatilho vive no cabeçalho e o formulário no corpo,
+// então quem manda em "aberto" é quem desenha as duas coisas.
+type Props = { aberto: boolean; aoFechar: () => void; aoCriar: () => void };
 
-const campo =
-  "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100";
-
-export function NovaTransacao({ aoCriar }: Props) {
-  const [aberto, setAberto] = useState(false);
+export function NovaTransacao({ aberto, aoFechar, aoCriar }: Props) {
   const [ticker, setTicker] = useState("");
   const { cotacao, buscando, erro: erroTicker } = useBuscaTicker(ticker);
 
@@ -33,12 +35,12 @@ export function NovaTransacao({ aoCriar }: Props) {
   const preco = precoEditado ? unitPrice : cotacao ? String(cotacao.preco) : "";
 
   function fechar() {
-    setAberto(false);
     setTicker("");
     setQuantity("");
     setUnitPrice("");
     setPrecoEditado(false);
     setErro(null);
+    aoFechar();
   }
 
   async function salvar(e: React.FormEvent) {
@@ -65,39 +67,26 @@ export function NovaTransacao({ aoCriar }: Props) {
     }
   }
 
-  if (!aberto) {
-    return (
-      <button
-        onClick={() => setAberto(true)}
-        className="rounded-lg bg-[#0e1b33] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#1a2f5c]"
-      >
-        + Nova transação
-      </button>
-    );
-  }
+  if (!aberto) return null;
 
   return (
-    <form
-      onSubmit={salvar}
-      className="reveal w-full rounded-2xl border border-[--color-line] bg-white p-5"
-    >
+    <form onSubmit={salvar} className="reveal rounded-xl border border-line bg-card p-5">
       <div className="flex items-center justify-between">
         <h2 className="font-semibold">Registrar transação</h2>
         <button
           type="button"
           onClick={fechar}
-          className="text-sm text-slate-400 hover:text-slate-600"
+          aria-label="Fechar formulário"
+          className="rounded-lg p-1 text-mute transition-colors hover:bg-paper hover:text-ink"
         >
-          ✕ fechar
+          <IconeFechar />
         </button>
       </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-6">
-        <label className="col-span-2 block">
-          <span className="mb-1 block text-xs font-medium text-slate-600">
-            Ativo <span className="font-normal text-slate-400">(qualquer ação ou FII da B3)</span>
-          </span>
-          <input
+      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-6">
+        <div className="sm:col-span-2">
+          <Campo
+            rotulo="Ativo (qualquer ação ou FII da B3)"
             type="text"
             required
             value={ticker}
@@ -105,96 +94,88 @@ export function NovaTransacao({ aoCriar }: Props) {
             placeholder="Ex: PETR4, MXRF11, WEGE3"
             maxLength={6}
             autoFocus
-            className={`${campo} font-mono uppercase`}
+            className="font-mono uppercase"
           />
-        </label>
+        </div>
 
-        <label className="block">
-          <span className="mb-1 block text-xs font-medium text-slate-600">Tipo</span>
-          <select
-            value={kind}
-            onChange={(e) => setKind(e.target.value as "COMPRA" | "VENDA")}
-            className={campo}
-          >
-            <option value="COMPRA">Compra</option>
-            <option value="VENDA">Venda</option>
-          </select>
-        </label>
+        <Selecao
+          rotulo="Tipo"
+          value={kind}
+          onChange={(e) => setKind(e.target.value as "COMPRA" | "VENDA")}
+        >
+          <option value="COMPRA">Compra</option>
+          <option value="VENDA">Venda</option>
+        </Selecao>
 
-        <label className="block">
-          <span className="mb-1 block text-xs font-medium text-slate-600">Qtd.</span>
-          <input
-            type="number"
-            required
-            min="0.00000001"
-            step="any"
-            value={quantity}
-            onChange={(e) => setQuantity(e.target.value)}
-            className={`${campo} tnum font-mono`}
-          />
-        </label>
+        <Campo
+          rotulo="Qtd."
+          type="number"
+          required
+          min="0.00000001"
+          step="any"
+          value={quantity}
+          onChange={(e) => setQuantity(e.target.value)}
+          className="tnum font-mono"
+        />
 
-        <label className="block">
-          <span className="mb-1 block text-xs font-medium text-slate-600">Preço (R$)</span>
-          <input
-            type="number"
-            required
-            min="0.01"
-            step="0.01"
-            value={preco}
-            onChange={(e) => {
-              setUnitPrice(e.target.value);
-              setPrecoEditado(true);
-            }}
-            className={`${campo} tnum font-mono`}
-          />
-        </label>
+        <Campo
+          rotulo="Preço (R$)"
+          type="number"
+          required
+          min="0.01"
+          step="0.01"
+          value={preco}
+          onChange={(e) => {
+            setUnitPrice(e.target.value);
+            setPrecoEditado(true);
+          }}
+          className="tnum font-mono"
+        />
 
-        <label className="block">
-          <span className="mb-1 block text-xs font-medium text-slate-600">Data</span>
-          <input
-            type="date"
-            required
-            value={executedAt}
-            onChange={(e) => setExecutedAt(e.target.value)}
-            className={`${campo} tnum font-mono`}
-          />
-        </label>
+        <Campo
+          rotulo="Data"
+          type="date"
+          required
+          value={executedAt}
+          onChange={(e) => setExecutedAt(e.target.value)}
+          className="tnum font-mono"
+        />
       </div>
 
       {/* confirmação do ativo encontrado */}
-      {buscando && <p className="mt-3 text-sm text-slate-400">Buscando {ticker} na B3...</p>}
+      {buscando && <p className="mt-3 text-sm text-mute">Buscando {ticker} na B3...</p>}
 
       {cotacao && !buscando && (
-        <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg bg-[#1e9e63]/[0.06] px-3 py-2 text-sm">
-          <span className="font-semibold text-[#1e9e63]">✓ {cotacao.ticker}</span>
-          <span className="text-slate-700">{cotacao.nome}</span>
-          <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-slate-500">
+        <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg bg-gain/7 px-3 py-2 text-sm">
+          <span className="flex items-center gap-1.5 font-semibold text-gain-ink">
+            <IconeCheck />
+            {cotacao.ticker}
+          </span>
+          <span className="text-ink-soft">{cotacao.nome}</span>
+          <span className="rounded-full bg-card px-2 py-0.5 text-[11px] font-semibold text-mute">
             {nomesClasse[cotacao.tipo] ?? cotacao.tipo}
           </span>
-          <span className="tnum ml-auto font-mono text-xs text-slate-500">
+          <span className="tnum ml-auto font-mono text-xs text-mute">
             cotação hoje: {brl(cotacao.preco)}
           </span>
         </div>
       )}
 
       {erroTicker && !buscando && (
-        <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
-          {erroTicker}
-        </p>
+        <div className="mt-3">
+          <MensagemAviso titulo={erroTicker} />
+        </div>
       )}
 
       {erro && (
-        <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-[#d94f5c]">{erro}</p>
+        <div className="mt-3">
+          <MensagemErro>{erro}</MensagemErro>
+        </div>
       )}
 
-      <button
-        type="submit"
-        disabled={salvando || buscando}
-        className="mt-4 rounded-lg bg-[#0e1b33] px-5 py-2 text-sm font-semibold text-white transition hover:bg-[#1a2f5c] disabled:opacity-60"
-      >
+      <Botao type="submit" disabled={salvando || buscando} className="mt-4">
         {salvando ? "Registrando..." : kind === "COMPRA" ? "Registrar compra" : "Registrar venda"}
-      </button>
+      </Botao>
     </form>
   );
 }

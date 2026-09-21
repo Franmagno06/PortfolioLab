@@ -5,3 +5,4 @@ export const portfolioRoutes = Router();
 
 portfolioRoutes.get("/", portfolioController.carteira);
 portfolioRoutes.get("/summary", portfolioController.summary);
+portfolioRoutes.get("/evolution", portfolioController.evolucao);

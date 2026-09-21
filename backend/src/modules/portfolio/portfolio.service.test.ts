@@ -1,6 +1,10 @@
 import { Prisma } from "@prisma/client";
 import { describe, expect, it } from "vitest";
-import { calcularPosicao } from "./portfolio.service.js";
+import {
+  calcularEvolucaoPatrimonial,
+  calcularPosicao,
+  type TransacaoParaCalculo,
+} from "./portfolio.service.js";
 
 // Testes UNITÁRIOS do cálculo de preço médio: função pura, sem banco.
 // Cada cenário é uma regra da matemática financeira da carteira.
@@ -184,5 +188,130 @@ describe("calcularPosicao — quantidadeMinima", () => {
 
   it("carteira vazia tem mínima zero", () => {
     expect(calcularPosicao([]).quantidadeMinima.toNumber()).toBe(0);
+  });
+});
+
+// Testes UNITÁRIOS da evolução mensal do patrimônio: função pura, sem banco
+// nem HTTP. "hoje" é passado como parâmetro exatamente para isso — cada teste
+// fixa a própria data e não depende do relógio real.
+describe("calcularEvolucaoPatrimonial", () => {
+  const HOJE = new Date(2026, 8, 15); // 15/set/2026 — mês 8 é setembro (zero-indexed)
+
+  function ativo(ticker: string, transacoes: TransacaoParaCalculo[], fechamentos: Record<string, number> = {}) {
+    return { ticker, transacoes, fechamentos: new Map(Object.entries(fechamentos)) };
+  }
+
+  it("sem nenhuma transação, não há evolução para mostrar", () => {
+    expect(calcularEvolucaoPatrimonial([], new Map(), HOJE, 12)).toEqual([]);
+  });
+
+  it("mês corrente usa o preço de agora, não um fechamento (o mês ainda não fechou)", () => {
+    const pontos = calcularEvolucaoPatrimonial(
+      [ativo("PETR4", [compra(10, 10, "2026-09-01")])],
+      new Map([["PETR4", 12]]),
+      HOJE,
+      1,
+    );
+    expect(pontos).toEqual([
+      { mes: "2026-09", aplicado: 100, patrimonio: 120, resultado: 20 },
+    ]);
+  });
+
+  it("mês fechado usa o fechamento REAL daquele mês, mesmo que o preço atual seja outro", () => {
+    const pontos = calcularEvolucaoPatrimonial(
+      [ativo("PETR4", [compra(10, 10, "2026-07-01")], { "2026-07": 10.5, "2026-08": 11 })],
+      new Map([["PETR4", 15]]), // preço de hoje — não deve valer para jul/ago
+      HOJE,
+      3,
+    );
+    expect(pontos).toEqual([
+      { mes: "2026-07", aplicado: 100, patrimonio: 105, resultado: 5 },
+      { mes: "2026-08", aplicado: 100, patrimonio: 110, resultado: 10 },
+      { mes: "2026-09", aplicado: 100, patrimonio: 150, resultado: 50 }, // mês atual: preço de hoje
+    ]);
+  });
+
+  it("mês fechado sem fechamento do provedor cai para o preço atual", () => {
+    const pontos = calcularEvolucaoPatrimonial(
+      [ativo("PETR4", [compra(10, 10, "2026-08-01")])], // sem fechamentos
+      new Map([["PETR4", 13]]),
+      HOJE,
+      2,
+    );
+    expect(pontos[0]).toEqual({ mes: "2026-08", aplicado: 100, patrimonio: 130, resultado: 30 });
+  });
+
+  it("sem fechamento e sem preço atual, o último recurso é o próprio preço médio", () => {
+    const pontos = calcularEvolucaoPatrimonial(
+      [ativo("PETR4", [compra(10, 10, "2026-09-01")])],
+      new Map(), // nenhum preço disponível para o ticker
+      HOJE,
+      1,
+    );
+    expect(pontos[0]).toEqual({ mes: "2026-09", aplicado: 100, patrimonio: 100, resultado: 0 });
+  });
+
+  it("corta os meses anteriores à primeira transação — não enche de zero à toa", () => {
+    const pontos = calcularEvolucaoPatrimonial(
+      [ativo("PETR4", [compra(5, 10, "2026-08-01")])],
+      new Map([["PETR4", 10]]),
+      HOJE,
+      12, // pede 12, mas a carteira só existe há 2
+    );
+    expect(pontos.map((p) => p.mes)).toEqual(["2026-08", "2026-09"]);
+  });
+
+  it("venda reduz o aplicado a partir do mês em que ocorre, mantendo o PM (regra da Receita)", () => {
+    const pontos = calcularEvolucaoPatrimonial(
+      [
+        ativo(
+          "PETR4",
+          [compra(10, 10, "2026-07-01"), venda(4, 20, "2026-08-15")],
+          { "2026-07": 10, "2026-08": 10 },
+        ),
+      ],
+      new Map([["PETR4", 10]]),
+      HOJE,
+      3,
+    );
+    expect(pontos).toEqual([
+      { mes: "2026-07", aplicado: 100, patrimonio: 100, resultado: 0 }, // 10 unidades, PM 10
+      { mes: "2026-08", aplicado: 60, patrimonio: 60, resultado: 0 }, // vendeu 4: 6 unidades, PM segue 10
+      { mes: "2026-09", aplicado: 60, patrimonio: 60, resultado: 0 },
+    ]);
+  });
+
+  it("ativo zerado num mês não soma patrimônio, mas o mês aparece pelos demais ativos", () => {
+    const pontos = calcularEvolucaoPatrimonial(
+      [
+        ativo(
+          "PETR4",
+          [compra(10, 10, "2026-07-01"), venda(10, 12, "2026-08-01")], // zera em agosto
+          { "2026-07": 10, "2026-08": 11 },
+        ),
+        ativo("MXRF11", [compra(5, 20, "2026-07-01")], { "2026-07": 20, "2026-08": 21 }),
+      ],
+      new Map([
+        ["PETR4", 15],
+        ["MXRF11", 22],
+      ]),
+      HOJE,
+      3,
+    );
+    expect(pontos).toEqual([
+      { mes: "2026-07", aplicado: 200, patrimonio: 200, resultado: 0 }, // PETR4 100 + MXRF11 100
+      { mes: "2026-08", aplicado: 100, patrimonio: 105, resultado: 5 }, // só MXRF11: 5×21
+      { mes: "2026-09", aplicado: 100, patrimonio: 110, resultado: 10 }, // só MXRF11: 5×22
+    ]);
+  });
+
+  it("resultado negativo é legítimo — carteira no prejuízo naquele mês", () => {
+    const pontos = calcularEvolucaoPatrimonial(
+      [ativo("PETR4", [compra(10, 20, "2026-09-01")])],
+      new Map([["PETR4", 15]]),
+      HOJE,
+      1,
+    );
+    expect(pontos[0]).toEqual({ mes: "2026-09", aplicado: 200, patrimonio: 150, resultado: -50 });
   });
 });
