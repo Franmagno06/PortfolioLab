@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import { AppError } from "../../shared/errors/AppError.js";
-import { askSchema } from "./reports.schemas.js";
+import { askSchema, uploadSchema } from "./reports.schemas.js";
 import { reportsService } from "./reports.service.js";
 import { paginacaoSchema } from "../../shared/paginacao.js";
 
@@ -9,7 +9,8 @@ export const reportsController = {
     if (!req.file) {
       throw new AppError("Envie o PDF no campo 'file' (multipart/form-data)", 400);
     }
-    const resultado = await reportsService.analisar(req.userId as string, req.file);
+    const input = uploadSchema.parse(req.body ?? {});
+    const resultado = await reportsService.analisar(req.userId as string, req.file, input);
     res.status(201).json(resultado);
   },
 

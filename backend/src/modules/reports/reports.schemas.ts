@@ -15,3 +15,20 @@ export const askSchema = z.object({
 });
 
 export type AskInput = z.infer<typeof askSchema>;
+
+// Campos de texto do multipart que acompanham o PDF. O ticker é opcional:
+// sem ele o relatório vai direto para a leitura do PDF inteiro. Campo vazio
+// (o <select> "não informar") conta como ausente.
+export const uploadSchema = z.object({
+  ticker: z.preprocess(
+    (v) => (typeof v === "string" && v.trim() === "" ? undefined : v),
+    z
+      .string()
+      .trim()
+      .toUpperCase()
+      .regex(/^[A-Z0-9]{4,7}$/, "Ticker inválido")
+      .optional(),
+  ),
+});
+
+export type UploadInput = z.infer<typeof uploadSchema>;

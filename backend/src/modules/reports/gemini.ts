@@ -187,6 +187,27 @@ export async function analisarRelatorio(
   textoDoRelatorio: string,
   recortado = false,
 ): Promise<Analise> {
+  return gerarAnalise(
+    `Analise o relatório a seguir e produza o resumo executivo, os alertas e os indicadores citados.\n\n` +
+      `<relatorio${recortado ? ' recorte="true"' : ""}>\n${textoDoRelatorio}\n</relatorio>`,
+  );
+}
+
+/**
+ * Análise a partir dos números oficiais entregues à CVM (ITR, DFP ou Informe
+ * Mensal de FII). O PDF enviado só identificou o período; o que a IA lê aqui
+ * são as demonstrações, já formatadas e com a base de comparação — bem menos
+ * texto que o relatório inteiro, e sem número extraído errado do PDF.
+ */
+export async function analisarDadosCvm(dadosFormatados: string): Promise<Analise> {
+  return gerarAnalise(
+    `Analise as demonstrações oficiais a seguir, entregues pela empresa à CVM, e produza o resumo executivo, os alertas e os indicadores. ` +
+      `Elas trazem apenas números: comentário da administração, guidance e dados operacionais não constam.\n\n` +
+      `<relatorio fonte="CVM">\n${dadosFormatados}\n</relatorio>`,
+  );
+}
+
+async function gerarAnalise(input: string): Promise<Analise> {
   let saida: string | undefined;
 
   try {
@@ -194,9 +215,7 @@ export async function analisarRelatorio(
       clienteGemini().interactions.create({
         model: env.GEMINI_MODEL,
         system_instruction: PROMPT_ANALISTA,
-        input:
-          `Analise o relatório a seguir e produza o resumo executivo, os alertas e os indicadores citados.\n\n` +
-          `<relatorio${recortado ? ' recorte="true"' : ""}>\n${textoDoRelatorio}\n</relatorio>`,
+        input,
         response_format: {
           type: "text",
           mime_type: "application/json",

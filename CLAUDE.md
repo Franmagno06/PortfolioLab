@@ -98,6 +98,12 @@ mais fácil de entender. Carregue a skill antes de escrever o JSX, não depois.
 | Yahoo Finance (cotações B3) | `modules/quotes/quotes.provider.ts` | devolve `null`; mantém o último preço conhecido |
 | Google Gemini (análise de PDF) | `modules/reports/gemini.ts` | sem `GEMINI_API_KEY` → 503 com instrução |
 | RSS Money Times / Suno | `modules/news/rss.ts` | feed fora do ar → lista vazia daquela fonte |
+| CVM dados abertos (ITR, DFP, Informe Mensal de FII) | `modules/reports/cvm.provider.ts` | devolve `null`; o relatório cai na leitura do PDF inteiro |
+
+Relatórios com ativo informado usam a CVM: o PDF só identifica o período (`reports/periodo.ts`),
+os números vêm da CVM e a IA escreve o resumo sobre eles. Esses relatórios não guardam o texto
+do PDF, então `POST /reports/:id/ask` responde 409. A tabela ticker → CNPJ
+(`modules/assets/tabela-cnpj.json`) é fixa e se regenera com `npx tsx scripts/gerar-tabela-cnpj.ts`.
 
 Nenhuma delas pode derrubar uma rota. Ao mexer nesses módulos, preserve o tratamento defensivo.
 
@@ -110,7 +116,7 @@ Toda nova funcionalidade segue este processo:
    `feat/frontend-design-pass`, etc.).
 
 2. **Criar ou reutilizar branch**:
-   - Se compatível com uma existente, criaçar a funcionalidade dentro dela.
+   - Se compatível com uma existente, criar a funcionalidade dentro dela.
    - Se não, criar uma branch nova com nome descritivo: `feat/nome-da-melhoria`.
 
 3. **Desenvolvimento**: implementar, fazer commits regulares.

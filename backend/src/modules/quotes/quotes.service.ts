@@ -1,6 +1,7 @@
 import { Prisma, type Asset } from "@prisma/client";
 import { buscarCotacao, buscarCotacoes, buscarHistoricoMensal } from "./quotes.provider.js";
 import { quotesRepository } from "./quotes.repository.js";
+import { cnpjDoTicker } from "../assets/cnpj.js";
 
 // Cotação com menos de 15 minutos é considerada fresca. A B3 opera em
 // pregão contínuo, mas para acompanhamento de carteira de longo prazo
@@ -77,6 +78,15 @@ export const quotesService = {
 
     const existente = await quotesRepository.findByTicker(simbolo);
     if (existente) {
+      // Ativo cadastrado antes da tabela de CNPJ: completa uma vez e segue.
+      // Oportunista como a gravação de preço — falha não derruba a rota.
+      if (!existente.cnpj) {
+        const cnpj = cnpjDoTicker(simbolo);
+        if (cnpj) {
+          await quotesRepository.updateCnpj(simbolo, cnpj).catch(() => undefined);
+          existente.cnpj = cnpj;
+        }
+      }
       // aproveita a consulta para refrescar o preço, se estiver velho
       if (existente.type !== "RENDA_FIXA" && estaDesatualizado(existente)) {
         const cotacao = await buscarCotacao(simbolo);
@@ -97,6 +107,7 @@ export const quotesService = {
       name: cotacao.nome,
       type: cotacao.tipo,
       currentPrice: cotacao.preco,
+      cnpj: cnpjDoTicker(cotacao.ticker),
     });
   },
 

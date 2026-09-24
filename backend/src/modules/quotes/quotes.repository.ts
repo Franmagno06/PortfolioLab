@@ -6,8 +6,19 @@ export const quotesRepository = {
     return prisma.asset.findUnique({ where: { ticker } });
   },
 
-  create(data: { ticker: string; name: string; type: AssetType; currentPrice: number }) {
+  create(data: {
+    ticker: string;
+    name: string;
+    type: AssetType;
+    currentPrice: number;
+    cnpj: string | null;
+  }) {
     return prisma.asset.create({ data: { ...data, priceUpdatedAt: new Date() } });
+  },
+
+  /** Completa o CNPJ de ativo cadastrado antes da tabela existir. updateMany pelo mesmo motivo de updatePrice. */
+  updateCnpj(ticker: string, cnpj: string) {
+    return prisma.asset.updateMany({ where: { ticker, cnpj: null }, data: { cnpj } });
   },
 
   /**

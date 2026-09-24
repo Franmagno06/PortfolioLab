@@ -48,11 +48,18 @@ model Asset {
   // Quando a cotação foi buscada pela última vez. Null = veio do seed e
   // nunca foi atualizada. Serve para decidir se vale consultar a API de novo.
   priceUpdatedAt DateTime? @map("price_updated_at")
+  // CNPJ da companhia ou do fundo, no formato da CVM (00.000.000/0001-91).
+  // É a chave dos dados abertos da CVM, que não conhecem ticker. Preenchido
+  // pela tabela fixa em modules/assets/cnpj.ts; null = ticker fora da tabela
+  // (ETF, BDR, ativo recém-listado).
+  cnpj         String?
 
   transactions Transaction[]
   goals        AssetGoal[]
   dividends    Dividend[]
   indicator    AssetIndicator?
+  reports      Report[]
+  cvmSummaries CvmSummary[]
 
   @@map("assets")
 }
@@ -143,21 +150,54 @@ model AssetGoal {
   @@map("asset_goals")
 }
 
+/// De onde saiu o conteúdo analisado. CVM: o PDF só identificou o período, e
+/// os números vieram dos dados abertos da CVM. PDF: o texto inteiro do
+/// arquivo foi lido pela IA — o único caso em que o chat funciona.
+enum ReportSource {
+  CVM
+  PDF
+}
+
 // Relatório gerencial analisado pela IA (Sprint 8)
 model Report {
-  id            String   @id @default(uuid())
-  userId        String   @map("user_id")
-  fileName      String   @map("file_name")
-  // texto extraído do PDF — usado pelo chat "Pergunte ao Relatório"
-  extractedText String   @map("extracted_text") @db.Text
+  id            String       @id @default(uuid())
+  userId        String       @map("user_id")
+  // Ativo informado no upload. Opcional: sem ele o relatório segue direto
+  // para a leitura do PDF inteiro.
+  assetId       String?      @map("asset_id")
+  fileName      String       @map("file_name")
+  source        ReportSource @default(PDF)
+  // Período detectado na capa: "2026-T1" (trimestre) ou "2026-03" (mês).
+  period        String?
+  // Texto extraído do PDF — usado pelo chat "Pergunte ao Relatório". Null
+  // quando source = CVM: o PDF inteiro nem chega a ser lido.
+  extractedText String?      @map("extracted_text") @db.Text
   // resultado da análise (resumo, alertas, indicadores) como JSON
   analysis      Json?
-  createdAt     DateTime @default(now()) @map("created_at")
+  createdAt     DateTime     @default(now()) @map("created_at")
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // SetNull: o relatório é do usuário e sobrevive ao ativo do catálogo.
+  asset Asset? @relation(fields: [assetId], references: [id], onDelete: SetNull)
 
   @@index([userId])
   @@map("reports")
+}
+
+/// Análise montada a partir dos dados da CVM, cacheada por ativo e período.
+/// Global, como AssetIndicator: o ITR da Petrobras do 1T26 é o mesmo para
+/// todo usuário, e cada análise nova custa uma chamada à IA.
+model CvmSummary {
+  id        String   @id @default(uuid())
+  assetId   String   @map("asset_id")
+  period    String
+  analysis  Json
+  createdAt DateTime @default(now()) @map("created_at")
+
+  asset Asset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@unique([assetId, period])
+  @@map("cvm_summaries")
 }
 
 /// De onde veio o provento. MANUAL é o que o usuário lançou à mão; PROVEDOR é

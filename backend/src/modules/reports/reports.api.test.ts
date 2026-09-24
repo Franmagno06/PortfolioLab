@@ -78,6 +78,30 @@ describe("POST /reports/:id/ask — isolamento por usuário", () => {
   });
 });
 
+describe("POST /reports/:id/ask — relatório montado com dados da CVM", () => {
+  it("responde 409 com a mensagem que explica por que não há chat", async () => {
+    const dono = await prisma.user.findUniqueOrThrow({ where: { email: emailA } });
+    const daCvm = await prisma.report.create({
+      data: {
+        userId: dono.id,
+        fileName: "BBAS3-1T26.pdf",
+        source: "CVM",
+        period: "2026-T1",
+        extractedText: null,
+        analysis: { tipoDocumento: "ITR", resumoExecutivo: [], alertas: [], indicadores: [] },
+      },
+    });
+
+    const res = await request(app)
+      .post(`/reports/${daCvm.id}/ask`)
+      .set("Cookie", cookiesA)
+      .send({ question: "qual o lucro do trimestre?" });
+
+    expect(res.status).toBe(409);
+    expect(res.body.error).toMatch(/chat não está disponível/);
+  });
+});
+
 describe("DELETE /reports/:id — isolamento por usuário", () => {
   it("B não consegue apagar o relatório de A (404), e ele continua existindo", async () => {
     const res = await request(app).delete(`/reports/${reportIdDeA}`).set("Cookie", cookiesB);
