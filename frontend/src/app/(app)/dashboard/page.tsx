@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   Bar,
@@ -20,6 +19,7 @@ import { PageHeader, Pilula } from "@/components/ui/page-header";
 import { SkeletonPagina } from "@/components/ui/skeleton";
 import { api, ApiError, type Pagina } from "@/lib/api";
 import { brl, coresClasse, nomesClasse, pct } from "@/lib/format";
+import { maioresPosicoes } from "@/lib/alocacao";
 import { calcularDesvios, formatarDesvio, type DesvioDeMeta } from "@/lib/goals";
 
 type Summary = {
@@ -68,85 +68,253 @@ function rotuloMes(mes: string): string {
     .replace(".", "");
 }
 
+const umaCasa = (valor: number) => valor.toFixed(1).replace(".", ",");
+
 /**
- * Fita de alocação: cada segmento é a fatia REAL de um ativo, cada marca acima
- * é onde a meta dele termina. Meta cumprida = marca no fim do segmento.
- *
- * É o gesto central do produto — "o quanto a carteira saiu do lugar" — em uma
- * linha só, sem repetir as barras da tela de simulação. Cada segmento é um
- * botão: o tooltip mostra o desvio exato e o clique leva à Simulação com
- * aquele ativo em foco.
+ * Os ativos que mais saíram da meta, cada um com a própria régua: a barra é o
+ * peso de hoje, o traço branco é a meta. Barra passando do traço = acima.
+ * Todas as linhas usam a mesma escala, para dar para comparar entre elas.
  */
-function FitaDeAlocacao({
+function MaisLongeDaMeta({
   desvios,
   corDe,
 }: {
   desvios: DesvioDeMeta[];
   corDe: (ticker: string) => string;
 }) {
-  const router = useRouter();
-
-  // Soma das metas ate cada ativo, sem reatribuir nada de fora do map: a
-  // marca do segmento e o ponto da fita onde a meta dele termina.
-  const segmentos = desvios.map((d, i) => ({
-    ...d,
-    marca: desvios.slice(0, i + 1).reduce((soma, x) => soma + x.alvoPct, 0),
-  }));
+  const escala = Math.max(...desvios.map((d) => Math.max(d.atualPct, d.alvoPct)), 1);
+  const naEscala = (valor: number) => `${Math.min((valor / escala) * 100, 100)}%`;
 
   return (
-    <div className="relative h-6">
-      {/* camada visual: decorativa, o texto acessível vive nos botões abaixo */}
-      <div
-        className="absolute inset-x-0 top-2.5 flex h-2 overflow-hidden rounded-full bg-white/10"
-        aria-hidden
-      >
-        {segmentos.map((s) => (
-          <span
-            key={s.ticker}
-            className="h-full"
-            style={{ width: `${s.atualPct}%`, background: corDe(s.ticker) }}
-          />
-        ))}
-      </div>
-      {segmentos.map((s) => (
-        <span
-          key={s.ticker}
-          className="absolute top-0.5 h-5 w-px -translate-x-1/2 bg-white/70"
-          style={{ left: `${Math.min(s.marca, 100)}%` }}
-          aria-hidden
-        />
-      ))}
-
-      {/* camada interativa: mesma geometria da fita, sem overflow-hidden —
-          o tooltip precisa poder escapar da moldura arredondada de cima */}
-      <div className="absolute inset-0 flex">
-        {segmentos.map((s, i) => (
-          <button
-            key={s.ticker}
-            type="button"
-            onClick={() => router.push(`/simulacao?ticker=${encodeURIComponent(s.ticker)}`)}
-            style={{ width: `${s.atualPct}%` }}
-            className="group relative h-full min-w-0.75 rounded-sm"
-            aria-label={`${s.ticker}: ${s.atualPct.toFixed(1).replace(".", ",")}% da carteira, ${formatarDesvio(s)}. Abrir na simulação.`}
+    <ul className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3 sm:gap-4">
+      {desvios.map((d) => (
+        <li key={d.ticker}>
+          <Link
+            href={`/simulacao?ticker=${encodeURIComponent(d.ticker)}`}
+            aria-label={`${d.ticker}: ${umaCasa(d.atualPct)}% hoje, meta de ${umaCasa(d.alvoPct)}%, ${formatarDesvio(d)}. Abrir na simulação.`}
+            className="-mx-2 block rounded-lg px-2 py-1.5 transition-colors hover:bg-white/5"
           >
-            {/* puramente visual — o texto acessível já está no aria-label do
-                botão; duplicar como role="tooltip" só confundiria o leitor de tela */}
-            <span
-              aria-hidden
-              className={`pointer-events-none absolute bottom-full mb-2 whitespace-nowrap rounded-lg border border-white/10 bg-ink-lift px-2.5 py-1.5 text-xs text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 ${
-                i === 0 ? "left-0" : i === segmentos.length - 1 ? "right-0" : "left-1/2 -translate-x-1/2"
-              }`}
-            >
-              <span className="font-mono font-semibold">{s.ticker}</span>{" "}
-              <span className="tnum text-slate-300">
-                {s.atualPct.toFixed(1).replace(".", ",")}%
-              </span>{" "}
-              · {formatarDesvio(s)}
+            <span className="flex items-baseline justify-between gap-2">
+              <span className="font-mono text-sm font-semibold">{d.ticker}</span>
+              <span className="tnum text-xs text-slate-200">
+                {umaCasa(Math.abs(d.desvioPct))} pts {d.desvioPct > 0 ? "acima" : "abaixo"}
+              </span>
             </span>
-          </button>
-        ))}
-      </div>
-    </div>
+            <span className="relative mt-2 block h-1.5 rounded-full bg-white/10" aria-hidden>
+              <span
+                className="absolute inset-y-0 left-0 rounded-full"
+                style={{ width: naEscala(d.atualPct), background: corDe(d.ticker) }}
+              />
+              <span
+                className="absolute -top-1 h-3.5 w-0.5 -translate-x-1/2 rounded-full bg-white"
+                style={{ left: naEscala(d.alvoPct) }}
+              />
+            </span>
+            <span className="tnum mt-1.5 block text-xs text-slate-300">
+              {umaCasa(d.atualPct)}% hoje, meta {umaCasa(d.alvoPct)}%
+            </span>
+          </Link>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** Tons da cor da classe para as fatias de uma classe só; cinza para "outros". */
+const opacidades = [1, 0.78, 0.6, 0.45, 0.32];
+const corOutros = "#c4c8cf";
+
+function CardAlocacao({
+  alocacao,
+  posicoes,
+  quantidadeAtivos,
+}: {
+  alocacao: Summary["alocacaoPorClasse"];
+  posicoes: Posicao[];
+  quantidadeAtivos: number;
+}) {
+  const [classe, setClasse] = useState<string | null>(null);
+
+  const corClasse = (c: string) => coresClasse[c] ?? "#5d6b7f";
+  const maiores = maioresPosicoes(posicoes, classe);
+  const classeAtual = alocacao.find((a) => a.classe === classe);
+
+  type Fatia = { chave: string; nome: string; valor: number; pct: number; cor: string; opacidade: number };
+
+  const fatias: Fatia[] =
+    classe === null
+      ? alocacao.map((a) => ({
+          chave: a.classe,
+          nome: nomesClasse[a.classe] ?? a.classe,
+          valor: a.valor,
+          pct: a.percentual,
+          cor: corClasse(a.classe),
+          opacidade: 1,
+        }))
+      : [
+          ...maiores.itens.map((i, n) => ({
+            chave: i.ticker,
+            nome: i.ticker,
+            valor: i.valor,
+            pct: i.percentual,
+            cor: corClasse(classe),
+            opacidade: opacidades[n] ?? 0.32,
+          })),
+          ...(maiores.outros
+            ? [
+                {
+                  chave: "outros",
+                  nome: "Outros",
+                  valor: maiores.outros.valor,
+                  pct: maiores.outros.percentual,
+                  cor: corOutros,
+                  opacidade: 1,
+                },
+              ]
+            : []),
+        ];
+
+  const legenda: Fatia[] = [
+    ...maiores.itens.map((i, n) => ({
+      chave: i.ticker,
+      nome: i.ticker,
+      valor: i.valor,
+      pct: i.percentual,
+      cor: corClasse(i.type),
+      opacidade: classe === null ? 1 : (opacidades[n] ?? 0.32),
+    })),
+    ...(maiores.outros
+      ? [
+          {
+            chave: "outros",
+            nome: `${maiores.outros.quantidade} ${maiores.outros.quantidade === 1 ? "outro" : "outros"}`,
+            valor: maiores.outros.valor,
+            pct: maiores.outros.percentual,
+            cor: corOutros,
+            opacidade: 1,
+          },
+        ]
+      : []),
+  ];
+
+  return (
+    <Card className="reveal reveal-2 col-span-12 xl:col-span-5">
+      <TituloCard
+        acessorio={
+          alocacao.length > 1 ? (
+            <div
+              role="group"
+              aria-label="Mostrar classe"
+              className="flex flex-wrap gap-0.5 rounded-lg bg-paper p-0.5 text-xs"
+            >
+              {[null, ...alocacao.map((a) => a.classe)].map((c) => (
+                <button
+                  key={c ?? "todos"}
+                  type="button"
+                  aria-pressed={classe === c}
+                  onClick={() => setClasse(c)}
+                  className={`rounded-md px-2.5 py-1 font-medium transition-colors ${
+                    classe === c ? "bg-card text-ink shadow-sm" : "text-mute hover:text-ink"
+                  }`}
+                >
+                  {c === null ? "Todos" : (nomesClasse[c] ?? c)}
+                </button>
+              ))}
+            </div>
+          ) : undefined
+        }
+      >
+        Alocação
+      </TituloCard>
+
+      {alocacao.length === 0 ? (
+        <p className="mt-4 text-sm text-mute">
+          Carteira vazia. Registre uma transação para ver a distribuição.
+        </p>
+      ) : (
+        <div className="mt-4 flex flex-wrap items-center gap-4 sm:flex-nowrap sm:gap-5">
+          <div className="relative h-44 w-44 shrink-0">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={fatias}
+                  dataKey="valor"
+                  nameKey="nome"
+                  innerRadius={52}
+                  outerRadius={78}
+                  paddingAngle={fatias.length > 1 ? 3 : 0}
+                  strokeWidth={0}
+                >
+                  {fatias.map((f) => (
+                    <Cell key={f.chave} fill={f.cor} fillOpacity={f.opacidade} />
+                  ))}
+                </Pie>
+                <Tooltip
+                  offset={8}
+                  wrapperStyle={{ outline: "none", zIndex: 10 }}
+                  content={({ active, payload }) => {
+                    const f = payload?.[0]?.payload as Fatia | undefined;
+                    if (!active || !f) return null;
+                    return (
+                      <div className="rounded-md bg-ink px-2 py-1 text-[11px] leading-tight text-white shadow-md">
+                        <p className="font-mono font-semibold">
+                          {f.nome}{" "}
+                          <span className="tnum font-normal text-slate-300">{umaCasa(f.pct)}%</span>
+                        </p>
+                        <p className="tnum font-mono text-slate-300">{brl(f.valor)}</p>
+                      </div>
+                    );
+                  }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+              {classeAtual ? (
+                <>
+                  <span className="tnum font-mono text-lg font-bold">
+                    {umaCasa(classeAtual.percentual)}%
+                  </span>
+                  <span className="text-[11px] text-mute">da carteira</span>
+                </>
+              ) : (
+                <>
+                  <span className="tnum font-mono text-lg font-bold">{quantidadeAtivos}</span>
+                  <span className="text-[11px] text-mute">
+                    {quantidadeAtivos === 1 ? "ativo" : "ativos"}
+                  </span>
+                </>
+              )}
+            </div>
+          </div>
+
+          <div className="min-w-0 flex-1">
+            <p className="text-xs text-mute">
+              {classe === null
+                ? "Maiores posições da carteira"
+                : `Maiores posições em ${nomesClasse[classe] ?? classe}`}
+            </p>
+            <ul className="mt-2.5 space-y-2">
+              {legenda.map((f) => (
+                <li key={f.chave} className="flex items-center gap-2 text-sm">
+                  <span
+                    className="h-2.5 w-2.5 shrink-0 rounded-full"
+                    style={{ background: f.cor, opacity: f.opacidade }}
+                  />
+                  <span
+                    className={`truncate ${f.chave === "outros" ? "text-mute" : "font-mono font-medium"}`}
+                  >
+                    {f.nome}
+                  </span>
+                  <span className="tnum ml-auto font-mono text-xs font-semibold text-mute">
+                    {umaCasa(f.pct)}%
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
+    </Card>
   );
 }
 
@@ -183,42 +351,27 @@ export default function DashboardPage() {
 
   const ganhou = summary.lucroTotal >= 0;
   const proventosPorMes = agruparPorMes(proventos);
-  const dadosDonut = summary.alocacaoPorClasse.map((a) => ({
-    name: nomesClasse[a.classe] ?? a.classe,
-    value: a.valor,
-    cor: coresClasse[a.classe] ?? "#5d6b7f",
-    pct: a.percentual,
-  }));
   const serieEvolucao = evolucao.map((p) => ({ ...p, rotulo: rotuloMes(p.mes) }));
 
   const rebal = calcularDesvios(metas, posicoes);
   const tipoPorTicker = new Map(posicoes.map((p) => [p.ticker, p.type]));
   const corDe = (ticker: string) => coresClasse[tipoPorTicker.get(ticker) ?? ""] ?? "#5d6b7f";
 
-  // O ativo que mais pesa na frase do herói: o de maior desvio em módulo,
-  // seja ele déficit (abaixo da meta) ou excesso (acima dela) — os desvios
-  // já vêm ordenados do mais negativo ao mais positivo.
-  const piorDesvio =
-    rebal.desvios.length === 0
-      ? null
-      : Math.abs(rebal.desvios[0]!.desvioPct) >= Math.abs(rebal.desvios.at(-1)!.desvioPct)
-        ? rebal.desvios[0]!
-        : rebal.desvios.at(-1)!;
+  // Mesmo limiar de formatarDesvio: abaixo de meio ponto é oscilação de cotação.
+  const foraDaMeta = rebal.desvios
+    .filter((d) => Math.abs(d.desvioPct) >= 0.5)
+    .sort((a, b) => Math.abs(b.desvioPct) - Math.abs(a.desvioPct))
+    .slice(0, 3);
 
-  const temFita = rebal.desvios.length > 0 && rebal.patrimonioConsiderado > 0;
-  const naMeta = rebal.maiorDesvioPct < 0.5;
   const chamada =
     metas.length === 0
       ? {
           texto: "Defina metas de alocação para ver o quanto a carteira saiu do lugar.",
           rotulo: "Definir metas",
         }
-      : naMeta || !piorDesvio
+      : foraDaMeta.length === 0
         ? { texto: "Sua carteira está na meta.", rotulo: "Simular aporte" }
-        : {
-            texto: `${piorDesvio.ticker} está ${formatarDesvio(piorDesvio)}.`,
-            rotulo: "Simular aporte",
-          };
+        : { texto: "Mais longe da meta", rotulo: "Simular aporte" };
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -282,12 +435,7 @@ export default function DashboardPage() {
           </dl>
 
           <div className="mt-7 border-t border-white/10 pt-5">
-            {temFita && <FitaDeAlocacao desvios={rebal.desvios} corDe={corDe} />}
-            <div
-              className={`flex flex-wrap items-center justify-between gap-3 ${
-                temFita ? "mt-3" : ""
-              }`}
-            >
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <p className="max-w-xs text-sm text-slate-200">{chamada.texto}</p>
               <Link
                 href="/simulacao"
@@ -296,65 +444,15 @@ export default function DashboardPage() {
                 {chamada.rotulo}
               </Link>
             </div>
+            {foraDaMeta.length > 0 && <MaisLongeDaMeta desvios={foraDaMeta} corDe={corDe} />}
           </div>
         </section>
 
-        {/* Alocação por classe */}
-        <Card className="reveal reveal-2 col-span-12 xl:col-span-5">
-          <TituloCard>Alocação por classe</TituloCard>
-
-          {dadosDonut.length === 0 ? (
-            <p className="mt-4 text-sm text-mute">
-              Carteira vazia. Registre uma transação para ver a distribuição.
-            </p>
-          ) : (
-            <div className="mt-2 flex flex-wrap items-center gap-4 sm:flex-nowrap sm:gap-2">
-              <div className="relative h-44 w-44 shrink-0">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={dadosDonut}
-                      dataKey="value"
-                      nameKey="name"
-                      innerRadius={52}
-                      outerRadius={78}
-                      paddingAngle={3}
-                      strokeWidth={0}
-                    >
-                      {dadosDonut.map((d) => (
-                        <Cell key={d.name} fill={d.cor} />
-                      ))}
-                    </Pie>
-                    <Tooltip formatter={(v) => brl(Number(v))} />
-                  </PieChart>
-                </ResponsiveContainer>
-                <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                  <span className="tnum font-mono text-lg font-bold">
-                    {summary.quantidadeAtivos}
-                  </span>
-                  <span className="text-[11px] text-mute">
-                    {summary.quantidadeAtivos === 1 ? "ativo" : "ativos"}
-                  </span>
-                </div>
-              </div>
-
-              <ul className="min-w-0 flex-1 space-y-2.5">
-                {dadosDonut.map((d) => (
-                  <li key={d.name} className="flex items-center gap-2 text-sm">
-                    <span
-                      className="h-2.5 w-2.5 shrink-0 rounded-full"
-                      style={{ background: d.cor }}
-                    />
-                    <span className="truncate">{d.name}</span>
-                    <span className="tnum ml-auto font-mono text-xs font-semibold text-mute">
-                      {d.pct.toFixed(1).replace(".", ",")}%
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </Card>
+        <CardAlocacao
+          alocacao={summary.alocacaoPorClasse}
+          posicoes={posicoes}
+          quantidadeAtivos={summary.quantidadeAtivos}
+        />
 
         {/* Evolução do patrimônio: valor aplicado + resultado, mês a mês */}
         <Card className="reveal reveal-3 col-span-12">
