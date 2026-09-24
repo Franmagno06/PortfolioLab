@@ -100,3 +100,25 @@ mais fácil de entender. Carregue a skill antes de escrever o JSX, não depois.
 | RSS Money Times / Suno | `modules/news/rss.ts` | feed fora do ar → lista vazia daquela fonte |
 
 Nenhuma delas pode derrubar uma rota. Ao mexer nesses módulos, preserve o tratamento defensivo.
+
+## Fluxo de branches
+
+Toda nova funcionalidade segue este processo:
+
+1. **Verificar compatibilidade**: antes de criar uma branch nova, conferir se a funcionalidade é
+   compatível com alguma das branches de desenvolvimento existentes (`aporte-bases-e-motivos`,
+   `feat/frontend-design-pass`, etc.).
+
+2. **Criar ou reutilizar branch**:
+   - Se compatível com uma existente, criaçar a funcionalidade dentro dela.
+   - Se não, criar uma branch nova com nome descritivo: `feat/nome-da-melhoria`.
+
+3. **Desenvolvimento**: implementar, fazer commits regulares.
+
+4. **Testes**: rodar a suíte de testes completa. Se houver falhas, corrigir antes de prosseguir.
+   Use `rodar-testes-seguro` para testes que tocam banco de dados.
+
+5. **Merge para main**:
+   - Quando pronto, fazer merge da branch para `main`.
+   - Depois, push com commit explicativo.
+   - A branch pode ser deletada após merge bem-sucedido.
