@@ -12,5 +12,13 @@ relatorios-para-teste/*.pdf
 # próprio projeto ficam em .claude/skills/ e continuam rastreadas.
 .claude/skills/caveman*/
 .claude/skills/cavecrew/
+.claude/skills/find-skills
+.claude/skills/security-and-hardening
+.claude/skills/supabase-postgres-best-practices
+.claude/skills/prisma-client-api
+.claude/skills/vercel-react-best-practices
+.claude/skills/web-design-guidelines
+.claude/skills/accessibility
+.claude/skills/playwright-best-practices
 .agents/
 docs/superpowers/
