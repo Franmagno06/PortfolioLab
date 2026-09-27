@@ -1,10 +1,8 @@
 import { z } from "zod";
+import { tickerSchema } from "../../shared/ticker.js";
 
 export const upsertGoalSchema = z.object({
-  ticker: z
-    .string()
-    .min(1, "Ticker é obrigatório")
-    .transform((s) => s.trim().toUpperCase()),
+  ticker: tickerSchema,
   targetWeight: z.coerce
     .number()
     .positive("Meta deve ser maior que zero")
@@ -17,10 +15,7 @@ export const batchGoalsSchema = z.object({
   metas: z
     .array(
       z.object({
-        ticker: z
-          .string()
-          .min(1, "Ticker é obrigatório")
-          .transform((s) => s.trim().toUpperCase()),
+        ticker: tickerSchema,
         targetWeight: z.coerce
           .number()
           .positive("Meta deve ser maior que zero")

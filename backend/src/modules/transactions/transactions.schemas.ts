@@ -1,11 +1,9 @@
 import { z } from "zod";
+import { tickerSchema } from "../../shared/ticker.js";
 
 export const createTransactionSchema = z.object({
   // aceita ticker (mais amigável que id): o service resolve o ativo
-  ticker: z
-    .string()
-    .min(1, "Ticker é obrigatório")
-    .transform((s) => s.trim().toUpperCase()),
+  ticker: tickerSchema,
   kind: z.enum(["COMPRA", "VENDA"]),
   quantity: z.coerce.number().positive("Quantidade deve ser maior que zero"),
   unitPrice: z.coerce.number().positive("Preço unitário deve ser maior que zero"),
