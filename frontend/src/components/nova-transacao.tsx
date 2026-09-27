@@ -174,7 +174,7 @@ export function NovaTransacao({ aberto, aoFechar, aoCriar }: Props) {
       )}
 
       <Botao type="submit" disabled={salvando || buscando} className="mt-4">
-        {salvando ? "Registrando..." : kind === "COMPRA" ? "Registrar compra" : "Registrar venda"}
+        {salvando ? "Registrando…" : kind === "COMPRA" ? "Registrar compra" : "Registrar venda"}
       </Botao>
     </form>
   );

@@ -38,9 +38,38 @@
   --color-mute-soft: #64748b; /* 4.3:1 — só sobre branco */
 }
 
+/* Esta identidade é clara por definição — não há tema escuro. Declarar isso
+   evita que o navegador de quem usa o sistema no escuro pinte de escuro o que
+   ele controla e a folha de estilo não: barra de rolagem, autofill dos campos,
+   <select> nativo. Sem a linha, um campo de senha preenchido pelo gerenciador
+   vinha com fundo escuro dentro de um card branco. */
+:root {
+  color-scheme: light;
+}
+
 body {
   background: var(--color-paper);
   color: var(--color-ink);
+}
+
+/* Atalho de teclado para pular a navegação. Fica fora da tela até receber
+   foco, então só quem navega por Tab o encontra — que é quem precisa dele. */
+.pular-para-conteudo {
+  position: absolute;
+  left: 0.5rem;
+  top: -3rem;
+  z-index: 50;
+  border-radius: 0.5rem;
+  background: var(--color-ink);
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #fff;
+  transition: top 0.15s ease-in-out;
+}
+
+.pular-para-conteudo:focus {
+  top: 0.5rem;
 }
 
 /* números alinhados como em terminal financeiro */
@@ -90,13 +119,20 @@ body {
   animation-delay: 0.21s;
 }
 
-/* Crescimento da barra: mostra o que mudou depois de calcular o aporte. */
+/* Crescimento da barra: mostra o que mudou depois de calcular o aporte.
+   Anima transform, não width: width recalcula o layout a cada quadro, e essas
+   barras aparecem uma por ativo da carteira. O scaleX parte da borda esquerda
+   para a barra crescer da origem, e não do centro. */
 @keyframes grow-bar {
   from {
-    width: 0;
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
   }
 }
 .grow-bar {
+  transform-origin: left center;
   animation: grow-bar 0.9s cubic-bezier(0.22, 0.9, 0.35, 1) both;
 }
 

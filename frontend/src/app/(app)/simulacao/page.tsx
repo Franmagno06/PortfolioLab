@@ -234,7 +234,7 @@ function SimulacaoConteudo() {
               )}
 
               <Botao type="submit" tamanho="bloco" disabled={calculando} className="mt-4">
-                {calculando ? "Calculando..." : "Calcular aporte"}
+                {calculando ? "Calculando…" : "Calcular aporte"}
               </Botao>
             </form>
           </Card>
@@ -375,7 +375,7 @@ function SimulacaoConteudo() {
                     disabled={salvando}
                     className="mt-4"
                   >
-                    {salvando ? "Salvando..." : "Salvar metas"}
+                    {salvando ? "Salvando…" : "Salvar metas"}
                   </Botao>
                 )}
               </>

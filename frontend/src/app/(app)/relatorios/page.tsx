@@ -143,7 +143,7 @@ export default function RelatoriosPage() {
               ))}
             </datalist>
             <Botao onClick={() => inputArquivo.current?.click()} disabled={enviando}>
-              {enviando ? "Analisando..." : "Enviar PDF"}
+              {enviando ? "Analisando…" : "Enviar PDF"}
             </Botao>
           </div>
         }
@@ -228,7 +228,7 @@ export default function RelatoriosPage() {
               descricao="Funciona melhor com relatórios de FIIs e releases de resultados. A análise é educacional, não é recomendação de investimento."
             >
               <Botao onClick={() => inputArquivo.current?.click()} disabled={enviando}>
-                {enviando ? "Analisando..." : "Enviar PDF"}
+                {enviando ? "Analisando…" : "Enviar PDF"}
               </Botao>
             </EmptyState>
           ) : (
