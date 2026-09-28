@@ -57,13 +57,24 @@ export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const ehRotaPublica = rotasPublicas.some((rota) => pathname.startsWith(rota));
 
+  // Saída de emergência. Este proxy só sabe se o cookie EXISTE — validar a
+  // assinatura exigiria o segredo do JWT no frontend, que não deve estar lá.
+  // Com um cookie expirado, "existe" e "vale" divergem: o usuário era mandado
+  // para /dashboard, tudo ali devolvia 401, e /login o trazia de volta para o
+  // dashboard. Travamento sem saída, a não ser apagar o cookie no DevTools.
+  //
+  // Quem chega com este marcador foi mandado por lib/api.ts depois de um 401,
+  // então já sabemos que o cookie não vale, ainda que esteja lá. O redireciona-
+  // mento "já logado → dashboard" é o que trava, e é só ele que se suspende.
+  const sessaoExpirada = request.nextUrl.searchParams.has("expirada");
+
   const resposta = (() => {
     // sem sessão tentando acessar área logada → vai para o login
     if (!temToken && !ehRotaPublica) {
       return NextResponse.redirect(new URL("/login", request.url));
     }
     // já logado tentando ver login/registro → vai para o dashboard
-    if (temToken && ehRotaPublica) {
+    if (temToken && ehRotaPublica && !sessaoExpirada) {
       return NextResponse.redirect(new URL("/dashboard", request.url));
     }
     return NextResponse.next();
