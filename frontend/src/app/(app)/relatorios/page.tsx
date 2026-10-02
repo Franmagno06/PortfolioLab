@@ -23,7 +23,22 @@ type Relatorio = {
   fileName: string;
   createdAt: string;
   analysis: Analise | null;
+  /** CVM: números oficiais, sem o texto do PDF (e sem chat). PDF: documento lido inteiro. */
+  source: "CVM" | "PDF";
+  /** "2026-T1" ou "2026-03", quando a capa trazia o período. */
+  period: string | null;
+  asset: { ticker: string } | null;
 };
+
+const MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+
+/** "2026-T1" vira "1T26"; "2026-03" vira "mar/2026". */
+function rotuloPeriodo(periodo: string): string {
+  const [ano, parte] = periodo.split("-");
+  if (!ano || !parte) return periodo;
+  if (parte.startsWith("T")) return `${parte.slice(1)}T${ano.slice(-2)}`;
+  return `${MESES[Number(parte) - 1] ?? parte}/${ano}`;
+}
 
 type MensagemChat = { role: "user" | "assistant"; content: string };
 
@@ -44,6 +59,8 @@ export default function RelatoriosPage() {
   const [chat, setChat] = useState<MensagemChat[]>([]);
   const [pergunta, setPergunta] = useState("");
   const [perguntando, setPerguntando] = useState(false);
+  const [ticker, setTicker] = useState("");
+  const [meusAtivos, setMeusAtivos] = useState<{ ticker: string }[]>([]);
   const inputArquivo = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -53,6 +70,10 @@ export default function RelatoriosPage() {
         if (itens.length > 0) setSelecionado(itens[0] ?? null);
       })
       .catch(() => setRelatorios([]));
+    // só para sugerir no campo; qualquer ticker da B3 é aceito
+    api<{ ticker: string }[]>("/assets")
+      .then(setMeusAtivos)
+      .catch(() => setMeusAtivos([]));
   }, []);
 
   async function enviarPdf(arquivo: File) {
@@ -60,6 +81,8 @@ export default function RelatoriosPage() {
     setEnviando(true);
     try {
       const form = new FormData();
+      // opcional: com ele, ações e FIIs são analisados com os dados da CVM
+      if (ticker.trim()) form.append("ticker", ticker.trim().toUpperCase());
       form.append("file", arquivo);
       const novo = await apiUpload<Relatorio>("/reports", form);
       setRelatorios((atual) => [novo, ...(atual ?? [])]);
@@ -103,11 +126,32 @@ export default function RelatoriosPage() {
         titulo="Relatórios com IA"
         descricao="Envie o relatório gerencial em PDF e receba resumo, pontos de atenção e um chat para tirar dúvidas"
         acao={
-          <Botao onClick={() => inputArquivo.current?.click()} disabled={enviando}>
-            {enviando ? "Analisando..." : "Enviar PDF"}
-          </Botao>
+          <div className="flex items-center gap-2">
+            <input
+              value={ticker}
+              onChange={(e) => setTicker(e.target.value.toUpperCase())}
+              list="relatorio-ativos"
+              aria-label="Ativo do relatório (opcional)"
+              placeholder="Ativo (opcional)"
+              maxLength={7}
+              disabled={enviando}
+              className={`${estiloCampo} w-40 uppercase placeholder:normal-case`}
+            />
+            <datalist id="relatorio-ativos">
+              {meusAtivos.map((a) => (
+                <option key={a.ticker} value={a.ticker} />
+              ))}
+            </datalist>
+            <Botao onClick={() => inputArquivo.current?.click()} disabled={enviando}>
+              {enviando ? "Analisando…" : "Enviar PDF"}
+            </Botao>
+          </div>
         }
       />
+      <p className="-mt-3 text-xs text-mute">
+        Informando o ativo, ações e FIIs são analisados com os números oficiais entregues à CVM.
+        Sem ele, a IA lê o PDF inteiro, e só nesse caso o chat fica disponível.
+      </p>
       <input
         ref={inputArquivo}
         type="file"
@@ -160,7 +204,13 @@ export default function RelatoriosPage() {
                     >
                       <p className="truncate font-medium">{r.fileName}</p>
                       <p className={`text-xs ${ativo ? "text-slate-300" : "text-mute"}`}>
-                        {new Date(r.createdAt).toLocaleDateString("pt-BR")}
+                        {[
+                          r.asset?.ticker,
+                          r.period && rotuloPeriodo(r.period),
+                          new Date(r.createdAt).toLocaleDateString("pt-BR"),
+                        ]
+                          .filter(Boolean)
+                          .join(", ")}
                       </p>
                     </button>
                   </li>
@@ -178,7 +228,7 @@ export default function RelatoriosPage() {
               descricao="Funciona melhor com relatórios de FIIs e releases de resultados. A análise é educacional, não é recomendação de investimento."
             >
               <Botao onClick={() => inputArquivo.current?.click()} disabled={enviando}>
-                {enviando ? "Analisando..." : "Enviar PDF"}
+                {enviando ? "Analisando…" : "Enviar PDF"}
               </Botao>
             </EmptyState>
           ) : (
@@ -193,6 +243,11 @@ export default function RelatoriosPage() {
                 >
                   Resumo executivo
                 </TituloCard>
+                <p className="mt-1 text-xs text-mute">
+                  {selecionado?.source === "CVM"
+                    ? `Números oficiais entregues à CVM${selecionado.period ? ` (${rotuloPeriodo(selecionado.period)})` : ""}, comentados pela IA. O PDF enviado serviu para identificar o período.`
+                    : "Leitura do PDF enviado, feita pela IA."}
+                </p>
                 <ul className="mt-4 space-y-2.5">
                   {analise.resumoExecutivo.map((topico, i) => (
                     <li key={i} className="flex gap-3 text-sm leading-relaxed">
@@ -248,49 +303,60 @@ export default function RelatoriosPage() {
                 </Card>
               )}
 
-              <Card>
-                <TituloCard>Pergunte ao relatório</TituloCard>
-                <p className="mt-1 text-sm text-mute">
-                  A IA responde apenas com base no que está escrito no documento.
-                </p>
+              {selecionado?.source === "CVM" ? (
+                <Card>
+                  <TituloCard>Pergunte ao relatório</TituloCard>
+                  <p className="mt-1 text-sm text-mute">
+                    O chat não está disponível para este relatório: ele foi montado com os dados da
+                    CVM, e o texto do PDF não foi guardado. Para conversar sobre o documento, envie o
+                    PDF de novo sem informar o ativo.
+                  </p>
+                </Card>
+              ) : (
+                <Card>
+                  <TituloCard>Pergunte ao relatório</TituloCard>
+                  <p className="mt-1 text-sm text-mute">
+                    A IA responde apenas com base no que está escrito no documento.
+                  </p>
 
-                {chat.length > 0 && (
-                  <div className="mt-4 max-h-80 space-y-3 overflow-y-auto" aria-live="polite">
-                    {chat.map((m, i) => (
-                      <div
-                        key={i}
-                        className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
-                          m.role === "user" ? "ml-auto bg-ink text-white" : "bg-paper"
-                        }`}
-                      >
-                        {m.content}
-                      </div>
-                    ))}
-                    {perguntando && (
-                      <p className="max-w-[85%] rounded-2xl bg-paper px-4 py-2.5 text-sm text-mute">
-                        Consultando o relatório...
-                      </p>
-                    )}
-                  </div>
-                )}
+                  {chat.length > 0 && (
+                    <div className="mt-4 max-h-80 space-y-3 overflow-y-auto" aria-live="polite">
+                      {chat.map((m, i) => (
+                        <div
+                          key={i}
+                          className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
+                            m.role === "user" ? "ml-auto bg-ink text-white" : "bg-paper"
+                          }`}
+                        >
+                          {m.content}
+                        </div>
+                      ))}
+                      {perguntando && (
+                        <p className="max-w-[85%] rounded-2xl bg-paper px-4 py-2.5 text-sm text-mute">
+                          Consultando o relatório...
+                        </p>
+                      )}
+                    </div>
+                  )}
 
-                <form onSubmit={perguntar} className="mt-4 flex gap-2">
-                  <input
-                    value={pergunta}
-                    onChange={(e) => setPergunta(e.target.value)}
-                    aria-label="Sua pergunta sobre o relatório"
-                    placeholder="Ex: Como está a vacância? Houve emissão de cotas?"
-                    className={`${estiloCampo} min-w-0 flex-1`}
-                  />
-                  <Botao
-                    type="submit"
-                    variante="acento"
-                    disabled={perguntando || !pergunta.trim()}
-                  >
-                    Perguntar
-                  </Botao>
-                </form>
-              </Card>
+                  <form onSubmit={perguntar} className="mt-4 flex gap-2">
+                    <input
+                      value={pergunta}
+                      onChange={(e) => setPergunta(e.target.value)}
+                      aria-label="Sua pergunta sobre o relatório"
+                      placeholder="Ex: Como está a vacância? Houve emissão de cotas?"
+                      className={`${estiloCampo} min-w-0 flex-1`}
+                    />
+                    <Botao
+                      type="submit"
+                      variante="acento"
+                      disabled={perguntando || !pergunta.trim()}
+                    >
+                      Perguntar
+                    </Botao>
+                  </form>
+                </Card>
+              )}
             </>
           )}
         </div>

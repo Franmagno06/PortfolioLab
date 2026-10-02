@@ -1,10 +1,8 @@
 import { z } from "zod";
+import { tickerSchema } from "../../shared/ticker.js";
 
 export const createDividendSchema = z.object({
-  ticker: z
-    .string()
-    .min(1, "Ticker é obrigatório")
-    .transform((s) => s.trim().toUpperCase()),
+  ticker: tickerSchema,
   amount: z.coerce.number().positive("Valor deve ser maior que zero"),
   paidAt: z.coerce.date(),
 });

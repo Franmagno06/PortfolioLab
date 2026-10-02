@@ -1,5 +1,6 @@
 import cookieParser from "cookie-parser";
 import express from "express";
+import helmet from "helmet";
 import { verificarConexao } from "./database/prisma.js";
 import { assetsRoutes } from "./modules/assets/assets.routes.js";
 import { authRoutes } from "./modules/auth/auth.routes.js";
@@ -24,6 +25,20 @@ export const app = express();
 // limite que deveria ser por visitante passa a valer para a aplicação inteira
 // de uma vez. O 1 é a quantidade de proxies confiáveis à frente da API.
 app.set("trust proxy", 1);
+
+// Cabeçalhos de segurança. Esta API só responde JSON, então o CSP que importa
+// é o do Next, que serve o HTML (frontend/src/proxy.ts) — aqui ele é desligado
+// para não mandar uma política longa e inútil em cada resposta. O que sobra é o
+// que vale para JSON: nosniff, Referrer-Policy, HSTS e a remoção do
+// X-Powered-By, que anunciava "Express" para qualquer scanner.
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+    // A API e o frontend são origens diferentes em produção (Render e Vercel);
+    // o padrão same-origin faria o navegador recusar as respostas.
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+  }),
+);
 
 // Teto global folgado. Antes do express.json() de propósito, pelo mesmo motivo
 // que o limitador de /reports vem antes do multer: recusar sem gastar o parse.

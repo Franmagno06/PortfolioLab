@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { JetBrains_Mono, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 
@@ -19,6 +19,12 @@ export const metadata: Metadata = {
   title: "PortfolioLab",
   description:
     "Plataforma educacional de acompanhamento, simulação e análise de carteira de investimentos",
+};
+
+// Mesma cor do body: no mobile a barra do navegador encosta no fundo da página
+// em vez de cortar a tela com uma faixa de outra cor.
+export const viewport: Viewport = {
+  themeColor: "#f4f4ef",
 };
 
 export default function RootLayout({

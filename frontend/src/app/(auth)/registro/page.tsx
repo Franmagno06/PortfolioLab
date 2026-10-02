@@ -63,6 +63,8 @@ export default function RegistroPage() {
         onChange={(e) => setEmail(e.target.value)}
         placeholder="voce@exemplo.com"
         autoComplete="email"
+        // Corretor ortográfico num e-mail só produz sublinhado vermelho.
+        spellCheck={false}
       />
 
       <Campo
@@ -79,7 +81,7 @@ export default function RegistroPage() {
       {erro && <MensagemErro>{erro}</MensagemErro>}
 
       <Botao type="submit" tamanho="bloco" disabled={enviando}>
-        {enviando ? "Criando conta..." : "Criar conta"}
+        {enviando ? "Criando conta…" : "Criar conta"}
       </Botao>
 
       <p className="text-center text-sm text-mute-soft">

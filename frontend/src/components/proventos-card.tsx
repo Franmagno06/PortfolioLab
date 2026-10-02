@@ -92,7 +92,7 @@ export function ProventosCard({ ativos }: Props) {
               onClick={sincronizar}
               disabled={sincronizando}
             >
-              {sincronizando ? "Buscando..." : "Buscar proventos"}
+              {sincronizando ? "Buscando…" : "Buscar proventos"}
             </Botao>
           </div>
         }
@@ -154,7 +154,7 @@ export function ProventosCard({ ativos }: Props) {
           />
         </div>
         <Botao type="submit" variante="secundario" disabled={salvando}>
-          {salvando ? "Registrando..." : "Registrar"}
+          {salvando ? "Registrando…" : "Registrar"}
         </Botao>
       </form>
 

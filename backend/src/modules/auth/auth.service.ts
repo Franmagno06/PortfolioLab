@@ -5,6 +5,16 @@ import { AppError } from "../../shared/errors/AppError.js";
 import { authRepository } from "./auth.repository.js";
 import type { LoginInput, RegisterInput } from "./auth.schemas.js";
 
+// 12 rodadas: ~250ms por hash num servidor modesto. É o piso recomendado hoje
+// (OWASP) — com 10, uma GPU moderna testa candidatos rápido o bastante para
+// que uma senha fraca vazada no banco caia em horas. O custo só pesa no
+// registro e no login, uma vez cada.
+//
+// Hash já gravado com 10 continua válido: o bcrypt.compare lê o custo do
+// próprio hash. Quem se registrou antes segue entrando; para migrar, seria
+// preciso re-hashear no login bem-sucedido, o que não está feito aqui.
+const CUSTO_BCRYPT = 12;
+
 // Regra de negócio pura — não conhece HTTP (nem req, nem res, nem cookie)
 export const authService = {
   async register(input: RegisterInput) {
@@ -16,7 +26,7 @@ export const authService = {
     const user = await authRepository.create({
       name: input.name,
       email: input.email,
-      passwordHash: await bcrypt.hash(input.password, 10),
+      passwordHash: await bcrypt.hash(input.password, CUSTO_BCRYPT),
     });
 
     // O hash da senha NUNCA sai do service

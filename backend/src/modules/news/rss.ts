@@ -33,6 +33,25 @@ type ItemRss = {
 // "leia mais" no fim. Só o texto interessa para procurar o nome de um ativo.
 const LIMITE_RESUMO = 600;
 
+/**
+ * Devolve o link só se for http(s). Null para qualquer outra coisa.
+ *
+ * O feed é conteúdo de terceiro: o valor sai daqui e vira `href` num <a> na
+ * tela de notícias. React não bloqueia `javascript:` em href — só avisa em
+ * desenvolvimento —, então um feed comprometido ou um item malformado
+ * conseguiria executar script no clique. A allowlist de esquema é a barreira,
+ * e ela fica aqui, na borda onde o dado externo entra, não na página.
+ */
+function linkSeguro(bruto: string): string | null {
+  try {
+    const url = new URL(bruto);
+    return url.protocol === "http:" || url.protocol === "https:" ? url.toString() : null;
+  } catch {
+    // link relativo ou lixo: sem base para resolver, não dá para confiar
+    return null;
+  }
+}
+
 function limparResumo(bruto: string): string {
   return decodificarEntidades(
     bruto
@@ -111,7 +130,7 @@ async function lerFeed(fonte: { nome: string; url: string }): Promise<ItemNotici
 
     return itens.flatMap((item) => {
       const titulo = decodificarEntidades(texto(item.title));
-      const link = texto(item.link);
+      const link = linkSeguro(texto(item.link));
       if (!titulo || !link) return [];
 
       const resumo = limparResumo(texto(item.description));

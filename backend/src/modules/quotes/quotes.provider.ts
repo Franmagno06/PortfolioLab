@@ -24,6 +24,22 @@ const CABECALHOS = {
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36",
 };
 
+/**
+ * O ticker como segmento de caminho, escapado.
+ *
+ * Segunda camada: `shared/ticker.ts` já recusa na entrada da API tudo que não
+ * é letra ou dígito, e é lá que o erro fica legível para quem digitou. Mas o
+ * provider também é chamado por scripts (`scripts/atualizar-indicadores.ts`) e
+ * com ticker que veio do banco, que não passa pelo schema. Um `/` ou um `?`
+ * aqui não viraria um ticker inválido — viraria outra URL.
+ *
+ * Separado de `simbolo` de propósito: aquele valor é gravado no banco e
+ * devolvido na resposta, então não pode sair escapado.
+ */
+function naUrl(simbolo: string): string {
+  return encodeURIComponent(simbolo);
+}
+
 type MetaYahoo = {
   regularMarketPrice?: number;
   longName?: string;
@@ -55,7 +71,7 @@ export async function buscarCotacao(ticker: string): Promise<Cotacao | null> {
   const timer = setTimeout(() => controller.abort(), 8000);
 
   try {
-    const res = await fetch(`${BASE}/${simbolo}.SA?interval=1d&range=1d`, {
+    const res = await fetch(`${BASE}/${naUrl(simbolo)}.SA?interval=1d&range=1d`, {
       headers: CABECALHOS,
       signal: controller.signal,
     });
@@ -210,7 +226,7 @@ export async function buscarIndicadoresFundamentalistas(
 
     try {
       const res = await fetch(
-        `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${simbolo}.SA` +
+        `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${naUrl(simbolo)}.SA` +
           `?modules=${modulos}&crumb=${encodeURIComponent(credenciais.crumb)}`,
         { headers: { ...CABECALHOS, Cookie: credenciais.cookie }, signal: controller.signal },
       );
@@ -308,7 +324,7 @@ export async function buscarHistoricoMensal(
 
   try {
     const res = await fetch(
-      `${BASE}/${simbolo}.SA?period1=${period1}&period2=${period2}&interval=1mo`,
+      `${BASE}/${naUrl(simbolo)}.SA?period1=${period1}&period2=${period2}&interval=1mo`,
       { headers: CABECALHOS, signal: controller.signal },
     );
     if (!res.ok) return new Map();
@@ -374,7 +390,7 @@ export async function buscarProventos(
 
   try {
     const res = await fetch(
-      `${BASE}/${simbolo}.SA?period1=${inicio}&period2=${fim}&interval=1d&events=div`,
+      `${BASE}/${naUrl(simbolo)}.SA?period1=${inicio}&period2=${fim}&interval=1d&events=div`,
       { headers: CABECALHOS, signal: controller.signal },
     );
     if (!res.ok) return [];

@@ -1,12 +1,30 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useState } from "react";
 import { Botao } from "@/components/ui/botao";
 import { Campo } from "@/components/ui/campo";
-import { MensagemErro } from "@/components/ui/mensagem";
+import { MensagemAviso, MensagemErro } from "@/components/ui/mensagem";
 import { api, ApiError } from "@/lib/api";
+
+/**
+ * Aviso para quem chegou aqui por sessão morta — lib/api.ts redireciona com
+ * ?expirada=1 depois de um 401.
+ *
+ * Componente separado e sob <Suspense> de propósito: useSearchParams() torna
+ * dinâmica a árvore em que está, e o build falha ao prerenderizar /login. Com
+ * a fronteira, o Next prerenderiza a página e resolve só este pedaço no
+ * cliente — /login continua estática.
+ */
+function AvisoSessaoExpirada() {
+  if (!useSearchParams().has("expirada")) return null;
+  return (
+    <MensagemAviso titulo="Sua sessão expirou">
+      Entre novamente para continuar. Seus dados continuam salvos.
+    </MensagemAviso>
+  );
+}
 
 export default function LoginPage() {
   const router = useRouter();
@@ -40,6 +58,10 @@ export default function LoginPage() {
         <p className="text-sm text-mute-soft">Acesse sua carteira de investimentos</p>
       </div>
 
+      <Suspense fallback={null}>
+        <AvisoSessaoExpirada />
+      </Suspense>
+
       <Campo
         rotulo="E-mail"
         type="email"
@@ -48,6 +70,8 @@ export default function LoginPage() {
         onChange={(e) => setEmail(e.target.value)}
         placeholder="voce@exemplo.com"
         autoComplete="email"
+        // Corretor ortográfico num e-mail só produz sublinhado vermelho.
+        spellCheck={false}
       />
 
       <Campo
@@ -63,7 +87,7 @@ export default function LoginPage() {
       {erro && <MensagemErro>{erro}</MensagemErro>}
 
       <Botao type="submit" tamanho="bloco" disabled={enviando}>
-        {enviando ? "Entrando..." : "Entrar"}
+        {enviando ? "Entrando…" : "Entrar"}
       </Botao>
 
       <p className="text-center text-sm text-mute-soft">
