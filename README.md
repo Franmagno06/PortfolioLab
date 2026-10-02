@@ -262,6 +262,17 @@ Get-Process node | Where-Object { $_.Modules.ModuleName -like '*query_engine*' }
 ```
 
 
+**Troquei a `GEMINI_API_KEY` e o erro de chave inválida continua**
+
+O `.env` é lido uma vez, quando a API sobe. O `npm run dev` reinicia sozinho ao
+salvar o `.env`; se a API foi iniciada de outro jeito, pare (`Ctrl + C`) e suba de
+novo. Para testar a chave sem a API no meio, sem gastar cota:
+
+```bash
+cd backend
+npx tsx scripts/medir-tokens-relatorios.ts   # falha logo se a chave for recusada
+```
+
 **"Erro interno do servidor" no login**
 
 Se você usa Supabase no plano gratuito, o projeto **hiberna após ~1 semana sem

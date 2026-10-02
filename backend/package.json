@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/server.ts",
+    "dev": "tsx watch --include .env src/server.ts",
     "build": "tsc -p tsconfig.build.json",
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",
@@ -17,7 +17,7 @@
     "db:local": "tsx scripts/garantir-banco-local.ts && docker compose up -d --wait && prisma migrate deploy && tsx prisma/seed-demo.ts",
     "db:local:reset": "tsx scripts/garantir-banco-local.ts && docker compose down -v && npm run db:local",
     "db:local:stop": "docker compose stop",
-    "dev:supabase": "tsx watch --env-file=.env.supabase src/server.ts",
+    "dev:supabase": "tsx watch --include .env --include .env.supabase --env-file=.env.supabase src/server.ts",
     "supabase:migrate": "node --env-file=.env.supabase node_modules/prisma/build/index.js migrate deploy",
     "supabase:studio": "node --env-file=.env.supabase node_modules/prisma/build/index.js studio",
     "supabase:demo": "tsx --env-file=.env.supabase prisma/seed-demo.ts --remoto",
