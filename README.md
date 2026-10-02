@@ -87,30 +87,53 @@ Pré-requisito: **Node.js 20+**.
 
 ### 1. Banco de dados
 
-Escolha uma das opções:
+O projeto usa **dois bancos, com papéis separados**:
 
-**Supabase (nuvem, sem instalar nada)** — crie um projeto gratuito em
-[supabase.com](https://supabase.com), copie a connection string em
-*Connect → ORM → Prisma* (use o **Session pooler**) e aplique o schema:
+| | Docker (local) | Supabase (nuvem) |
+|---|---|---|
+| Para quê | desenvolver, testar, quebrar à vontade | o app publicado, que outras pessoas usam |
+| Arquivo | `backend/.env` | `backend/.env.supabase` |
+| Comandos | `npm run dev`, `db:local`, `db:studio`, `npm test`* | só os que têm `supabase` no nome |
+| Pode apagar? | sim — `npm run db:local:reset` | **nunca** |
+
+\* `npm test` lê o `backend/.env.test`, que também aponta para o Docker.
+
+Ao subir, a API imprime em qual banco está: `🗄️ Banco: LOCAL (Docker) — …` ou
+`🗄️ Banco: SUPABASE (produção) — …`.
+
+**Banco local (Docker) — o do dia a dia.** Precisa do Docker Desktop aberto.
 
 ```bash
 cd backend
-cp .env.example .env      # cole a connection string em DATABASE_URL
+cp .env.example .env      # a DATABASE_URL do Docker já vem preenchida
 npm install
-npx prisma db push        # cria as tabelas
-npm run db:seed           # popula com carteira de exemplo
+npm run db:local          # sobe o Postgres, aplica as migrations e cria a carteira demo
 ```
 
-**PostgreSQL local via Docker:**
+O `db:local` recusa rodar se o `.env` apontar para fora da sua máquina. Para
+começar do zero (apaga só o volume do Docker): `npm run db:local:reset`. Para
+desligar o container: `npm run db:local:stop`.
+
+**Supabase — o de produção.** Crie um projeto em [supabase.com](https://supabase.com),
+copie a connection string em *Connect → ORM → Prisma* (use o **Session pooler**) e:
 
 ```bash
 cd backend
-cp .env.example .env      # a DATABASE_URL local já vem preenchida
-docker compose up -d
-npm install
-npm run db:migrate
-npm run db:seed
+cp .env.supabase.example .env.supabase   # cole a connection string
+npm run supabase:migrate                 # aplica as migrations pendentes (não apaga dados)
+npm run supabase:demo                    # opcional: conta de demonstração pública
 ```
+
+| Comando | O que faz no Supabase |
+|---|---|
+| `npm run supabase:migrate` | `prisma migrate deploy`: só aplica migrations novas |
+| `npm run supabase:demo` | apaga e recria **só** a conta `carteira@portfoliolab.dev` |
+| `npm run supabase:studio` | Prisma Studio no banco real — edite com cuidado |
+| `npm run dev:supabase` | API local lendo e escrevendo no banco real |
+
+O app publicado (Render) não lê `.env.supabase`: lá a `DATABASE_URL` fica no
+painel do serviço, em *Environment*. `npm run db:seed` (que apaga **todas** as
+tabelas), `prisma db push` e `prisma migrate reset` nunca devem rodar no Supabase.
 
 ### 2. Backend
 
@@ -131,7 +154,7 @@ npm install
 npm run dev               # http://localhost:3000
 ```
 
-Login do seed: `demo@portfoliolab.dev` / `123456`.
+Login da carteira de demonstração: `carteira@portfoliolab.dev` / `demo123456`.
 
 O frontend faz proxy de `/api/*` para o backend, então os dois precisam estar no ar.
 
@@ -198,7 +221,7 @@ Uma carteira pronta para explorar o produto sem cadastrar nada à mão:
 
 ```bash
 cd backend
-npm run db:seed:demo    # exige DATABASE_URL local — recusa o Supabase
+npm run db:local        # já cria a conta; sozinho: npm run db:seed:demo
 ```
 
 Entre com `carteira@portfoliolab.dev` / `demo123456`. São 16 ativos — 8 ações,
@@ -221,7 +244,10 @@ ninguém publica a posição de outra pessoa. Nada ali é recomendação de
 investimento.
 
 Diferente de `npm run db:seed`, este script apaga apenas a conta de demonstração
-e recria — o resto do banco fica intacto.
+e recria — o resto do banco fica intacto. Por isso ele também pode rodar no
+Supabase, com `npm run supabase:demo`, para que visitantes do app publicado
+entrem sem cadastro. Lá a conta é compartilhada: o que um visitante lançar,
+todos veem. Rode o comando de novo para devolvê-la ao estado original.
 
 ## Problemas comuns
 

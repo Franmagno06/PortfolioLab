@@ -1,13 +1,16 @@
 import { AssetType, PrismaClient, TransactionKind } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import "dotenv/config";
-import { assertDatabaseUrlIsLocal } from "../src/config/dbGuard.js";
+import { assertDatabaseUrlIsLocal, descreverBanco } from "../src/config/dbGuard.js";
 import { quotesService } from "../src/modules/quotes/quotes.service.js";
 
 // Este seed apaga e recria UMA conta (a de demonstração), não o banco inteiro
-// como prisma/seed.ts. Ainda assim o guarda vem primeiro: escrever conta de
-// teste no Supabase de produção é lixo que alguém teria de limpar à mão.
-assertDatabaseUrlIsLocal(process.env.DATABASE_URL);
+// como prisma/seed.ts. Por padrão só roda no banco local. No Supabase ele serve
+// de vitrine para quem visita o app, mas só com --remoto (`npm run
+// supabase:demo`): escrever em produção tem de ser uma decisão, não um acidente.
+const REMOTO_PERMITIDO = process.argv.includes("--remoto");
+if (!REMOTO_PERMITIDO) assertDatabaseUrlIsLocal(process.env.DATABASE_URL);
+console.log(`Destino: ${descreverBanco(process.env.DATABASE_URL)}`);
 
 const prisma = new PrismaClient();
 

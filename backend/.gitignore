@@ -1,5 +1,8 @@
 node_modules/
 dist/
+
+# Todo .env* tem segredo ou é pessoal, exceto os modelos.
 .env
-.env.test
-.env.example
+.env.*
+!.env.example
+!.env.supabase.example

@@ -14,6 +14,13 @@
     "db:seed": "prisma db seed",
     "db:seed:demo": "tsx prisma/seed-demo.ts",
     "db:studio": "prisma studio",
+    "db:local": "tsx scripts/garantir-banco-local.ts && docker compose up -d --wait && prisma migrate deploy && tsx prisma/seed-demo.ts",
+    "db:local:reset": "tsx scripts/garantir-banco-local.ts && docker compose down -v && npm run db:local",
+    "db:local:stop": "docker compose stop",
+    "dev:supabase": "tsx watch --env-file=.env.supabase src/server.ts",
+    "supabase:migrate": "node --env-file=.env.supabase node_modules/prisma/build/index.js migrate deploy",
+    "supabase:studio": "node --env-file=.env.supabase node_modules/prisma/build/index.js studio",
+    "supabase:demo": "tsx --env-file=.env.supabase prisma/seed-demo.ts --remoto",
     "job:indicadores": "tsx scripts/atualizar-indicadores.ts"
   },
   "dependencies": {

@@ -1,9 +1,12 @@
 import { app } from "./app.js";
+import { descreverBanco } from "./config/dbGuard.js";
 import { env } from "./config/env.js";
 import { desconectarBanco } from "./database/prisma.js";
 
 const servidor = app.listen(env.PORT, () => {
   console.log(`🚀 API rodando em http://localhost:${env.PORT}`);
+  // Dois bancos no projeto (Docker e Supabase): o log deixa à vista qual está em uso.
+  console.log(`🗄️  Banco: ${descreverBanco(env.DATABASE_URL)}`);
 });
 
 // Achado 24: o Render manda SIGTERM e espera antes de matar o processo. Sem

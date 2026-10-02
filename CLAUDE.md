@@ -4,10 +4,18 @@ Monorepo: `backend/` (Node + Express 5 + Prisma + PostgreSQL) e `frontend/` (Nex
 Domínio: carteira de investimentos da B3 — posição consolidada, rebalanceamento por aporte,
 análise de relatórios em PDF por IA e feed de notícias.
 
-## ⚠️ O `.env` aponta para o Supabase de PRODUÇÃO
+## ⚠️ Dois bancos: Docker (dia a dia) e Supabase (PRODUÇÃO)
 
-`backend/.env` tem a `DATABASE_URL` do banco real. Antes de qualquer comando que escreva no
-schema ou apague dados, troque o `DATABASE_URL` para o Postgres local do `docker-compose.yml`.
+- `backend/.env` → Postgres local do `docker-compose.yml`. É o que `npm run dev` usa.
+- `backend/.env.supabase` → Supabase de produção. Só os scripts com `supabase` no nome o leem
+  (`supabase:migrate`, `supabase:demo`, `supabase:studio`, `dev:supabase`), via `--env-file`,
+  que tem precedência sobre o `.env`.
+- `backend/.env.test` → Docker, carregado pelo `vitest.config.ts`.
+
+A API imprime `🗄️ Banco: LOCAL…` ou `SUPABASE (produção)…` ao subir. Máquinas antigas podem
+ainda ter a URL do Supabase no `.env` — confira antes de escrever, com
+`npx tsx scripts/garantir-banco-local.ts`. `npm run db:local` sobe o container, aplica as
+migrations e cria a conta demo, e recusa rodar se o `.env` não for local.
 
 Nunca rode sem confirmar o banco de destino:
 
