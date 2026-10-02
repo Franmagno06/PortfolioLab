@@ -10,10 +10,36 @@ let cliente: GoogleGenAI | null = null;
 
 // Teto do que o chat manda de relatório por pergunta. O release trimestral do
 // Banco do Brasil tem 760 mil caracteres: mandá-lo inteiro custava ~217 mil
-// tokens POR PERGUNTA e estourava o limite por minuto da API — a segunda
-// pergunta seguida já voltava com "limite de uso atingido". 40 mil caracteres
-// (~11 mil tokens) cabem com folga e carregam os trechos que respondem.
-const CONTEXTO_CHAT = 40_000;
+// tokens POR PERGUNTA e estourava o limite por minuto da API.
+//
+// O teto anterior, 40 mil caracteres, foi estimado em ~11 mil tokens. Medido
+// com o countTokens (scripts/medir-tokens-relatorios.ts), texto financeiro
+// cheio de números sai a ~0,6 token por caractere: eram ~25 mil tokens por
+// pergunta. 12 mil caracteres (~7 mil tokens no pior caso) ainda carregam os
+// seis blocos que mais citam os termos da pergunta.
+export const CONTEXTO_CHAT = 12_000;
+
+// O histórico vem do navegador e viaja inteiro em toda pergunta: a décima
+// pergunta pagava pelas nove anteriores e por todas as respostas. Só as
+// últimas trocas dão contexto útil, e cada mensagem antiga é truncada. Cortar
+// aqui, e não no cliente, porque o servidor é quem paga o token.
+export const HISTORICO_MAX_MENSAGENS = 6;
+export const HISTORICO_MAX_CHARS = 1_500;
+
+// Quanto o modelo "pensa" antes de responder. Pensamento é token de saída
+// cobrado e conta no limite por minuto. Medido com uma pergunta trivial:
+// "low" gastou 58 tokens pensando, "minimal" gastou 0.
+// A análise inicial é leitura crítica de um documento (o que mudou, o que
+// preocupa) e se beneficia de algum raciocínio; o chat localiza um número num
+// trecho já recortado, e não precisa.
+const RACIOCINIO_ANALISE = "low";
+const RACIOCINIO_CHAT = "minimal";
+
+// Teto de saída, incluindo o pensamento. Não é a meta, é a trava: um resumo
+// de 5 a 8 tópicos com alertas e indicadores cabe em ~1.500 tokens. Sem teto,
+// uma resposta descontrolada poderia gerar dezenas de milhares.
+const SAIDA_MAX_ANALISE = 4_096;
+const SAIDA_MAX_CHAT = 1_024;
 
 // O SDK tenta 5 vezes com espera crescente quando a API recusa. Diante de um
 // 429 por cota estourada isso é inútil: a cota não volta em segundos, e o
@@ -100,8 +126,19 @@ function traduzirErro(err: unknown): never {
       502,
     );
   }
+  // Sobrecarga do lado do Google, não cota nossa: nada foi cobrado e a mesma
+  // requisição passa minutos depois. Sem esta regra, o usuário lia o 503 cru,
+  // em inglês, e não tinha como distinguir de "limite de uso atingido".
+  if (/503|UNAVAILABLE|high demand|overloaded/i.test(mensagem)) {
+    console.warn("[IA] modelo sobrecarregado no Google:", mensagem);
+    throw new AppError(
+      "O serviço de IA do Google está sobrecarregado agora. Nada foi cobrado; tente de novo em alguns minutos.",
+      503,
+    );
+  }
 
-  console.error("[falha na API de IA]", err);
+  // só a mensagem: o objeto de erro do SDK tem ~150 linhas de cabeçalhos HTTP
+  console.error("[falha na API de IA]", mensagem);
   throw new AppError(`Falha ao consultar a IA: ${mensagem}`, 502);
 }
 
@@ -207,6 +244,36 @@ export async function analisarDadosCvm(dadosFormatados: string): Promise<Analise
   );
 }
 
+type Consumo = {
+  total_input_tokens?: number | undefined;
+  total_thought_tokens?: number | undefined;
+  total_output_tokens?: number | undefined;
+  total_tokens?: number | undefined;
+};
+
+/**
+ * Uma linha de log por chamada, com o que ela custou. Sem medir não há como
+ * saber se um ajuste de teto economizou de verdade — foi assim que se
+ * descobriu que a estimativa antiga errava pela metade.
+ */
+function registrarConsumo(oQue: string, consumo: Consumo | undefined) {
+  if (!consumo) return;
+  console.info(
+    `[IA] ${oQue}: ${consumo.total_input_tokens ?? "?"} de entrada, ` +
+      `${consumo.total_thought_tokens ?? 0} pensando, ` +
+      `${consumo.total_output_tokens ?? "?"} de saída — ${consumo.total_tokens ?? "?"} no total`,
+  );
+}
+
+/** Só as últimas mensagens, cada uma truncada — ver HISTORICO_MAX_*. */
+export function enxugarHistorico<T extends { content: string }>(historico: T[]): T[] {
+  return historico.slice(-HISTORICO_MAX_MENSAGENS).map((m) =>
+    m.content.length > HISTORICO_MAX_CHARS
+      ? { ...m, content: `${m.content.slice(0, HISTORICO_MAX_CHARS)} [...]` }
+      : m,
+  );
+}
+
 async function gerarAnalise(input: string): Promise<Analise> {
   let saida: string | undefined;
 
@@ -221,9 +288,14 @@ async function gerarAnalise(input: string): Promise<Analise> {
           mime_type: "application/json",
           schema: ESQUEMA_ANALISE,
         },
+        generation_config: {
+          thinking_level: RACIOCINIO_ANALISE,
+          max_output_tokens: SAIDA_MAX_ANALISE,
+        },
       }),
       "analisar o relatório",
     );
+    registrarConsumo("análise", interacao.usage);
     saida = interacao.output_text;
   } catch (err) {
     traduzirErro(err);
@@ -254,7 +326,7 @@ export async function perguntarAoRelatorio(
       : { type: "user_input" as const, content: [{ type: "text" as const, text: texto }] };
 
   // Só os trechos que respondem à pergunta viajam. Documento pequeno passa
-  // inteiro; o release de 760 mil caracteres vira 40 mil.
+  // inteiro; o release de 760 mil caracteres vira 12 mil.
   const trecho = selecionarTrechos(textoDoRelatorio, pergunta, CONTEXTO_CHAT);
   const recortado = trecho.length < textoDoRelatorio.length;
 
@@ -265,10 +337,18 @@ export async function perguntarAoRelatorio(
         system_instruction:
           `${PROMPT_CHAT}\n\n<relatorio arquivo="${fileName}"${recortado ? ' recorte="true"' : ""}>\n` +
           `${trecho}\n</relatorio>`,
-        input: [...historico.map((m) => passo(m.content, m.role)), passo(pergunta, "user")],
+        input: [
+          ...enxugarHistorico(historico).map((m) => passo(m.content, m.role)),
+          passo(pergunta, "user"),
+        ],
+        generation_config: {
+          thinking_level: RACIOCINIO_CHAT,
+          max_output_tokens: SAIDA_MAX_CHAT,
+        },
       }),
       "responder à pergunta",
     );
+    registrarConsumo("pergunta", interacao.usage);
 
     return interacao.output_text ?? "Não consegui responder a essa pergunta.";
   } catch (err) {

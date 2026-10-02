@@ -172,6 +172,10 @@ model Report {
   // Texto extraído do PDF — usado pelo chat "Pergunte ao Relatório". Null
   // quando source = CVM: o PDF inteiro nem chega a ser lido.
   extractedText String?      @map("extracted_text") @db.Text
+  // SHA-256 do arquivo enviado. O mesmo PDF enviado de novo — por esta ou por
+  // outra conta — reaproveita a análise e o texto já extraídos, sem chamar a
+  // IA. Null nos relatórios anteriores a esta coluna.
+  contentHash   String?      @map("content_hash")
   // resultado da análise (resumo, alertas, indicadores) como JSON
   analysis      Json?
   createdAt     DateTime     @default(now()) @map("created_at")
@@ -181,6 +185,7 @@ model Report {
   asset Asset? @relation(fields: [assetId], references: [id], onDelete: SetNull)
 
   @@index([userId])
+  @@index([contentHash])
   @@map("reports")
 }
 

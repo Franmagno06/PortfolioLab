@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import type { Asset } from "@prisma/client";
 import { extractText, getDocumentProxy } from "unpdf";
 import { AppError } from "../../shared/errors/AppError.js";
@@ -29,9 +30,44 @@ export const COTA_RELATORIOS = 50;
 
 // Teto do que a análise inicial manda para a IA. O release trimestral do Banco
 // do Brasil tem 760 mil caracteres: mandado inteiro levava ~70s e consumia a
-// cota de um minuto inteiro numa tacada. 150 mil (~43 mil tokens) cobrem as
-// seções de resultado com folga.
-const CONTEXTO_ANALISE = 150_000;
+// cota de um minuto inteiro numa tacada.
+//
+// O teto anterior, 150 mil, foi estimado em ~43 mil tokens. Medido com o
+// countTokens (scripts/medir-tokens-relatorios.ts), eram 93 mil no release do
+// BB e 30 mil no relatório gerencial do MXRF11 — texto cheio de números rende
+// mais token por caractere do que prosa. Um único envio do BB tomava quase
+// todo o limite por minuto.
+//
+// 30 mil caracteres ficam em ~20 mil tokens no BB e ~14 mil no MXRF11. O
+// recorte escolhe abertura, destaques e as seções mais densas em resultado,
+// que é o que um resumo de 5 a 8 tópicos usa; o resto viaja só no chat, sob
+// demanda, recortado pela pergunta.
+export const CONTEXTO_ANALISE = 30_000;
+
+/** Extrai o PDF inteiro e manda o recorte relevante para a IA. */
+async function lerEAnalisarPdf(pdf: DocumentoPdf): Promise<{ texto: string; analise: Analise }> {
+  const texto = (await extrairTexto(pdf)).trim();
+
+  if (!texto) {
+    throw new AppError(
+      "Não foi possível extrair texto deste PDF — ele pode ser digitalizado como imagem",
+      400,
+    );
+  }
+  if (texto.length > LIMITE_CARACTERES) {
+    throw new AppError(
+      `Relatório muito grande para análise: ${texto.length.toLocaleString("pt-BR")} caracteres (limite de ${LIMITE_CARACTERES.toLocaleString("pt-BR")}).`,
+      400,
+    );
+  }
+
+  // Documento grande é recortado antes de ir para o Gemini. O recorte fica
+  // com as seções de maior densidade financeira, e o prompt avisa a IA de que
+  // ela não recebeu o documento completo.
+  const paraAnalise = selecionarSecoesRelevantes(texto, CONTEXTO_ANALISE);
+  const analise = await analisarRelatorio(paraAnalise, paraAnalise.length < texto.length);
+  return { texto, analise };
+}
 
 // Páginas lidas para achar o período. A capa do release do BB diz "1T26" na
 // primeira; a do MXRF11 diz "Maio de 2026" na primeira e repete na segunda.
@@ -183,6 +219,10 @@ export const reportsService = {
       );
     }
 
+    // Antes de o pdf.js tocar no buffer: ele pode transferir o ArrayBuffer
+    // para dentro da biblioteca e deixar o original vazio.
+    const contentHash = createHash("sha256").update(arquivo.buffer).digest("hex");
+
     const pdf = await semRuidoDePdf(() => getDocumentProxy(new Uint8Array(arquivo.buffer)));
 
     // 1. com o ativo informado, o PDF só identifica o período e os números
@@ -212,31 +252,17 @@ export const reportsService = {
       };
     }
 
-    // 2. extrai o texto do PDF inteiro
-    const texto = (await extrairTexto(pdf)).trim();
+    // 2. o mesmo arquivo já foi analisado antes? Reaproveita a análise e o
+    // texto, sem chamar a IA. Testar o app com os mesmos PDFs — ou dois
+    // cotistas enviando o mesmo relatório gerencial — custava uma análise
+    // inteira a cada envio.
+    const anterior = await reportsRepository.findPdfByContentHash(contentHash);
+    const { texto, analise } =
+      anterior?.extractedText && anterior.analysis
+        ? { texto: anterior.extractedText, analise: anterior.analysis as Analise }
+        : await lerEAnalisarPdf(pdf);
 
-    if (!texto) {
-      throw new AppError(
-        "Não foi possível extrair texto deste PDF — ele pode ser digitalizado como imagem",
-        400,
-      );
-    }
-    if (texto.length > LIMITE_CARACTERES) {
-      throw new AppError(
-        `Relatório muito grande para análise: ${texto.length.toLocaleString("pt-BR")} caracteres (limite de ${LIMITE_CARACTERES.toLocaleString("pt-BR")}).`,
-        400,
-      );
-    }
-
-    // 3. envia para o Gemini com structured outputs.
-    // Documento grande é recortado antes: mandar 760 mil caracteres numa
-    // tacada levava ~70s e queimava a cota de um minuto inteiro. O recorte
-    // fica com as seções de maior densidade financeira, e o prompt avisa a
-    // IA de que ela não recebeu o documento completo.
-    const paraAnalise = selecionarSecoesRelevantes(texto, CONTEXTO_ANALISE);
-    const analise = await analisarRelatorio(paraAnalise, paraAnalise.length < texto.length);
-
-    // 4. persiste (o texto extraído alimenta o chat depois)
+    // 3. persiste (o texto extraído alimenta o chat depois)
     const relatorio = await reportsRepository.create({
       userId,
       fileName: arquivo.originalname,
@@ -244,6 +270,7 @@ export const reportsService = {
       assetId: viaCvm.asset?.id ?? null,
       period: viaCvm.periodo,
       extractedText: texto,
+      contentHash,
       analysis: analise,
     });
 

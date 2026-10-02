@@ -1,10 +1,16 @@
+import { createHash } from "node:crypto";
 import { Prisma, type Asset } from "@prisma/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { extractText, getDocumentProxy } from "unpdf";
 import { analisarDadosCvm, analisarRelatorio, perguntarAoRelatorio } from "./gemini.js";
 import { AppError } from "../../shared/errors/AppError.js";
 import { reportsRepository } from "./reports.repository.js";
-import { COTA_RELATORIOS, MENSAGEM_CHAT_INDISPONIVEL, reportsService } from "./reports.service.js";
+import {
+  CONTEXTO_ANALISE,
+  COTA_RELATORIOS,
+  MENSAGEM_CHAT_INDISPONIVEL,
+  reportsService,
+} from "./reports.service.js";
 import { buscarDadosAcao, buscarDadosFii, type DadosAcao } from "./cvm.provider.js";
 import { quotesService } from "../quotes/quotes.service.js";
 
@@ -55,6 +61,11 @@ const statusDe = async (userId: string) =>
     .analisar(userId, arquivoQualquer)
     .then(() => undefined)
     .catch((e: AppError) => e.statusCode);
+
+beforeEach(() => {
+  // Padrão: nenhum PDF igual analisado antes. O bloco do cache sobrescreve.
+  vi.spyOn(reportsRepository, "findPdfByContentHash").mockResolvedValue(null);
+});
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -164,8 +175,74 @@ describe("extração de texto do PDF", () => {
 
     const [enviado, recortado] = vi.mocked(analisarRelatorio).mock.calls.at(-1) ?? [];
     expect(recortado).toBe(true);
-    expect(enviado?.length).toBeLessThanOrEqual(150_000);
+    expect(enviado?.length).toBeLessThanOrEqual(CONTEXTO_ANALISE);
     expect(enviado?.length).toBeLessThan(gigante.length);
+  });
+});
+
+describe("mesmo PDF enviado de novo", () => {
+  const pdfDeTeste = { originalname: "MXRF11-maio.pdf", buffer: Buffer.from("%PDF-1.7 conteúdo") };
+  // calculado aqui, ANTES de o serviço receber o buffer
+  const hashReal = () => createHash("sha256").update(pdfDeTeste.buffer).digest("hex");
+
+  function espiarCreate() {
+    return vi.spyOn(reportsRepository, "create").mockImplementation(((
+      data: Parameters<typeof reportsRepository.create>[0],
+    ) => Promise.resolve({ ...data, id: "novo", createdAt: new Date() })) as unknown as typeof reportsRepository.create);
+  }
+
+  it("reaproveita análise e texto sem chamar a IA nem reler o PDF", async () => {
+    comRelatoriosGuardados(0);
+    const busca = vi.spyOn(reportsRepository, "findPdfByContentHash").mockResolvedValue({
+      extractedText: "texto já extraído",
+      analysis: { tipoDocumento: "da vez anterior", resumoExecutivo: [], alertas: [], indicadores: [] },
+    });
+    const criar = espiarCreate();
+    vi.mocked(analisarRelatorio).mockClear();
+    vi.mocked(extractText).mockClear();
+
+    const r = await reportsService.analisar("outra-conta", pdfDeTeste);
+
+    expect(busca).toHaveBeenCalledWith(hashReal());
+    expect(analisarRelatorio).not.toHaveBeenCalled();
+    expect(extractText).not.toHaveBeenCalled();
+    expect(r.analysis.tipoDocumento).toBe("da vez anterior");
+    // o relatório é desta conta: ganha registro próprio, com o mesmo hash
+    expect(criar).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: "outra-conta",
+        extractedText: "texto já extraído",
+        contentHash: hashReal(),
+      }),
+    );
+  });
+
+  it("PDF inédito vai para a IA e guarda o hash para o próximo envio", async () => {
+    comRelatoriosGuardados(0);
+    vi.mocked(extractText).mockResolvedValueOnce({ text: "conteúdo novo" } as Awaited<
+      ReturnType<typeof extractText>
+    >);
+    const criar = espiarCreate();
+    vi.mocked(analisarRelatorio).mockClear();
+
+    await reportsService.analisar("u1", pdfDeTeste);
+
+    expect(analisarRelatorio).toHaveBeenCalledTimes(1);
+    expect(criar).toHaveBeenCalledWith(expect.objectContaining({ contentHash: hashReal() }));
+  });
+
+  it("arquivos diferentes não se confundem", async () => {
+    comRelatoriosGuardados(0);
+    const busca = vi.spyOn(reportsRepository, "findPdfByContentHash").mockResolvedValue(null);
+    espiarCreate();
+    const comTexto = { text: "conteúdo" } as Awaited<ReturnType<typeof extractText>>;
+    vi.mocked(extractText).mockResolvedValueOnce(comTexto).mockResolvedValueOnce(comTexto);
+
+    await reportsService.analisar("u1", { originalname: "a.pdf", buffer: Buffer.from("versão 1") });
+    await reportsService.analisar("u1", { originalname: "a.pdf", buffer: Buffer.from("versão 2") });
+
+    const [primeiro, segundo] = busca.mock.calls.map(([hash]) => hash);
+    expect(primeiro).not.toBe(segundo);
   });
 });
 
@@ -388,6 +465,7 @@ describe("chat do relatório", () => {
     assetId: "asset-bbas3",
     fileName: "x.pdf",
     period: "2026-T1",
+    contentHash: null,
     analysis: {},
     createdAt: new Date(),
   };

@@ -10,9 +10,23 @@ export const reportsRepository = {
     assetId: string | null;
     period: string | null;
     extractedText: string | null;
+    contentHash?: string | null;
     analysis: Prisma.InputJsonValue;
   }) {
     return prisma.report.create({ data });
+  },
+
+  /**
+   * Relatório já analisado a partir do mesmo arquivo, de qualquer conta. Só
+   * os de origem PDF: é o texto extraído que alimenta o chat, e os da CVM não
+   * o guardam (e têm cache próprio, por ativo e período).
+   */
+  findPdfByContentHash(contentHash: string) {
+    return prisma.report.findFirst({
+      where: { contentHash, source: "PDF", extractedText: { not: null } },
+      select: { extractedText: true, analysis: true },
+      orderBy: { createdAt: "desc" },
+    });
   },
 
   // lista sem o extractedText (pode ter centenas de KB por relatório)
