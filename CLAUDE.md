@@ -123,8 +123,11 @@ Toda nova funcionalidade segue este processo:
 
 3. **Desenvolvimento**: implementar, fazer commits regulares.
 
-4. **Testes**: rodar a suíte de testes completa. Se houver falhas, corrigir antes de prosseguir.
-   Use `rodar-testes-seguro` para testes que tocam banco de dados.
+4. **Testes**: ao terminar a funcionalidade, **invocar a skill `rodar-testes-seguro` sem esperar
+   pedido** e rodar a bateria inteira que ela descreve: backend (`prisma validate`, `tsc`,
+   `npm test`), frontend (`typecheck`, `lint`, `npm test`, `build`) e o E2E quando a mudança
+   mexer em tela. Se algo falhar por causa da mudança, corrigir antes de prosseguir. Falhas que
+   já existiam no `main` são relatadas, não corrigidas escondidas.
 
 5. **Merge para main**:
    - Quando pronto, fazer merge da branch para `main`.
