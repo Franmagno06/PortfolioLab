@@ -3,6 +3,7 @@ import { AppError } from "../../shared/errors/AppError.js";
 import { goalsRepository } from "../goals/goals.repository.js";
 import { portfolioService } from "../portfolio/portfolio.service.js";
 import { quotesService, type AtivoParaCotacao } from "../quotes/quotes.service.js";
+import type { ExemploInput } from "./rebalance.schemas.js";
 
 export type CandidatoAporte = {
   ticker: string;
@@ -240,6 +241,28 @@ export function calcularAporte(
 }
 
 export const rebalanceService = {
+  /**
+   * O mesmo algoritmo da simulação real, aplicado à carteira de exemplo que a
+   * página inicial manda. Sem banco e sem cotação: os preços vêm prontos, e
+   * o visitante compara a própria tentativa com o que o PortfolioLab faria.
+   */
+  simularExemplo(input: ExemploInput) {
+    const valorDe = (a: ExemploInput["ativos"][number]) =>
+      new Prisma.Decimal(a.quantidade).times(a.preco);
+
+    const patrimonio = input.ativos.reduce((soma, a) => soma.plus(valorDe(a)), new Prisma.Decimal(0));
+
+    const candidatos: CandidatoAporte[] = input.ativos.map((a) => ({
+      ticker: a.ticker,
+      name: a.nome,
+      precoAtual: a.preco,
+      valorAtual: em2Casas(valorDe(a)),
+      alvoPct: a.meta,
+    }));
+
+    return calcularAporte(candidatos, input.amount, em2Casas(patrimonio));
+  },
+
   async simulate(userId: string, valorAporte: number) {
     // As duas leituras são independentes e nenhuma delas grava — antes,
     // getCarteira atualizava as cotações enquanto findManyByUser lia a mesma

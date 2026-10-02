@@ -72,6 +72,20 @@ body {
   top: 0.5rem;
 }
 
+/* O cabeçalho do site é fixo no topo: sem esta folga, o navegador rola o
+   elemento focado por Tab (ou a seção de um link #âncora) para baixo dele. */
+html {
+  scroll-padding-top: 4.5rem;
+}
+
+/* Os links de seção do site rolam até o destino em vez de saltar. Só para quem
+   não pediu menos movimento ao sistema. */
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
 /* números alinhados como em terminal financeiro */
 .tnum {
   font-variant-numeric: tabular-nums;

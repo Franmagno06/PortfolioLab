@@ -82,3 +82,15 @@ export const limitadorGlobal = criarLimitador({
   mensagem: "Muitas requisições. Aguarde um momento.",
   pular: noTeste,
 });
+
+/**
+ * Camada 4 — o desafio do aporte da página inicial. Rota pública: qualquer
+ * visitante chama, sem login. Por IP, com folga para quem joga várias rodadas
+ * (cada "comparar" é uma chamada), mas sem virar calculadora grátis para robô.
+ */
+export const limitadorExemplo = criarLimitador({
+  janelaMs: 60 * 1000,
+  max: 30,
+  mensagem: "Muitas simulações seguidas. Aguarde um minuto e tente de novo.",
+  pular: noTeste,
+});

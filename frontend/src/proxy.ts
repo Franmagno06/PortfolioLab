@@ -56,6 +56,9 @@ export function proxy(request: NextRequest) {
   const temToken = request.cookies.has("token");
   const { pathname } = request.nextUrl;
   const ehRotaPublica = rotasPublicas.some((rota) => pathname.startsWith(rota));
+  // O site institucional na raiz é aberto a todos, logado ou não. Comparação
+  // exata: um startsWith("/") liberaria o app inteiro sem sessão.
+  const ehSite = pathname === "/";
 
   // Saída de emergência. Este proxy só sabe se o cookie EXISTE — validar a
   // assinatura exigiria o segredo do JWT no frontend, que não deve estar lá.
@@ -70,7 +73,7 @@ export function proxy(request: NextRequest) {
 
   const resposta = (() => {
     // sem sessão tentando acessar área logada → vai para o login
-    if (!temToken && !ehRotaPublica) {
+    if (!temToken && !ehRotaPublica && !ehSite) {
       return NextResponse.redirect(new URL("/login", request.url));
     }
     // já logado tentando ver login/registro → vai para o dashboard

@@ -10,12 +10,12 @@ import { indicatorsRoutes } from "./modules/indicators/indicators.routes.js";
 import { newsRoutes } from "./modules/news/news.routes.js";
 import { quotesRoutes } from "./modules/quotes/quotes.routes.js";
 import { portfolioRoutes } from "./modules/portfolio/portfolio.routes.js";
-import { rebalanceRoutes } from "./modules/rebalance/rebalance.routes.js";
+import { rebalanceExemploRoutes, rebalanceRoutes } from "./modules/rebalance/rebalance.routes.js";
 import { reportsRoutes } from "./modules/reports/reports.routes.js";
 import { transactionsRoutes } from "./modules/transactions/transactions.routes.js";
 import { authGuard } from "./shared/middlewares/auth-guard.js";
 import { errorHandler } from "./shared/middlewares/error-handler.js";
-import { limitadorGlobal } from "./shared/middlewares/rate-limit.js";
+import { limitadorExemplo, limitadorGlobal } from "./shared/middlewares/rate-limit.js";
 
 // app.ts monta a aplicação; server.ts dá o listen.
 // Essa separação permite testar as rotas sem subir um servidor real.
@@ -63,6 +63,11 @@ app.get("/health", async (_req, res) => {
 
 // Rotas dos módulos — sempre ANTES do errorHandler
 app.use("/auth", authRoutes);
+
+// Pública: o desafio do aporte da página inicial. Antes do mount protegido de
+// /rebalance, senão o authGuard dele responderia 401 primeiro. Só calcula, sem
+// banco nem cotação, e tem teto próprio por IP.
+app.use("/rebalance/exemplo", limitadorExemplo, rebalanceExemploRoutes);
 
 // Rotas protegidas: o authGuard aplicado no mount vale para todas as subrotas
 app.use("/assets", authGuard, assetsRoutes);
