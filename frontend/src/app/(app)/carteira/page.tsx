@@ -67,6 +67,15 @@ export default function CarteiraPage() {
   const totalAplicado = ativos.reduce((s, a) => s + a.valorAplicado, 0);
   const lucroTotal = patrimonio - totalAplicado;
 
+  // Do maior para o menor: a ordem já conta quem pesa mais, antes de ler número.
+  const ordenados = [...ativos].sort((a, b) => b.valorAtual - a.valorAtual);
+  const fatiaDe = (valor: number) => (patrimonio === 0 ? 0 : (valor / patrimonio) * 100);
+  // A barra mede contra a MAIOR posição, não contra 100%. Com 16 ativos de 3%
+  // a 10% cada, medir contra 100% desenhava barras de 2 a 6 pixels — pontos,
+  // e não barras. Contra o maior, a diferença entre eles fica visível; o
+  // número ao lado continua sendo o percentual real da carteira.
+  const maiorFatia = ordenados[0] ? fatiaDe(ordenados[0].valorAtual) : 0;
+
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       <PageHeader
@@ -103,10 +112,12 @@ export default function CarteiraPage() {
         <CardTabela larguraMinima="min-w-205">
           <CabecalhoTabela colunas={colunas} />
           <tbody>
-            {ativos.map((a) => {
+            {ordenados.map((a) => {
               const cor = coresClasse[a.type] ?? "var(--color-mute)";
               const ganhou = a.lucro >= 0;
-              const fatia = patrimonio === 0 ? 0 : (a.valorAtual / patrimonio) * 100;
+              const fatia = fatiaDe(a.valorAtual);
+              const fatiaTexto = `${fatia.toFixed(1).replace(".", ",")}%`;
+              const comprimento = maiorFatia === 0 ? 0 : (fatia / maiorFatia) * 100;
               return (
                 <tr
                   key={a.ticker}
@@ -114,7 +125,11 @@ export default function CarteiraPage() {
                 >
                   <td className="py-3.5 pr-3 pl-5">
                     <p className="font-mono font-semibold">{a.ticker}</p>
-                    <p className="text-xs text-mute">{a.name}</p>
+                    {/* nomes de ETF vêm do Yahoo com até 90 caracteres: duas
+                        linhas bastam para reconhecer, o title guarda o resto */}
+                    <p className="line-clamp-2 max-w-52 text-xs text-mute" title={a.name}>
+                      {a.name}
+                    </p>
                   </td>
                   <td className="px-3 py-3.5">
                     <EtiquetaClasse tipo={a.type} />
@@ -128,7 +143,7 @@ export default function CarteiraPage() {
                     {brl(a.valorAtual)}
                   </td>
                   <td
-                    className={`tnum px-3 py-3.5 text-right font-mono font-semibold ${
+                    className={`tnum px-3 py-3.5 text-right font-mono font-semibold whitespace-nowrap ${
                       ganhou ? "text-gain-ink" : "text-loss-ink"
                     }`}
                   >
@@ -136,15 +151,18 @@ export default function CarteiraPage() {
                     <span className="ml-1 text-xs opacity-80">({pct(a.lucroPct)})</span>
                   </td>
                   <td className="py-3.5 pr-5 pl-3">
-                    <div className="flex items-center justify-end gap-2">
-                      <div className="h-1.5 w-16 overflow-hidden rounded-full bg-paper">
+                    <div
+                      className="flex items-center justify-end gap-2.5"
+                      title={`${a.ticker}: ${brl(a.valorAtual)}, ${fatiaTexto} da carteira`}
+                    >
+                      <div className="h-2 w-24 overflow-hidden rounded-full bg-line/50">
                         <div
                           className="h-full rounded-full"
-                          style={{ width: `${fatia}%`, background: cor }}
+                          style={{ width: `${comprimento}%`, background: cor }}
                         />
                       </div>
-                      <span className="tnum w-12 text-right font-mono text-xs text-mute">
-                        {fatia.toFixed(1).replace(".", ",")}%
+                      <span className="tnum w-12 text-right font-mono text-xs text-ink-soft">
+                        {fatiaTexto}
                       </span>
                     </div>
                   </td>

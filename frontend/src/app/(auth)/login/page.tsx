@@ -7,6 +7,7 @@ import { Botao } from "@/components/ui/botao";
 import { Campo } from "@/components/ui/campo";
 import { MensagemAviso, MensagemErro } from "@/components/ui/mensagem";
 import { api, ApiError } from "@/lib/api";
+import { esquecerSimulacao } from "@/lib/simulacao-guardada";
 
 /**
  * Aviso para quem chegou aqui por sessão morta — lib/api.ts redireciona com
@@ -42,6 +43,8 @@ export default function LoginPage() {
         method: "POST",
         body: JSON.stringify({ email, password }),
       });
+      // conta nova na aba: nada da sessão anterior fica visível
+      esquecerSimulacao();
       router.push("/dashboard");
       router.refresh();
     } catch (err) {

@@ -7,6 +7,7 @@ import { Botao } from "@/components/ui/botao";
 import { Campo } from "@/components/ui/campo";
 import { MensagemErro } from "@/components/ui/mensagem";
 import { api, ApiError } from "@/lib/api";
+import { esquecerSimulacao } from "@/lib/simulacao-guardada";
 
 export default function RegistroPage() {
   const router = useRouter();
@@ -30,6 +31,8 @@ export default function RegistroPage() {
         method: "POST",
         body: JSON.stringify({ email, password }),
       });
+      // conta nova na aba: nada da sessão anterior fica visível
+      esquecerSimulacao();
       router.push("/dashboard");
       router.refresh();
     } catch (err) {

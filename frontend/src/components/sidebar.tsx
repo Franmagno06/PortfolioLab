@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import { esquecerSimulacao } from "@/lib/simulacao-guardada";
 import {
   IconeCalculo,
   IconeDocumento,
@@ -32,6 +33,8 @@ function Navegacao({ aoNavegar }: { aoNavegar?: () => void }) {
 
   async function sair() {
     await api("/auth/logout", { method: "POST" });
+    // a simulação guardada é desta conta: a próxima pessoa na aba não a vê
+    esquecerSimulacao();
     router.push("/login");
     router.refresh();
   }

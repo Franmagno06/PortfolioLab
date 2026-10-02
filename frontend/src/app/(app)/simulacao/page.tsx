@@ -12,6 +12,12 @@ import { PageHeader } from "@/components/ui/page-header";
 import { api, ApiError } from "@/lib/api";
 import { brl, coresClasse } from "@/lib/format";
 import { somarMetas } from "@/lib/goals";
+import {
+  guardarSimulacao,
+  marcarMetasAlteradas,
+  useSimulacaoGuardada,
+  type Simulacao,
+} from "@/lib/simulacao-guardada";
 import { normalizarTicker, useBuscaTicker } from "@/lib/use-busca-ticker";
 
 type Metas = {
@@ -19,29 +25,9 @@ type Metas = {
   somaTotal: number;
 };
 
-type Simulacao = {
-  valorAporte: number;
-  patrimonioAtual: number;
-  /** Patrimônio depois do aporte, contando só o que virou ativo. */
-  patrimonioFinal: number;
-  /** Base do cálculo do déficit: patrimônio mais o aporte inteiro. */
-  patrimonioProjetado: number;
-  compras: {
-    ticker: string;
-    name: string;
-    deficit: number;
-    quantidade: number;
-    precoUnitario: number;
-    total: number;
-  }[];
-  totalGasto: number;
-  restante: number;
-  alocacao: { ticker: string; alvoPct: number; atualPct: number; aposAportePct: number }[];
-  /** Patrimônio dos ativos COM meta — o denominador da simulação. */
-  patrimonioConsiderado: number;
-  somaMetas: number;
-  foraDaSimulacao: { valor: number; ativos: { ticker: string; valor: number }[] };
-};
+function horaCurta(iso: string) {
+  return new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+}
 
 function umaCasa(valor: number) {
   return valor.toFixed(1).replace(".", ",");
@@ -89,8 +75,13 @@ function SimulacaoConteudo() {
     buscando: buscandoTicker,
     erro: erroBuscaTicker,
   } = useBuscaTicker(novoTicker);
-  const [valor, setValor] = useState("1500");
-  const [resultado, setResultado] = useState<Simulacao | null>(null);
+  // O último cálculo vive no sessionStorage, não no componente: assim ele
+  // sobrevive à troca de página (ver lib/simulacao-guardada.ts). O campo
+  // mostra o que a pessoa digitou; antes disso, o valor do último cálculo.
+  const guardada = useSimulacaoGuardada();
+  const resultado: Simulacao | null = guardada?.resultado ?? null;
+  const [valorDigitado, setValorDigitado] = useState<string | null>(null);
+  const valor = valorDigitado ?? guardada?.valor ?? "1500";
   const [erro, setErro] = useState<string | null>(null);
   const [erroMetas, setErroMetas] = useState<string | null>(null);
   const [calculando, setCalculando] = useState(false);
@@ -160,6 +151,7 @@ function SimulacaoConteudo() {
           })),
         }),
       });
+      marcarMetasAlteradas();
       await carregar();
     } catch (err) {
       setErroMetas(err instanceof ApiError ? err.message : "Falha ao salvar as metas");
@@ -178,6 +170,7 @@ function SimulacaoConteudo() {
       });
       setNovoTicker("");
       setNovoPct("");
+      marcarMetasAlteradas();
       await carregar();
     } catch (err) {
       setErroMetas(err instanceof ApiError ? err.message : "Falha ao adicionar a meta");
@@ -193,7 +186,7 @@ function SimulacaoConteudo() {
         method: "POST",
         body: JSON.stringify({ amount: Number(valor) }),
       });
-      setResultado(r);
+      guardarSimulacao(valor, r);
     } catch (err) {
       setErro(err instanceof ApiError ? err.message : "Falha ao simular");
     } finally {
@@ -222,7 +215,7 @@ function SimulacaoConteudo() {
                   step="0.01"
                   required
                   value={valor}
-                  onChange={(e) => setValor(e.target.value)}
+                  onChange={(e) => setValorDigitado(e.target.value)}
                   className="tnum font-mono"
                 />
               </div>
@@ -401,6 +394,20 @@ function SimulacaoConteudo() {
             />
           ) : (
             <div className="reveal space-y-6">
+              {guardada && (
+                <p className="text-xs text-mute">
+                  Aporte de {brl(resultado.valorAporte)}, calculado às{" "}
+                  {horaCurta(guardada.calculadoEm)}
+                </p>
+              )}
+
+              {guardada?.metasAlteradas && (
+                <MensagemAviso titulo="As metas mudaram depois deste cálculo">
+                  O resultado abaixo usa as metas antigas. Clique em Calcular aporte para
+                  ver a distribuição com as metas novas.
+                </MensagemAviso>
+              )}
+
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                 <Resumo
                   rotulo="Total investido"
