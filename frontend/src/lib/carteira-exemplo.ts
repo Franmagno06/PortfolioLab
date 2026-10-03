@@ -22,6 +22,11 @@ export type AtivoExemplo = {
 
 export const APORTE_DO_DESAFIO = 1000;
 
+/**
+ * A carteira antes do aporte de outubro: a "folha de setembro" da página
+ * inicial. A de novembro, ponto de partida do desafio, sai dela somando
+ * COMPRAS_DE_OUTUBRO (ver CARTEIRA_DE_NOVEMBRO).
+ */
 export const CARTEIRA_EXEMPLO: readonly AtivoExemplo[] = [
   { ticker: "MXRF11", nome: "Maxi Renda", classe: "FII", preco: 9.08, quantidade: 400, meta: 20 },
   { ticker: "HGLG11", nome: "CSHG Logística", classe: "FII", preco: 147.6, quantidade: 10, meta: 20 },
@@ -65,18 +70,55 @@ export function desvioDasMetas(carteira: readonly AtivoExemplo[], compras: Compr
   return soma / 2;
 }
 
-/** Peso de cada classe na carteira, para a fita do topo da página. */
-export function pesoPorClasse(
+/**
+ * Compras de outubro: a resposta do algoritmo real (POST /rebalance/exemplo)
+ * para CARTEIRA_EXEMPLO com APORTE_DO_DESAFIO. Impressa na folha do topo da
+ * página inicial e fixada em backend/src/modules/rebalance/rebalance.exemplo.test.ts:
+ * se aquele teste mudar, esta constante e a página mudam junto.
+ */
+export const COMPRAS_DE_OUTUBRO: Compras = { TAEE11: 16, HGLG11: 2 };
+
+/** Soma as compras às quantidades: a carteira do mês seguinte. */
+export function aplicarCompras(carteira: readonly AtivoExemplo[], compras: Compras): AtivoExemplo[] {
+  return carteira.map((a) => ({ ...a, quantidade: a.quantidade + (compras[a.ticker] ?? 0) }));
+}
+
+/** O ponto de partida do desafio: a carteira depois do aporte de outubro. */
+export const CARTEIRA_DE_NOVEMBRO = aplicarCompras(CARTEIRA_EXEMPLO, COMPRAS_DE_OUTUBRO);
+
+/** Por que um ativo recebeu, ou não, parte do aporte: a coluna "Por quê" da folha. */
+export type SituacaoNoAporte =
+  | { tipo: "mais-longe"; atual: number; meta: number }
+  | { tipo: "abaixo"; atual: number; meta: number }
+  | { tipo: "ficou-para-depois"; preco: number }
+  | { tipo: "acima"; atual: number; meta: number };
+
+/**
+ * Classifica o ativo no aporte a partir dos dados, e não de texto escrito à
+ * mão: o percentual é o de antes das compras, a meta e o preço vêm da
+ * carteira, e "mais longe" é o maior buraco (meta menos peso atual) entre
+ * todos os ativos. Devolve null para ticker fora da carteira.
+ */
+export function situacaoNoAporte(
   carteira: readonly AtivoExemplo[],
-): { classe: AtivoExemplo["classe"]; atual: number; meta: number }[] {
-  const depois = alocacaoDepois(carteira, {});
-  const classes: AtivoExemplo["classe"][] = ["FII", "ACAO", "ETF"];
-  return classes.map((classe) => ({
-    classe,
-    atual: carteira.reduce(
-      (s, a, i) => (a.classe === classe ? s + (depois[i]?.pct ?? 0) : s),
-      0,
-    ),
-    meta: carteira.reduce((s, a) => (a.classe === classe ? s + a.meta : s), 0),
-  }));
+  compras: Compras,
+  ticker: string,
+): SituacaoNoAporte | null {
+  const antes = alocacaoDepois(carteira, {});
+  const indice = carteira.findIndex((a) => a.ticker === ticker);
+  const ativo = carteira[indice];
+  if (!ativo) return null;
+
+  const atual = antes[indice]?.pct ?? 0;
+  const buracos = carteira.map((a, i) => a.meta - (antes[i]?.pct ?? 0));
+  const maiorBuraco = Math.max(...buracos);
+
+  if ((compras[ticker] ?? 0) > 0) {
+    return buracos[indice] === maiorBuraco
+      ? { tipo: "mais-longe", atual, meta: ativo.meta }
+      : { tipo: "abaixo", atual, meta: ativo.meta };
+  }
+  return atual < ativo.meta
+    ? { tipo: "ficou-para-depois", preco: ativo.preco }
+    : { tipo: "acima", atual, meta: ativo.meta };
 }
