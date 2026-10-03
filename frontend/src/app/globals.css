@@ -7,6 +7,11 @@
 @theme inline {
   --font-sans: var(--font-grotesk); /* Space Grotesk — títulos e texto */
   --font-mono: var(--font-jet); /* JetBrains Mono — números e valores */
+
+  /* Só o site público (src/app/(site)/layout.tsx) define estas variáveis:
+     fora dele, as classes font-leitura e font-interface não têm efeito. */
+  --font-leitura: var(--font-literata); /* Literata — leitura e anotações */
+  --font-interface: var(--font-public-sans); /* Public Sans — interface e números */
 }
 
 @theme {
@@ -36,6 +41,18 @@
      (2.3:1), então o tom mais claro que este projeto usa é o mute. */
   --color-mute: #5d6b7f; /* 4.9:1 sobre papel */
   --color-mute-soft: #64748b; /* 4.3:1 — só sobre branco */
+
+  /* Site público, v2 "caderno de laboratório". O papel do caderno é frio de
+     propósito: o creme era um dos sinais de página feita por IA. */
+  --color-caderno: #f3f5f9; /* seções alternadas */
+  --color-pauta: #dce3ee; /* linhas das folhas e divisórias */
+  --color-ink-2: #4b5a73; /* texto secundário — 7,1:1 sobre branco */
+  --color-anotacao: #5b3fd0; /* notas na margem, o roxo da logo escurecido — 6,8:1 */
+  --color-anotacao-margem: #cfc4ff; /* a linha da margem das anotações */
+  --color-marca-texto: #ece7ff; /* a linha da folha que recebe o aporte */
+
+  /* Sombra só nas folhas: são os objetos de papel da página. */
+  --shadow-folha: 0 1px 2px rgb(14 27 51 / 0.08), 0 18px 40px -12px rgb(14 27 51 / 0.16);
 }
 
 /* Esta identidade é clara por definição — não há tema escuro. Declarar isso
@@ -107,6 +124,12 @@ html {
   --focus-ring: var(--color-mint);
 }
 
+/* Papel dentro de uma superfície navy — o painel do mega menu, que mora no
+   cabeçalho: sem isto o anel herdaria o menta, quase invisível sobre o branco. */
+:where([data-superficie="papel"]) {
+  --focus-ring: var(--color-ink);
+}
+
 /* Entrada orquestrada — usada SÓ na carga do dashboard. Nas demais telas
    o movimento responde a uma ação (abrir, calcular, enviar). */
 @keyframes fade-up {
@@ -148,6 +171,24 @@ html {
 .grow-bar {
   transform-origin: left center;
   animation: grow-bar 0.9s cubic-bezier(0.22, 0.9, 0.35, 1) both;
+}
+
+/* Site público: a única animação da v2 é a abertura do mega menu, que responde
+   a uma ação. Nada entra na página sozinho. */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes abrir-menu {
+    from {
+      opacity: 0;
+      transform: translateY(-4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  .abrir-menu {
+    animation: abrir-menu 120ms ease-out both;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
