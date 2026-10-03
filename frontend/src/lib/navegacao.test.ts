@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { NAVEGACAO, RODAPE, ROTAS } from "./navegacao";
+import { ABAS_DA_CARTEIRA, NAVEGACAO, RODAPE, ROTAS } from "./navegacao";
 
 // "Nenhum link quebrado": cada href da navegação precisa ser uma rota de
 // ROTAS, e cada rota precisa ter uma página de verdade em src/app.
@@ -26,6 +26,7 @@ function todosOsHrefs(): string[] {
     if (intencao.destaque?.link.href) hrefs.push(intencao.destaque.link.href);
   }
   for (const coluna of RODAPE) for (const link of coluna.links) hrefs.push(link.href);
+  for (const aba of ABAS_DA_CARTEIRA) hrefs.push(aba.href);
   return hrefs;
 }
 
@@ -58,5 +59,11 @@ describe("navegação do site", () => {
     const glossario = NAVEGACAO[0]?.colunas?.[1]?.itens[0];
     expect(glossario?.rotulo).toBe("Glossário");
     expect(glossario?.href).toBeUndefined();
+  });
+
+  it("as abas da carteira cobrem as seis telas da área logada, sem repetir rota", () => {
+    const hrefs = ABAS_DA_CARTEIRA.map((a) => a.href);
+    expect(new Set(hrefs).size).toBe(hrefs.length);
+    expect(hrefs).toEqual([ROTAS.dashboard, ROTAS.carteira, ROTAS.simulacao, ROTAS.relatorios, ROTAS.indicadores, ROTAS.noticias]);
   });
 });

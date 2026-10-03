@@ -1,5 +1,5 @@
 // Logomarca: três barras ascendentes nas cores das classes de ativo.
-// Vivia duplicada na sidebar e no layout de autenticação.
+// Uma definição só para o cabeçalho do site, a gaveta, o rodapé e o login.
 export function Marca({ tamanho = 26 }: { tamanho?: number }) {
   return (
     <svg width={tamanho} height={tamanho} viewBox="0 0 26 26" aria-hidden>

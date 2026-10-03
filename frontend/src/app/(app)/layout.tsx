@@ -1,25 +1,28 @@
-import { Sidebar, TopbarMobile } from "@/components/sidebar";
+import { AbasDaCarteira } from "@/components/site/abas-da-carteira";
+import { CabecalhoSite } from "@/components/site/cabecalho-site";
 
-// Área logada: coluna fixa a partir de lg, gaveta abaixo disso.
+// Área logada: parte do site, e não um painel à parte. O mesmo cabeçalho da
+// página inicial (com "Sair" no lugar de "Entrar") e, logo abaixo, as abas da
+// carteira — como a "Carteira" do Investidor10. O menu lateral saiu.
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-screen flex-col lg:flex-row">
+    <>
       {/* Primeiro elemento focável da página: sem ele, quem navega por teclado
-          percorre os sete itens da navegação em cada troca de tela. */}
+          percorre o cabeçalho e as seis abas em cada troca de tela. */}
       <a href="#conteudo" className="pular-para-conteudo">
         Pular para o conteúdo
       </a>
-      <TopbarMobile />
-      <Sidebar />
+      <CabecalhoSite area="carteira" />
+      <AbasDaCarteira />
       <main
         id="conteudo"
         // O destino de um salto precisa poder receber foco; sem tabIndex o
         // navegador move a âncora mas não o foco do teclado.
         tabIndex={-1}
-        className="min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8"
+        className="mx-auto w-full max-w-[1200px] px-6 pt-8 pb-16 outline-none"
       >
         {children}
       </main>
-    </div>
+    </>
   );
 }

@@ -2,10 +2,11 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { IconeFechar, IconeMenu } from "@/components/ui/icones";
 import { Marca, Wordmark } from "@/components/ui/marca";
+import { api } from "@/lib/api";
 import { numero, pct } from "@/lib/format";
 import {
   NAVEGACAO,
@@ -15,6 +16,7 @@ import {
   type Destino,
   type Intencao,
 } from "@/lib/navegacao";
+import { esquecerSimulacao } from "@/lib/simulacao-guardada";
 import { NUMEROS_DO_MES } from "@/lib/site-dados";
 import setaAcesa from "./seta-menu.svg";
 import setaApagada from "./seta-menu-apagada.svg";
@@ -151,8 +153,25 @@ function DestaqueDoPainel({ destaque }: { destaque: Destaque }) {
   );
 }
 
-export function CabecalhoSite() {
+/** Sair da conta: encerra a sessão no backend e esquece o que era desta conta na aba. */
+function useSair() {
+  const router = useRouter();
+  return async () => {
+    await api("/auth/logout", { method: "POST" });
+    // a simulação guardada é desta conta: a próxima pessoa na aba não a vê
+    esquecerSimulacao();
+    router.push("/login");
+    router.refresh();
+  };
+}
+
+/**
+ * "site": a página inicial, para quem visita — mostra "Entrar".
+ * "carteira": a área logada — mostra "Sair" no lugar.
+ */
+export function CabecalhoSite({ area = "site" }: { area?: "site" | "carteira" }) {
   const rota = usePathname();
+  const sair = useSair();
 
   // O estado lembra em qual rota o menu (ou a gaveta) abriu. Numa rota nova
   // ele simplesmente deixa de valer: mudar de página fecha tudo sem efeito.
@@ -336,14 +355,25 @@ export function CabecalhoSite() {
         </nav>
 
         <div className="ml-auto flex items-center gap-2 lg:gap-[18px]">
-          <Link
-            href={ROTAS.login}
-            className="hidden rounded py-2 text-[15px] font-medium text-white/78 hover:text-white lg:block"
-          >
-            Entrar
-          </Link>
+          {area === "carteira" ? (
+            <button
+              type="button"
+              onClick={sair}
+              className="hidden rounded py-2 text-[15px] font-medium text-white/78 hover:text-white lg:block"
+            >
+              Sair
+            </button>
+          ) : (
+            <Link
+              href={ROTAS.login}
+              className="hidden rounded py-2 text-[15px] font-medium text-white/78 hover:text-white lg:block"
+            >
+              Entrar
+            </Link>
+          )}
           <Link
             href={ROTAS.dashboard}
+            aria-current={rota === ROTAS.dashboard ? "page" : undefined}
             className="rounded bg-card px-3 py-2 text-sm font-semibold whitespace-nowrap text-ink hover:bg-caderno sm:px-3.5 sm:text-[15px]"
           >
             Minha carteira
@@ -366,6 +396,7 @@ export function CabecalhoSite() {
         <Gaveta
           fecharRef={fecharGavetaRef}
           aoFechar={() => setGaveta(null)}
+          aoSair={area === "carteira" ? sair : undefined}
         />
       )}
     </header>
@@ -376,9 +407,12 @@ export function CabecalhoSite() {
 function Gaveta({
   fecharRef,
   aoFechar,
+  aoSair,
 }: {
   fecharRef: React.RefObject<HTMLButtonElement | null>;
   aoFechar: () => void;
+  /** Na área logada a gaveta termina em "Sair"; no site, em "Entrar". */
+  aoSair?: () => void;
 }) {
   const [secao, setSecao] = useState<IdMenu | null>(null);
 
@@ -492,9 +526,19 @@ function Gaveta({
             ),
           )}
           <li>
-            <Link href={ROTAS.login} className="flex min-h-12 items-center py-3 text-[17px] font-medium">
-              Entrar
-            </Link>
+            {aoSair ? (
+              <button
+                type="button"
+                onClick={aoSair}
+                className="flex min-h-12 w-full items-center py-3 text-left text-[17px] font-medium"
+              >
+                Sair
+              </button>
+            ) : (
+              <Link href={ROTAS.login} className="flex min-h-12 items-center py-3 text-[17px] font-medium">
+                Entrar
+              </Link>
+            )}
           </li>
         </ul>
       </nav>

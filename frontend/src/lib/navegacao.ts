@@ -16,6 +16,7 @@ export const ROTAS = {
   inicio: "/",
   desafio: "/#desafio",
   comoLerUmAtivo: "/#como-ler-um-ativo",
+  carteira: "/carteira",
   simulacao: "/simulacao",
   relatorios: "/relatorios",
   indicadores: "/indicadores",
@@ -153,6 +154,22 @@ export const NAVEGACAO: Intencao[] = [
   },
   { id: "noticias", rotulo: "Notícias", href: ROTAS.noticias },
 ];
+
+/**
+ * As abas da área logada, logo abaixo do cabeçalho do site — como a
+ * "Carteira" do Investidor10. Substituem o antigo menu lateral: a área logada
+ * deixou de ser um painel à parte e passou a ser uma parte do site.
+ */
+export const ABAS_DA_CARTEIRA = [
+  { id: "resumo", rotulo: "Resumo", href: ROTAS.dashboard },
+  { id: "posicoes", rotulo: "Posições", href: ROTAS.carteira },
+  { id: "simulacao", rotulo: "Simular aporte", href: ROTAS.simulacao },
+  { id: "relatorios", rotulo: "Relatórios com IA", href: ROTAS.relatorios },
+  { id: "indicadores", rotulo: "Indicadores", href: ROTAS.indicadores },
+  { id: "noticias", rotulo: "Notícias", href: ROTAS.noticias },
+] as const;
+
+export type AbaDaCarteira = (typeof ABAS_DA_CARTEIRA)[number];
 
 /** Rodapé: só destinos que já existem, então todo link é obrigatório aqui. */
 export const RODAPE: { titulo: string; links: { rotulo: string; href: string }[] }[] = [
