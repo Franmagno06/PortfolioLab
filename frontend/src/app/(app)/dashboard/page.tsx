@@ -92,10 +92,10 @@ function MaisLongeDaMeta({
           <Link
             href={`/simulacao?ticker=${encodeURIComponent(d.ticker)}`}
             aria-label={`${d.ticker}: ${umaCasa(d.atualPct)}% hoje, meta de ${umaCasa(d.alvoPct)}%, ${formatarDesvio(d)}. Abrir na simulação.`}
-            className="-mx-2 block rounded-lg px-2 py-1.5 transition-colors hover:bg-white/5"
+            className="-mx-2 block rounded px-2 py-1.5 transition-colors hover:bg-white/5"
           >
             <span className="flex items-baseline justify-between gap-2">
-              <span className="font-mono text-sm font-semibold">{d.ticker}</span>
+              <span className="tnum text-sm font-semibold">{d.ticker}</span>
               <span className="tnum text-xs text-slate-200">
                 {umaCasa(Math.abs(d.desvioPct))} pts {d.desvioPct > 0 ? "acima" : "abaixo"}
               </span>
@@ -205,7 +205,7 @@ function CardAlocacao({
             <div
               role="group"
               aria-label="Mostrar classe"
-              className="flex flex-wrap gap-0.5 rounded-lg bg-paper p-0.5 text-xs"
+              className="flex flex-wrap gap-0.5 rounded bg-paper p-0.5 text-xs"
             >
               {[null, ...alocacao.map((a) => a.classe)].map((c) => (
                 <button
@@ -257,11 +257,11 @@ function CardAlocacao({
                     if (!active || !f) return null;
                     return (
                       <div className="rounded-md bg-ink px-2 py-1 text-[11px] leading-tight text-white shadow-md">
-                        <p className="font-mono font-semibold">
+                        <p className="tnum font-semibold">
                           {f.nome}{" "}
                           <span className="tnum font-normal text-slate-300">{umaCasa(f.pct)}%</span>
                         </p>
-                        <p className="tnum font-mono text-slate-300">{brl(f.valor)}</p>
+                        <p className="tnum text-slate-300">{brl(f.valor)}</p>
                       </div>
                     );
                   }}
@@ -271,14 +271,14 @@ function CardAlocacao({
             <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
               {classeAtual ? (
                 <>
-                  <span className="tnum font-mono text-lg font-bold">
+                  <span className="tnum text-lg font-bold">
                     {umaCasa(classeAtual.percentual)}%
                   </span>
                   <span className="text-[11px] text-mute">da carteira</span>
                 </>
               ) : (
                 <>
-                  <span className="tnum font-mono text-lg font-bold">{quantidadeAtivos}</span>
+                  <span className="tnum text-lg font-bold">{quantidadeAtivos}</span>
                   <span className="text-[11px] text-mute">
                     {quantidadeAtivos === 1 ? "ativo" : "ativos"}
                   </span>
@@ -301,11 +301,11 @@ function CardAlocacao({
                     style={{ background: f.cor, opacity: f.opacidade }}
                   />
                   <span
-                    className={`truncate ${f.chave === "outros" ? "text-mute" : "font-mono font-medium"}`}
+                    className={`truncate ${f.chave === "outros" ? "text-mute" : "tnum font-medium"}`}
                   >
                     {f.nome}
                   </span>
-                  <span className="tnum ml-auto font-mono text-xs font-semibold text-mute">
+                  <span className="tnum ml-auto text-xs font-semibold text-mute">
                     {umaCasa(f.pct)}%
                   </span>
                 </li>
@@ -376,7 +376,7 @@ export default function DashboardPage() {
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       <PageHeader
-        titulo="Dashboard"
+        titulo="Resumo"
         descricao={`Visão geral da carteira, com ${summary.quantidadeAtivos} ${
           summary.quantidadeAtivos === 1 ? "ativo" : "ativos"
         }`}
@@ -392,12 +392,12 @@ export default function DashboardPage() {
             Única superfície primária da tela — daí o raio maior. */}
         <section
           data-superficie="navy"
-          className="reveal col-span-12 flex flex-col rounded-2xl bg-ink p-6 text-white sm:p-7 xl:col-span-7"
+          className="reveal col-span-12 flex flex-col rounded-md bg-ink p-6 text-white sm:p-7 xl:col-span-7"
         >
           <div className="flex items-start justify-between gap-4">
             <p className="text-sm text-slate-300">Patrimônio total</p>
             <span
-              className={`tnum rounded-full px-2.5 py-1 font-mono text-xs font-semibold ${
+              className={`tnum rounded-full px-2.5 py-1 text-xs font-semibold ${
                 ganhou ? "bg-emerald-400/15 text-emerald-300" : "bg-red-400/15 text-red-300"
               }`}
             >
@@ -405,21 +405,21 @@ export default function DashboardPage() {
             </span>
           </div>
 
-          <p className="tnum mt-3 font-mono text-4xl font-bold tracking-tight sm:text-5xl">
+          <p className="tnum mt-3 text-4xl font-bold tracking-tight sm:text-5xl">
             {brl(summary.patrimonioTotal)}
           </p>
 
           <dl className="mt-7 grid grid-cols-1 gap-4 border-t border-white/10 pt-5 sm:grid-cols-3">
             <div>
               <dt className="text-xs text-slate-300">Aplicado</dt>
-              <dd className="tnum mt-0.5 font-mono text-sm font-semibold">
+              <dd className="tnum mt-0.5 text-sm font-semibold">
                 {brl(summary.totalAplicado)}
               </dd>
             </div>
             <div>
               <dt className="text-xs text-slate-300">Resultado</dt>
               <dd
-                className={`tnum mt-0.5 font-mono text-sm font-semibold ${
+                className={`tnum mt-0.5 text-sm font-semibold ${
                   ganhou ? "text-emerald-300" : "text-red-300"
                 }`}
               >
@@ -428,7 +428,7 @@ export default function DashboardPage() {
             </div>
             <div>
               <dt className="text-xs text-slate-300">Proventos</dt>
-              <dd className="tnum mt-0.5 font-mono text-sm font-semibold">
+              <dd className="tnum mt-0.5 text-sm font-semibold">
                 {brl(summary.totalProventos)}
               </dd>
             </div>
@@ -439,7 +439,7 @@ export default function DashboardPage() {
               <p className="max-w-xs text-sm text-slate-200">{chamada.texto}</p>
               <Link
                 href="/simulacao"
-                className="rounded-lg bg-white/10 px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/20"
+                className="rounded bg-white/10 px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/20"
               >
                 {chamada.rotulo}
               </Link>
@@ -524,7 +524,7 @@ export default function DashboardPage() {
         <Card className="reveal reveal-4 col-span-12">
           <TituloCard
             acessorio={
-              <span className="tnum font-mono text-sm font-semibold text-gain-ink">
+              <span className="tnum text-sm font-semibold text-gain-ink">
                 {brl(summary.totalProventos)} no total
               </span>
             }
@@ -534,7 +534,7 @@ export default function DashboardPage() {
 
           {proventosPorMes.length === 0 ? (
             <p className="mt-4 text-sm text-mute">
-              Nenhum provento registrado. Importe os proventos dos seus ativos na aba Carteira.
+              Nenhum provento registrado. Importe os proventos dos seus ativos na aba Posições.
             </p>
           ) : (
             <div className="mt-4 h-52">

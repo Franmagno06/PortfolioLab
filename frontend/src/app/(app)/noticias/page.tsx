@@ -28,7 +28,7 @@ function CardNoticia({ n, destaque }: { n: Noticia; destaque?: boolean }) {
       href={n.link}
       target="_blank"
       rel="noopener noreferrer"
-      className={`group block rounded-xl border p-4 transition-colors ${
+      className={`group block rounded-md border p-4 transition-colors ${
         destaque
           ? "border-gain/30 bg-gain/5 hover:border-gain/60"
           : "border-line bg-card hover:border-mute-soft"
@@ -39,7 +39,7 @@ function CardNoticia({ n, destaque }: { n: Noticia; destaque?: boolean }) {
           {n.tickers.map((t) => (
             <span
               key={t}
-              className="rounded-md bg-gain-ink px-2 py-0.5 font-mono text-[11px] font-bold text-white"
+              className="rounded-md bg-gain-ink px-2 py-0.5 tnum text-[11px] font-bold text-white"
             >
               {t}
             </span>
@@ -51,7 +51,7 @@ function CardNoticia({ n, destaque }: { n: Noticia; destaque?: boolean }) {
 
       <p className="mt-2 text-xs text-mute">
         {n.fonte}
-        <span className="tnum ml-2 font-mono">{tempoRelativo(n.publicadoEm)}</span>
+        <span className="tnum ml-2">{tempoRelativo(n.publicadoEm)}</span>
       </p>
     </a>
   );
@@ -70,7 +70,7 @@ function Secao({
     <section>
       <div className="mb-3 flex items-baseline gap-2">
         <h2 className="font-semibold">{titulo}</h2>
-        <span className="tnum font-mono text-xs text-mute">{quantidade}</span>
+        <span className="tnum text-xs text-mute">{quantidade}</span>
       </div>
       {children}
     </section>
@@ -94,10 +94,10 @@ export default function NoticiasPage() {
   if (!feed) {
     return (
       <div className="mx-auto max-w-5xl space-y-4" role="status" aria-label="Carregando">
-        <Skeleton className="h-8 w-52 rounded-lg" />
-        <Skeleton className="h-24 rounded-xl" />
-        <Skeleton className="h-24 rounded-xl" />
-        <Skeleton className="h-24 rounded-xl" />
+        <Skeleton className="h-8 w-52 rounded" />
+        <Skeleton className="h-24 rounded-md" />
+        <Skeleton className="h-24 rounded-md" />
+        <Skeleton className="h-24 rounded-md" />
       </div>
     );
   }
@@ -127,7 +127,7 @@ export default function NoticiasPage() {
 
       <Secao titulo="Mercado" quantidade={feed.mercado.length}>
         {feed.mercado.length === 0 ? (
-          <div className="rounded-xl border border-line bg-card p-8 text-center">
+          <div className="rounded-md border border-line bg-card p-8 text-center">
             <p className="text-sm text-mute">
               Nenhuma notícia disponível agora. As fontes podem estar fora do ar — recarregue a
               página em alguns minutos.

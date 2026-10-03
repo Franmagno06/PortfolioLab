@@ -14,7 +14,7 @@ const respiros = { padrao: "p-6", compacto: "p-4", nenhum: "" };
  */
 export function Card({ children, className = "", respiro = "padrao" }: Props) {
   return (
-    <section className={`rounded-xl border border-line bg-card ${respiros[respiro]} ${className}`}>
+    <section className={`rounded-md border border-line bg-card ${respiros[respiro]} ${className}`}>
       {children}
     </section>
   );
@@ -30,7 +30,7 @@ export function TituloCard({
 }) {
   return (
     <div className="flex flex-wrap items-baseline justify-between gap-2">
-      <h2 className="font-semibold">{children}</h2>
+      <h2 className="font-leitura text-xl leading-7 font-semibold">{children}</h2>
       {acessorio}
     </div>
   );

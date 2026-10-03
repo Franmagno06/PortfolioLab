@@ -3,7 +3,7 @@ export function MensagemErro({ children }: { children: React.ReactNode }) {
   return (
     <p
       role="alert"
-      className="rounded-lg border border-loss-ink/20 bg-loss/6 px-4 py-3 text-sm text-loss-ink"
+      className="rounded border border-loss-ink/20 bg-loss/6 px-4 py-3 text-sm text-loss-ink"
     >
       {children}
     </p>
@@ -19,9 +19,9 @@ export function MensagemAviso({
   children?: React.ReactNode;
 }) {
   return (
-    <div className="rounded-xl border border-etf/30 bg-etf/7 p-4 text-sm">
+    <div className="rounded-md border border-etf/30 bg-etf/7 p-4 text-sm">
       <p className="font-semibold text-ink">{titulo}</p>
-      {children && <div className="mt-1 text-xs leading-relaxed text-ink-soft">{children}</div>}
+      {children && <div className="mt-1 text-xs leading-relaxed text-ink-2">{children}</div>}
     </div>
   );
 }

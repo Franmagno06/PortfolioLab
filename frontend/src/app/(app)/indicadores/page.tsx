@@ -64,7 +64,7 @@ export default function IndicadoresPage() {
       {indicadores.length === 0 ? (
         <EmptyState
           titulo="Nenhuma ação na carteira"
-          descricao="Indicadores fundamentalistas só existem para ações. Registre uma compra na aba Carteira para vê-los aqui."
+          descricao="Indicadores fundamentalistas só existem para ações. Registre uma compra na aba Posições para vê-los aqui."
         />
       ) : (
         <CardTabela larguraMinima="min-w-190">
@@ -73,22 +73,22 @@ export default function IndicadoresPage() {
             {indicadores.map((i) => (
               <tr key={i.ticker} className="border-b border-line last:border-0 hover:bg-paper">
                 <td className="py-3.5 pr-3 pl-5">
-                  <p className="font-mono font-semibold">{i.ticker}</p>
+                  <p className="tnum font-semibold">{i.ticker}</p>
                   <p className="text-xs text-mute">{i.name}</p>
                 </td>
-                <td className="tnum px-3 py-3.5 text-right font-mono">
+                <td className="tnum px-3 py-3.5 text-right">
                   {indicadorOuTraco(i.pl)}
                 </td>
-                <td className="tnum px-3 py-3.5 text-right font-mono">
+                <td className="tnum px-3 py-3.5 text-right">
                   {indicadorOuTraco(i.pvp)}
                 </td>
-                <td className="tnum px-3 py-3.5 text-right font-mono">
+                <td className="tnum px-3 py-3.5 text-right">
                   {pctIndicadorOuTraco(i.dividendYield)}
                 </td>
-                <td className="tnum px-3 py-3.5 text-right font-mono">
+                <td className="tnum px-3 py-3.5 text-right">
                   {pctIndicadorOuTraco(i.roe)}
                 </td>
-                <td className="tnum py-3.5 pr-5 pl-3 text-right font-mono">
+                <td className="tnum py-3.5 pr-5 pl-3 text-right">
                   {pctIndicadorOuTraco(i.setorBancario ? i.roa : i.margemLiquida)}
                   {i.setorBancario && (
                     <span className="ml-1 font-sans text-[11px] font-normal text-mute">ROA</span>

@@ -43,7 +43,7 @@ function Resumo({ rotulo, valor, nota, destaque }: {
     <Card respiro="compacto">
       <p className="text-xs text-mute">{rotulo}</p>
       <p
-        className={`tnum mt-1 font-mono text-lg font-bold ${destaque ? "text-gain-ink" : ""}`}
+        className={`tnum mt-1 text-lg font-bold ${destaque ? "text-gain-ink" : ""}`}
       >
         {valor}
       </p>
@@ -216,7 +216,7 @@ function SimulacaoConteudo() {
                   required
                   value={valor}
                   onChange={(e) => setValorDigitado(e.target.value)}
-                  className="tnum font-mono"
+                  className="tnum"
                 />
               </div>
 
@@ -236,7 +236,7 @@ function SimulacaoConteudo() {
             <TituloCard
               acessorio={
                 <span
-                  className={`tnum font-mono text-xs font-semibold ${
+                  className={`tnum text-xs font-semibold ${
                     somaEditada > 100 ? "text-loss-ink" : "text-mute"
                   }`}
                 >
@@ -259,7 +259,7 @@ function SimulacaoConteudo() {
                         ref={(el) => {
                           linhasMeta.current[m.ticker] = el;
                         }}
-                        className={`-mx-2 flex items-center gap-2 rounded-lg px-2 py-1 transition-colors ${
+                        className={`-mx-2 flex items-center gap-2 rounded px-2 py-1 transition-colors ${
                           tickerDestacado === m.ticker ? "bg-gain/10 ring-1 ring-gain-ink" : ""
                         }`}
                       >
@@ -267,7 +267,7 @@ function SimulacaoConteudo() {
                           className="h-2 w-2 shrink-0 rounded-full"
                           style={{ background: coresClasse[m.type] ?? "var(--color-mute)" }}
                         />
-                        <label htmlFor={`meta-${m.ticker}`} className="font-mono text-sm font-semibold">
+                        <label htmlFor={`meta-${m.ticker}`} className="tnum text-sm font-semibold">
                           {m.ticker}
                         </label>
                         <input
@@ -280,7 +280,7 @@ function SimulacaoConteudo() {
                           onChange={(e) =>
                             setEdicao((atual) => ({ ...atual, [m.ticker]: e.target.value }))
                           }
-                          className={`${estiloCampoCompacto} tnum ml-auto w-20 text-right font-mono`}
+                          className={`${estiloCampoCompacto} tnum ml-auto w-20 text-right`}
                         />
                         <span className="text-xs text-mute">%</span>
                       </li>
@@ -304,7 +304,7 @@ function SimulacaoConteudo() {
                       placeholder="Adicionar meta: PETR4"
                       aria-label="Ticker da nova meta"
                       maxLength={6}
-                      className={`${estiloCampoCompacto} min-w-0 flex-1 font-mono uppercase`}
+                      className={`${estiloCampoCompacto} min-w-0 flex-1 tnum uppercase placeholder:normal-case`}
                     />
                     <input
                       type="number"
@@ -312,14 +312,14 @@ function SimulacaoConteudo() {
                       aria-label="Percentual da nova meta"
                       value={novoPct}
                       onChange={(e) => setNovoPct(e.target.value)}
-                      className={`${estiloCampoCompacto} tnum w-16 text-right font-mono`}
+                      className={`${estiloCampoCompacto} tnum w-16 text-right`}
                     />
                     <button
                       type="button"
                       onClick={adicionarMeta}
                       disabled={!cotacaoNova || buscandoTicker || !novoPct}
                       aria-label="Adicionar meta"
-                      className="rounded-lg border border-line p-2 transition-colors hover:bg-paper disabled:opacity-40"
+                      className="rounded border border-line p-2 transition-colors hover:bg-paper disabled:opacity-40"
                     >
                       <IconeMais />
                     </button>
@@ -330,13 +330,13 @@ function SimulacaoConteudo() {
                   )}
 
                   {cotacaoNova && !buscandoTicker && (
-                    <p className="flex flex-wrap items-center gap-2 rounded-lg bg-gain/7 px-2.5 py-1.5 text-xs">
+                    <p className="flex flex-wrap items-center gap-2 rounded bg-gain/7 px-2.5 py-1.5 text-xs">
                       <span className="flex items-center gap-1 font-semibold text-gain-ink">
                         <IconeCheck tamanho={12} />
                         {cotacaoNova.ticker}
                       </span>
-                      <span className="text-ink-soft">{cotacaoNova.nome}</span>
-                      <span className="tnum ml-auto font-mono text-mute">
+                      <span className="text-ink-2">{cotacaoNova.nome}</span>
+                      <span className="tnum ml-auto text-mute">
                         {brl(cotacaoNova.preco)}
                       </span>
                     </p>
@@ -377,7 +377,7 @@ function SimulacaoConteudo() {
 
           <Card>
             <h2 className="text-sm font-semibold">O que é rebalanceamento por aporte</h2>
-            <p className="mt-1.5 text-xs leading-relaxed text-ink-soft">
+            <p className="mt-1.5 text-xs leading-relaxed text-ink-2">
               Em vez de vender o que passou da meta, o que geraria imposto, o dinheiro novo vai
               para os ativos mais abaixo dela. Cada um recebe uma fatia proporcional ao próprio
               buraco, sempre em unidades inteiras.
@@ -450,9 +450,9 @@ function SimulacaoConteudo() {
                     {resultado.foraDaSimulacao.ativos.map((a) => (
                       <li
                         key={a.ticker}
-                        className="rounded-lg border border-line px-2.5 py-1 text-xs"
+                        className="rounded border border-line px-2.5 py-1 text-xs"
                       >
-                        <span className="font-mono font-semibold">{a.ticker}</span>{" "}
+                        <span className="tnum font-semibold">{a.ticker}</span>{" "}
                         <span className="tnum text-mute">{brl(a.valor)}</span>
                       </li>
                     ))}
@@ -492,17 +492,17 @@ function SimulacaoConteudo() {
                       <tbody>
                         {resultado.compras.map((c) => (
                           <tr key={c.ticker} className="border-b border-line last:border-0">
-                            <td className="py-3 font-mono font-semibold">{c.ticker}</td>
-                            <td className="tnum py-3 text-right font-mono text-loss-ink">
+                            <td className="py-3 tnum font-semibold">{c.ticker}</td>
+                            <td className="tnum py-3 text-right text-loss-ink">
                               {brl(c.deficit)}
                             </td>
-                            <td className="tnum py-3 text-right font-mono font-semibold">
+                            <td className="tnum py-3 text-right font-semibold">
                               {c.quantidade}
                             </td>
-                            <td className="tnum py-3 text-right font-mono text-mute">
+                            <td className="tnum py-3 text-right text-mute">
                               {brl(c.precoUnitario)}
                             </td>
-                            <td className="tnum py-3 text-right font-mono font-semibold">
+                            <td className="tnum py-3 text-right font-semibold">
                               {brl(c.total)}
                             </td>
                           </tr>
@@ -519,8 +519,8 @@ function SimulacaoConteudo() {
                   {resultado.alocacao.map((a) => (
                     <div key={a.ticker}>
                       <div className="mb-1.5 flex flex-wrap items-baseline justify-between gap-x-3 text-sm">
-                        <span className="font-mono font-semibold">{a.ticker}</span>
-                        <span className="tnum font-mono text-xs text-mute">
+                        <span className="tnum font-semibold">{a.ticker}</span>
+                        <span className="tnum text-xs text-mute">
                           {umaCasa(a.atualPct)}% vira{" "}
                           <span className="font-semibold text-gain-ink">
                             {umaCasa(a.aposAportePct)}%

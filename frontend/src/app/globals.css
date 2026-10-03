@@ -5,13 +5,11 @@
   Tinta navy sobre papel, esmeralda para ganhos, números tabulares.
 */
 @theme inline {
-  --font-sans: var(--font-grotesk); /* Space Grotesk — títulos e texto */
-  --font-mono: var(--font-jet); /* JetBrains Mono — números e valores */
-
-  /* Só o site público (src/app/(site)/layout.tsx) define estas variáveis:
-     fora dele, as classes font-leitura e font-interface não têm efeito. */
-  --font-leitura: var(--font-literata); /* Literata — leitura e anotações */
-  --font-interface: var(--font-public-sans); /* Public Sans — interface e números */
+  /* As variáveis vêm do layout raiz (next/font). Números não têm fonte
+     própria: são Public Sans com .tnum, algarismos tabulares. */
+  --font-sans: var(--font-grotesk); /* Space Grotesk — só o logotipo */
+  --font-leitura: var(--font-literata); /* Literata — títulos, leitura e anotações */
+  --font-interface: var(--font-public-sans); /* Public Sans — interface, tabelas e números */
 }
 
 @theme {
@@ -19,9 +17,12 @@
   --color-ink-soft: #16264a; /* navy intermediário */
   --color-ink-lift: #1a2f5c; /* navy do hover dos botões escuros */
   --color-mint: #35d68e; /* verde da marca — só sobre navy */
-  --color-paper: #f4f4ef; /* fundo "papel", levemente quente */
+  /* Fundo da área logada. Era um papel quente (#f4f4ef); desde a v2 é o
+     mesmo cinza frio do caderno: o creme era um dos sinais de página feita
+     por IA. */
+  --color-paper: #f3f5f9;
   --color-card: #ffffff;
-  --color-line: #e3e4dc; /* hairlines dos cards */
+  --color-line: #dce3ee; /* hairlines dos cards — o mesmo tom da pauta da v2 */
 
   /* Preenchimentos: gráficos, pontos de legenda, barras.
      Contraste de objeto gráfico, não de texto. */

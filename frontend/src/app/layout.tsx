@@ -1,18 +1,27 @@
 import type { Metadata, Viewport } from "next";
-import { JetBrains_Mono, Space_Grotesk } from "next/font/google";
+import { Literata, Public_Sans, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 
-// Space Grotesk: geométrica com personalidade — títulos e interface.
-// JetBrains Mono: números tabulares — valores financeiros alinhados.
+// Tipografia da v2, no site inteiro — página inicial, área logada e login:
+// - Literata: títulos, texto corrido e as anotações em itálico. Serifa feita
+//   para leitura longa em tela.
+// - Public Sans: interface, tabelas e números (com .tnum, algarismos tabulares).
+// - Space Grotesk: só o logotipo (Wordmark, via font-sans).
+// As três são fontes variáveis: o peso não precisa ser listado, o itálico sim.
 const grotesk = Space_Grotesk({
   variable: "--font-grotesk",
   subsets: ["latin"],
 });
 
-const jet = JetBrains_Mono({
-  variable: "--font-jet",
+const literata = Literata({
+  variable: "--font-literata",
   subsets: ["latin"],
-  weight: ["400", "600", "700"],
+  style: ["normal", "italic"],
+});
+
+const publicSans = Public_Sans({
+  variable: "--font-public-sans",
+  subsets: ["latin"],
 });
 
 export const metadata: Metadata = {
@@ -21,10 +30,10 @@ export const metadata: Metadata = {
     "Plataforma educacional de acompanhamento, simulação e análise de carteira de investimentos",
 };
 
-// Mesma cor do body: no mobile a barra do navegador encosta no fundo da página
-// em vez de cortar a tela com uma faixa de outra cor.
+// Todas as telas começam pelo cabeçalho tinta (site e área logada) ou pelo
+// fundo tinta (login): no celular, a barra do navegador continua a página.
 export const viewport: Viewport = {
-  themeColor: "#f4f4ef",
+  themeColor: "#0e1b33",
 };
 
 export default function RootLayout({
@@ -33,8 +42,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="pt-BR" className={`${grotesk.variable} ${jet.variable} h-full antialiased`}>
-      <body className="min-h-screen font-sans">{children}</body>
+    <html
+      lang="pt-BR"
+      className={`${grotesk.variable} ${literata.variable} ${publicSans.variable} h-full antialiased`}
+    >
+      <body className="min-h-screen font-interface">{children}</body>
     </html>
   );
 }
