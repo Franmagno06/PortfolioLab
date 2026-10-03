@@ -22,21 +22,47 @@ test.describe("site público", () => {
     await page.goto("/");
 
     await expect(page).toHaveURL("/");
-    await expect(page.getByRole("heading", { level: 1 })).toContainText("aporte do mês");
-    const secoes = page.getByRole("navigation", { name: "Seções da página" });
-    for (const nome of ["O que é", "Desafio do aporte", "Ferramentas", "Aprender"]) {
-      await expect(secoes.getByRole("link", { name: nome })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1 })).toContainText("Invista aprendendo");
+
+    const principal = page.getByRole("navigation", { name: "Principal" });
+    for (const nome of ["Aprender", "Ativos", "Planejar"]) {
+      await expect(principal.getByRole("button", { name: nome })).toBeVisible();
     }
+    await expect(principal.getByRole("link", { name: "Notícias" })).toBeVisible();
     semErros();
+  });
+
+  test("o menu Aprender abre com o desafio, e Esc fecha devolvendo o foco", async ({ page }) => {
+    await page.goto("/");
+    const aprender = page.getByRole("navigation", { name: "Principal" }).getByRole("button", { name: "Aprender" });
+
+    await aprender.click();
+    await expect(aprender).toHaveAttribute("aria-expanded", "true");
+    await expect(page.getByRole("link", { name: "Fazer o desafio" })).toBeVisible();
+
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("link", { name: "Fazer o desafio" })).toBeHidden();
+    await expect(aprender).toHaveAttribute("aria-expanded", "false");
+    await expect(aprender).toBeFocused();
   });
 
   test("a área logada continua fechada para quem não tem sessão", async ({ page }) => {
     await page.goto("/dashboard");
     await expect(page).toHaveURL(/\/login/);
   });
+
+  test("a folha do topo mostra o aporte de outubro calculado pelo algoritmo", async ({ page }) => {
+    await page.goto("/");
+    const folha = page.getByRole("table", { name: "Aporte de outubro da carteira de exemplo" });
+
+    // os mesmos números que rebalance.exemplo.test.ts fixa no backend
+    await expect(folha.getByRole("row").filter({ hasText: "TAEE11" }).first()).toContainText("16");
+    await expect(folha).toContainText("R$ 20,96");
+    await expect(page.getByText("de 20,8 para 15,1 pontos")).toBeVisible();
+  });
 });
 
-test.describe("desafio do aporte", () => {
+test.describe("desafio do aporte de novembro", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/#desafio");
   });
@@ -52,17 +78,20 @@ test.describe("desafio do aporte", () => {
     await expect(mais(page, "MXRF11")).toBeEnabled();
   });
 
-  test("comparar mostra a sugestão do algoritmo real", async ({ page }) => {
+  test("comparar mostra a sugestão do algoritmo real para novembro", async ({ page }) => {
     const semErros = falharEmErroDeJs(page);
     await mais(page, "MXRF11").click();
     await page.getByRole("button", { name: "Comparar com o PortfolioLab" }).click();
 
     const resultado = page.getByRole("region", { name: "Resultado da comparação" });
     await expect(resultado).toBeVisible();
-    // a mesma resposta que rebalance.exemplo.test.ts confere no backend
-    await expect(resultado).toContainText("16 cotas de TAEE11");
+    // o IVVB11 que ficou para depois em outubro entra agora
+    await expect(resultado).toContainText("1 cota de IVVB11");
     await expect(resultado).toContainText("2 cotas de HGLG11");
+    await expect(resultado).toContainText("5 cotas de TAEE11");
     await expect(resultado).toContainText("1 cota de MXRF11");
+    // e quem ficou de fora vem explicado, nas palavras do backend
+    await expect(resultado).toContainText("BOVA11 ficou de fora");
     semErros();
   });
 
@@ -100,12 +129,29 @@ test.describe("no celular", () => {
     }));
     expect(largura.pagina).toBeLessThanOrEqual(largura.janela);
   });
+
+  test("o menu abre a gaveta, a página atrás não rola e Esc fecha", async ({ page }) => {
+    await page.goto("/");
+    const abrir = page.getByRole("button", { name: "Abrir menu" });
+
+    await abrir.click();
+    const gaveta = page.getByRole("dialog", { name: "Menu do site" });
+    await expect(gaveta).toBeVisible();
+    await expect(gaveta.getByRole("button", { name: "Aprender" })).toBeVisible();
+    // com a gaveta aberta, a página de trás fica travada
+    await expect.poll(() => page.evaluate(() => document.body.style.overflow)).toBe("hidden");
+
+    await page.keyboard.press("Escape");
+    await expect(gaveta).toBeHidden();
+    await expect.poll(() => page.evaluate(() => document.body.style.overflow)).toBe("");
+    await expect(abrir).toBeFocused();
+  });
 });
 
 // Depende da conta carteira@portfoliolab.dev, que `npm run db:local` cria.
-test("explorar a demonstração entra no dashboard da conta demo", async ({ page }) => {
+test("ver a demonstração entra no dashboard da conta demo", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("main").getByRole("button", { name: "Explorar a demonstração" }).first().click();
+  await page.getByRole("main").getByRole("button", { name: "Ver a demonstração" }).first().click();
 
   await expect(page).toHaveURL(/\/dashboard/, { timeout: 20_000 });
   // Prova de sessão, e não de dados: o "Sair" só existe na área logada. Esperar
