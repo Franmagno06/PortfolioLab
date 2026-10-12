@@ -1,4 +1,4 @@
-import { ACOES_INICIAIS, FIIS_INICIAIS } from "./ativos-catalogo";
+import { ACOES_INICIAIS, ETFS_INICIAIS, FIIS_INICIAIS } from "./ativos-catalogo";
 import { APORTE_DO_DESAFIO } from "./carteira-exemplo";
 import { brlSemCentavos } from "./format";
 import { TRILHAS } from "./site-dados";
@@ -24,6 +24,7 @@ export const ROTAS = {
   noticias: "/noticias",
   acoes: "/ativos/acoes",
   fiis: "/ativos/fiis",
+  etfs: "/ativos/etfs",
   dashboard: "/dashboard",
   login: "/login",
   registro: "/registro",
@@ -121,7 +122,6 @@ export const NAVEGACAO: Intencao[] = [
               })),
             },
           },
-          { rotulo: "Ações por setor", descricao: "Bancos, energia, varejo e outros." },
         ],
       },
       {
@@ -145,7 +145,21 @@ export const NAVEGACAO: Intencao[] = [
       },
       {
         titulo: "ETFs",
-        itens: [{ rotulo: "Buscar ETFs", descricao: "Fundos que copiam um índice." }],
+        itens: [
+          {
+            rotulo: "Buscar ETFs",
+            descricao: "10 fundos que copiam um índice, como o Ibovespa.",
+            href: ROTAS.etfs,
+            atalhos: {
+              titulo: "ETFs da lista",
+              itens: ETFS_INICIAIS.map((e) => ({
+                rotulo: e.ticker,
+                descricao: e.nome,
+                href: `${ROTAS.etfs}/${e.ticker}`,
+              })),
+            },
+          },
+        ],
       },
     ],
     destaque: {

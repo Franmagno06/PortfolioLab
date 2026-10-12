@@ -6,8 +6,15 @@ import {
   type Cotacao,
   type ProventoDoProvedor,
 } from "../quotes/quotes.provider.js";
-import { buscarDadosAcao, buscarDadosFii, type DadosAcao } from "../reports/cvm.provider.js";
+import {
+  buscarDadosAcao,
+  buscarDadosFii,
+  buscarPatrimonioDeClasses,
+  type DadosAcao,
+  type PatrimonioDeClasse,
+} from "../reports/cvm.provider.js";
 import { criarCacheEmMemoria } from "./ativos.cache.js";
+import { ETFS } from "./ativos.catalogo.js";
 import {
   mesesConcluidos,
   montarInformeDoFii,
@@ -48,6 +55,11 @@ const cotacoes = criarCacheEmMemoria<Cotacao | null>(QUINZE_MINUTOS_MS, nulo, FA
 const historicos = criarCacheEmMemoria<Map<string, number>>(SEIS_HORAS_MS, (m) => m.size === 0, FALHA_DO_YAHOO_MS);
 const proventos = criarCacheEmMemoria<ProventoDoProvedor[] | null>(SEIS_HORAS_MS, nulo, FALHA_DO_YAHOO_MS);
 
+const UM_DIA_MS = 24 * 60 * 60 * 1000;
+
+/** O cadastro de classes da CVM é um arquivo só para todos os ETFs: uma leitura por dia serve a todos. */
+const patrimonios = criarCacheEmMemoria<Map<string, PatrimonioDeClasse> | null>(UM_DIA_MS, nulo, FALHA_DO_YAHOO_MS);
+
 /** Quantos trimestres anteriores tentar até achar quatro publicados. */
 const TRIMESTRES_CANDIDATOS = 7;
 /** Quantos meses para trás tentar até achar um informe publicado. */
@@ -57,7 +69,7 @@ export const fontes = {
   cotacao: (ticker: string) => cotacoes.obter(ticker, () => buscarCotacao(ticker)),
 
   /** Fechamento de cada mês, "AAAA-MM" → preço. Vazio se o Yahoo falhou. */
-  historicoMensal: (ticker: string) => historicos.obter(ticker, () => buscarHistoricoMensal(ticker, 12)),
+  historicoMensal: (ticker: string) => historicos.obter(ticker, () => buscarHistoricoMensal(ticker, 13)),
 
   /** Proventos dos últimos 12 meses do próprio ativo. Null se o Yahoo falhou; lista vazia se não pagou. */
   proventos12Meses: (ticker: string) =>
@@ -129,8 +141,16 @@ export const fontes = {
     return null;
   },
 
+  /** O patrimônio líquido de cada ETF do catálogo, por CNPJ (só dígitos). Null se a CVM falhou. */
+  patrimonioDosEtfs: () =>
+    patrimonios.obter("etfs", async () => {
+      await liberarOLaco();
+      return buscarPatrimonioDeClasses(ETFS.map((e) => e.cnpj));
+    }),
+
   /** Só para testes: esvazia os caches em memória. */
   limparCaches() {
+    patrimonios.limpar();
     cotacoes.limpar();
     historicos.limpar();
     proventos.limpar();

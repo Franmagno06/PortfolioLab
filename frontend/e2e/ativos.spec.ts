@@ -332,9 +332,9 @@ test.describe("ativo que não existe", () => {
 });
 
 test.describe("cabeçalho, rodapé e acesso", () => {
-  const ROTAS_DE_ATIVOS = ["/ativos/acoes", "/ativos/acoes/VALE3", "/ativos/fiis", "/ativos/fiis/MXRF11"];
+  const ROTAS_DE_ATIVOS = ["/ativos/acoes", "/ativos/acoes/VALE3", "/ativos/fiis", "/ativos/fiis/MXRF11", "/ativos/etfs", "/ativos/etfs/BOVA11"];
 
-  test("o cabeçalho e o rodapé são idênticos nas quatro rotas, e iguais aos da página inicial", async ({ page }) => {
+  test("o cabeçalho e o rodapé são idênticos nas seis rotas, e iguais aos da página inicial", async ({ page }) => {
     await page.goto("/");
     const cabecalhoDaInicial = await page.getByRole("banner").ariaSnapshot();
     const rodapeDaInicial = await page.getByRole("contentinfo").ariaSnapshot();
@@ -385,7 +385,7 @@ test.describe("menu Ativos", () => {
 
     await expect(principal.getByRole("link", { name: "Buscar ações" })).toHaveAttribute("href", "/ativos/acoes");
     await expect(principal.getByRole("link", { name: "Buscar FIIs" })).toHaveAttribute("href", "/ativos/fiis");
-    await expect(principal.getByText("em breve")).toHaveCount(3);
+    await expect(principal.getByText("em breve")).toHaveCount(1);
 
     await principal.getByRole("link", { name: "Buscar ações" }).hover();
     const lista = principal.getByRole("list", { name: "Ações da lista" });

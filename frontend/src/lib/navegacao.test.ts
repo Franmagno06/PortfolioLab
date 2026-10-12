@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { ACOES, FIIS } from "./ativos-catalogo";
+import { ACOES, ETFS, FIIS } from "./ativos-catalogo";
 import { ABAS_DA_CARTEIRA, NAVEGACAO, RODAPE, ROTAS } from "./navegacao";
 
 // "Nenhum link quebrado": cada href da navegação precisa ser uma rota de
@@ -71,18 +71,18 @@ describe("navegação do site", () => {
     expect(porRotulo["Buscar FIIs"]).toBe(ROTAS.fiis);
     expect(porRotulo["Ações por setor"]).toBeUndefined();
     expect(porRotulo["Agenda de proventos"]).toBeUndefined();
-    expect(porRotulo["Buscar ETFs"]).toBeUndefined();
+    expect(porRotulo["Buscar ETFs"]).toBe(ROTAS.etfs);
   });
 
   it("o menu Ativos oferece cinco fichas em cada listagem, e cada atalho existe no catálogo", () => {
     const ativos = NAVEGACAO.find((i) => i.id === "ativos");
     const itens = (ativos?.colunas ?? []).flatMap((c) => c.itens).filter((i) => i.atalhos);
-    expect(itens.map((i) => i.href)).toEqual([ROTAS.acoes, ROTAS.fiis]);
+    expect(itens.map((i) => i.href)).toEqual([ROTAS.acoes, ROTAS.fiis, ROTAS.etfs]);
 
     for (const item of itens) {
       const atalhos = item.atalhos?.itens ?? [];
       expect(atalhos).toHaveLength(5);
-      const catalogo = item.href === ROTAS.acoes ? ACOES : FIIS;
+      const catalogo = item.href === ROTAS.acoes ? ACOES : item.href === ROTAS.fiis ? FIIS : ETFS;
       for (const atalho of atalhos) {
         expect(catalogo.some((a) => `${item.href}/${a.ticker}` === atalho.href), atalho.href).toBe(true);
       }
@@ -93,7 +93,7 @@ describe("navegação do site", () => {
     const titulos = NAVEGACAO.flatMap((i) => i.colunas ?? [])
       .flatMap((c) => c.itens)
       .flatMap((i) => (i.atalhos ? [i.atalhos.titulo] : []));
-    expect(titulos.length).toBe(2);
+    expect(titulos.length).toBe(3);
     for (const t of titulos) expect(t.toLowerCase()).not.toContain("principa");
   });
 
@@ -101,6 +101,11 @@ describe("navegação do site", () => {
     const hrefs = RODAPE.flatMap((c) => c.links.map((l) => l.href));
     expect(hrefs).toContain(ROTAS.acoes);
     expect(hrefs).toContain(ROTAS.fiis);
+  });
+
+  it("não há mais 'Ações por setor' no menu", () => {
+    const rotulos = NAVEGACAO.flatMap((i) => i.colunas ?? []).flatMap((c) => c.itens).map((i) => i.rotulo);
+    expect(rotulos).not.toContain("Ações por setor");
   });
 
   it("as abas da carteira cobrem as seis telas da área logada, sem repetir rota", () => {

@@ -17,8 +17,8 @@ export default function AtivoNaoEncontrado() {
           Não encontramos esse ativo
         </h1>
         <p className="mt-3 text-base leading-[26px] text-ink-2">
-          O endereço pode ter um erro de digitação, ou o ativo ainda não está na nossa lista de 15 ações e 15
-          fundos imobiliários. Escolha um da lista:
+          O endereço pode ter um erro de digitação, ou o ativo ainda não está na nossa lista de ações, fundos
+          imobiliários e ETFs. Escolha um da lista:
         </p>
         <ul className="mt-5 flex flex-wrap gap-x-6 gap-y-1">
           <li>
@@ -29,6 +29,11 @@ export default function AtivoNaoEncontrado() {
           <li>
             <Link href={ROTAS.fiis} className={link}>
               Ver os fundos imobiliários
+            </Link>
+          </li>
+          <li>
+            <Link href={ROTAS.etfs} className={link}>
+              Ver os ETFs
             </Link>
           </li>
           <li>

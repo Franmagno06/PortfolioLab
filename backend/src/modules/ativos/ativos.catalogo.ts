@@ -93,3 +93,49 @@ export function acharFii(ticker: string): FiiDoCatalogo | undefined {
 export function ehBanco(acao: AcaoDoCatalogo): boolean {
   return acao.setor === SETOR_BANCOS;
 }
+
+// ---------------------------------------------------------------------------
+// ETFs
+// ---------------------------------------------------------------------------
+
+export type CategoriaDeEtf =
+  | "Ações do Brasil"
+  | "Ações do exterior"
+  | "Renda fixa"
+  | "Ouro"
+  | "Criptoativos";
+
+export type EtfDoCatalogo = {
+  ticker: string;
+  nome: string;
+  categoria: CategoriaDeEtf;
+  /** O índice que o fundo copia, como o regulamento o chama. */
+  indice: string;
+  /** CNPJ da classe de cotas, só dígitos, como o cadastro da CVM (registro_classe.csv) o publica. */
+  cnpj: string;
+};
+
+/**
+ * Os principais ETFs de índice, um por ideia de investimento. Poucos de propósito: o conjunto de
+ * ETFs listados é pequeno e pouco conhecido, e a página não é um ranking. O CNPJ foi conferido
+ * contra o cadastro de classes da CVM pelo nome do fundo (BOVA11 é a "iShares Ibovespa", e assim
+ * por diante). A taxa de administração não está aqui nem em nenhuma fonte aberta confiável: fica de
+ * fora, e a ficha manda conferir no regulamento.
+ */
+export const ETFS: readonly EtfDoCatalogo[] = [
+  { ticker: "BOVA11", nome: "iShares Ibovespa", categoria: "Ações do Brasil", indice: "Ibovespa", cnpj: "10406511000161" },
+  { ticker: "IVVB11", nome: "iShares S&P 500", categoria: "Ações do exterior", indice: "S&P 500", cnpj: "19909560000191" },
+  { ticker: "SMAL11", nome: "iShares Small Caps", categoria: "Ações do Brasil", indice: "Índice Small Cap (SMLL)", cnpj: "10406600000108" },
+  { ticker: "DIVO11", nome: "It Now IDIV", categoria: "Ações do Brasil", indice: "Índice de Dividendos (IDIV)", cnpj: "13416245000146" },
+  { ticker: "B5P211", nome: "It Now IMA-B5 P2", categoria: "Renda fixa", indice: "IMA-B 5 P2", cnpj: "38354864000184" },
+  { ticker: "IMAB11", nome: "It Now IMA-B", categoria: "Renda fixa", indice: "IMA-B", cnpj: "31024153000100" },
+  { ticker: "FIXA11", nome: "BB ETF Renda Fixa Pré", categoria: "Renda fixa", indice: "S&P/B3 Índice Futuro de Taxas de Juros", cnpj: "26845780000164" },
+  { ticker: "NASD11", nome: "Trend ETF Nasdaq 100", categoria: "Ações do exterior", indice: "Nasdaq-100", cnpj: "35578672000163" },
+  { ticker: "GOLD11", nome: "Trend ETF Ouro", categoria: "Ouro", indice: "Preço do ouro (LBMA)", cnpj: "37985763000149" },
+  { ticker: "HASH11", nome: "Hashdex Nasdaq Crypto", categoria: "Criptoativos", indice: "Nasdaq CME Crypto Index (NCI)", cnpj: "38314708000190" },
+];
+
+export function acharEtf(ticker: string): EtfDoCatalogo | undefined {
+  const t = ticker.toUpperCase().trim();
+  return ETFS.find((e) => e.ticker === t);
+}

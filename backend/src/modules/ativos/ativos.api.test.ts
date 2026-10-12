@@ -16,6 +16,8 @@ vi.mock("./ativos.service.js", () => ({
     listarFiis: vi.fn(),
     fichaDaAcao: vi.fn(),
     fichaDoFii: vi.fn(),
+    listarEtfs: vi.fn(),
+    fichaDoEtf: vi.fn(),
   },
 }));
 
@@ -27,6 +29,8 @@ beforeEach(() => {
   vi.mocked(ativosService.listarFiis).mockResolvedValue([{ ticker: "MXRF11" }] as never);
   vi.mocked(ativosService.fichaDaAcao).mockResolvedValue(FICHA as never);
   vi.mocked(ativosService.fichaDoFii).mockResolvedValue({ ticker: "MXRF11" } as never);
+  vi.mocked(ativosService.listarEtfs).mockResolvedValue([{ ticker: "BOVA11" }] as never);
+  vi.mocked(ativosService.fichaDoEtf).mockResolvedValue({ ticker: "BOVA11" } as never);
 });
 
 describe("rotas públicas de /ativos", () => {
@@ -69,6 +73,32 @@ describe("rotas públicas de /ativos", () => {
     const res = await request(app).get("/ativos/acoes");
 
     expect(res.headers["set-cookie"]).toBeUndefined();
+  });
+});
+
+describe("rotas de ETFs", () => {
+  it("a listagem e a ficha abrem sem login", async () => {
+    const lista = await request(app).get("/ativos/etfs");
+    expect(lista.status).toBe(200);
+    expect(lista.body).toEqual([{ ticker: "BOVA11" }]);
+
+    const ficha = await request(app).get("/ativos/etfs/bova11");
+    expect(ficha.status).toBe(200);
+    expect(ativosService.fichaDoEtf).toHaveBeenCalledWith("BOVA11");
+    expect(ficha.headers["cache-control"]).toBe("public, max-age=60");
+  });
+
+  it("ETF fora do catálogo: 404 no formato { error }", async () => {
+    vi.mocked(ativosService.fichaDoEtf).mockRejectedValue(new AppError("ETF não encontrado no catálogo", 404));
+    const res = await request(app).get("/ativos/etfs/XXXX11");
+    expect(res.status).toBe(404);
+    expect(res.body.error).toBe("ETF não encontrado no catálogo");
+  });
+
+  it("ticker em formato inválido: 400, e o serviço nem é chamado", async () => {
+    const res = await request(app).get("/ativos/etfs/BOVA.11");
+    expect(res.status).toBe(400);
+    expect(ativosService.fichaDoEtf).not.toHaveBeenCalled();
   });
 });
 

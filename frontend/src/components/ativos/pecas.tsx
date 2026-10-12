@@ -105,6 +105,14 @@ const ICONES_DE_FII: Record<TipoFii, React.ReactNode> = {
   ),
 };
 
+/** O ícone do ETF: barras de alturas diferentes, como um índice que reúne vários ativos. */
+const ICONE_DE_ETF = (
+  <>
+    <path d="M5 20V11M10 20V6M15 20V13M20 20V9" />
+    <path d="M3 20h18" />
+  </>
+);
+
 /**
  * A identidade visual do ativo. Ação: o logo da empresa. FII: um ícone do tipo
  * do fundo, na cor da classe, porque o fundo não tem logo (a do gestor
@@ -114,14 +122,17 @@ export function Avatar({
   ticker,
   tamanho,
   tipoFii,
+  etf = false,
 }: {
   ticker: string;
   tamanho: "lista" | "ficha";
   tipoFii?: TipoFii;
+  /** ETF não tem logo: usa um ícone na cor da classe. */
+  etf?: boolean;
 }) {
   const px = tamanho === "ficha" ? 56 : 40;
   const dimensao = tamanho === "ficha" ? "h-14 w-14" : "h-10 w-10";
-  const logo = tipoFii ? null : caminhoDoLogo(ticker);
+  const logo = tipoFii || etf ? null : caminhoDoLogo(ticker);
 
   if (logo) {
     // unoptimized: é um SVG estático de public/, que não passa pelo otimizador de imagens.
@@ -134,6 +145,17 @@ export function Avatar({
         unoptimized
         className={`${dimensao} shrink-0 rounded-full border border-line`}
       />
+    );
+  }
+
+  if (etf) {
+    const lado = tamanho === "ficha" ? 30 : 22;
+    return (
+      <span aria-hidden data-icone-de-etf className={`grid ${dimensao} shrink-0 place-items-center rounded-full bg-etf/15 text-etf`}>
+        <svg width={lado} height={lado} viewBox="0 0 24 24" aria-hidden {...TRACOS}>
+          {ICONE_DE_ETF}
+        </svg>
+      </span>
     );
   }
 

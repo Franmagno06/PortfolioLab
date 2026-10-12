@@ -1,12 +1,12 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { ACOES, ACOES_INICIAIS, acharAcao, acharFii, FIIS, FIIS_INICIAIS, inicialDoAtivo, QUANTIDADE_INICIAL } from "./ativos-catalogo";
+import { ACOES, ACOES_INICIAIS, acharAcao, acharEtf, acharFii, ETFS, ETFS_INICIAIS, FIIS, FIIS_INICIAIS, inicialDoAtivo, QUANTIDADE_INICIAL } from "./ativos-catalogo";
 
 const CATALOGO_DO_BACKEND = join(process.cwd(), "..", "backend", "src", "modules", "ativos", "ativos.catalogo.ts");
 
 /** Os { ticker, nome } de um bloco do catálogo do backend ("export const ACOES" ou "export const FIIS"). */
-function lerDoBackend(lista: "ACOES" | "FIIS") {
+function lerDoBackend(lista: "ACOES" | "FIIS" | "ETFS") {
   const fonte = readFileSync(CATALOGO_DO_BACKEND, "utf8");
   const inicio = fonte.indexOf(`export const ${lista}:`);
   const fim = fonte.indexOf("];", inicio);
@@ -18,6 +18,7 @@ describe("catálogo do front", () => {
   it("é idêntico ao do backend: mesmos tickers, nomes e ordem", () => {
     expect(ACOES).toEqual(lerDoBackend("ACOES"));
     expect(FIIS).toEqual(lerDoBackend("FIIS"));
+    expect(ETFS).toEqual(lerDoBackend("ETFS"));
   });
 
   it("tem 15 ações e 15 FIIs, sem ticker repetido", () => {
@@ -38,6 +39,7 @@ describe("catálogo do front", () => {
     expect(QUANTIDADE_INICIAL).toBe(5);
     expect(ACOES_INICIAIS.map((a) => a.ticker)).toEqual(ACOES.slice(0, 5).map((a) => a.ticker));
     expect(FIIS_INICIAIS.map((f) => f.ticker)).toEqual(FIIS.slice(0, 5).map((f) => f.ticker));
+    expect(ETFS_INICIAIS.map((e) => e.ticker)).toEqual(ETFS.slice(0, 5).map((e) => e.ticker));
   });
 
   it("acha o ativo em maiúsculas ou minúsculas, e só na classe certa", () => {
@@ -46,6 +48,8 @@ describe("catálogo do front", () => {
     expect(acharAcao("MXRF11")).toBeUndefined();
     expect(acharFii("VALE3")).toBeUndefined();
     expect(acharAcao("XXXX9")).toBeUndefined();
+    expect(acharEtf("bova11")?.nome).toBe("iShares Ibovespa");
+    expect(acharEtf("VALE3")).toBeUndefined();
   });
 
   it("a inicial do avatar é a primeira letra do ticker, em maiúscula", () => {

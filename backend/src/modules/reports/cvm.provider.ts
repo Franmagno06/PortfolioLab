@@ -473,3 +473,56 @@ export async function buscarDadosFii(cnpj: string, periodo: Mes): Promise<DadosF
     return null;
   }
 }
+
+export type PatrimonioDeClasse = { patrimonioLiquido: number; dataReferencia: string };
+
+/**
+ * Pura: o patrimônio líquido das classes pedidas, a partir do registro_classe.csv da CVM
+ * (separado por ";", com cabeçalho). Linha com patrimônio vazio ou data ausente é ignorada.
+ */
+export function patrimonioDasClasses(csv: string, cnpjs: string[]): Map<string, PatrimonioDeClasse> {
+  const queremos = new Set(cnpjs);
+  const saida = new Map<string, PatrimonioDeClasse>();
+  const linhas = csv.split("\n");
+  const cabecalho = (linhas[0] ?? "").trim().split(";");
+  const iCnpj = cabecalho.indexOf("CNPJ_Classe");
+  const iPl = cabecalho.indexOf("Patrimonio_Liquido");
+  const iData = cabecalho.indexOf("Data_Patrimonio_Liquido");
+  if (iCnpj < 0 || iPl < 0 || iData < 0) {
+    console.error("[CVM] o cadastro de classes mudou de formato: faltam colunas esperadas");
+    return saida;
+  }
+
+  for (let i = 1; i < linhas.length; i++) {
+    const linha = linhas[i];
+    if (!linha) continue;
+    const campos = linha.split(";");
+    // um nome com ";" deslocaria as colunas em silêncio: a linha torta é descartada
+    if (campos.length !== cabecalho.length) continue;
+    const cnpj = campos[iCnpj] ?? "";
+    if (!queremos.has(cnpj)) continue;
+    const patrimonio = Number(campos[iPl]);
+    const data = (campos[iData] ?? "").trim();
+    if (!Number.isFinite(patrimonio) || patrimonio <= 0 || !/^\d{4}-\d{2}-\d{2}$/.test(data)) continue;
+    saida.set(cnpj, { patrimonioLiquido: patrimonio, dataReferencia: data });
+  }
+  return saida;
+}
+
+/** O patrimônio líquido de várias classes de fundo, do cadastro da CVM. Null se o download ou a leitura falhar. */
+export async function buscarPatrimonioDeClasses(cnpjs: string[]): Promise<Map<string, PatrimonioDeClasse> | null> {
+  const zip = await baixarZipCvm("FI/CAD/DADOS/registro_fundo_classe.zip");
+  if (!zip) return null;
+
+  try {
+    const csvs = lerCsvsDoZip(zip, ["registro_classe.csv"]);
+    const csv = csvs.get("registro_classe.csv");
+    if (!csv) return null;
+    const achados = patrimonioDasClasses(csv, cnpjs);
+    // nenhum CNPJ achado quase sempre é arquivo em formato novo, e não fundos que sumiram: falha, e não dado de 24h
+    return achados.size > 0 ? achados : null;
+  } catch (err) {
+    console.error("[CVM] falha ao ler o cadastro de classes:", err instanceof Error ? err.message : err);
+    return null;
+  }
+}

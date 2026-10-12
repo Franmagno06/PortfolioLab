@@ -22,6 +22,19 @@ export const ativosController = {
     res.json(fiis);
   },
 
+  async listarEtfs(_req: Request, res: Response) {
+    const etfs = await ativosService.listarEtfs();
+    publico(res);
+    res.json(etfs);
+  },
+
+  async fichaDoEtf(req: Request, res: Response) {
+    const { ticker } = tickerDaRotaSchema.parse(req.params);
+    const ficha = await ativosService.fichaDoEtf(ticker);
+    publico(res);
+    res.json(ficha);
+  },
+
   async fichaDaAcao(req: Request, res: Response) {
     const { ticker } = tickerDaRotaSchema.parse(req.params);
     const ficha = await ativosService.fichaDaAcao(ticker);
