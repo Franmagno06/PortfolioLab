@@ -2,9 +2,15 @@ import { describe, expect, it } from "vitest";
 import {
   brl,
   brlSemCentavos,
+  contagemCompacta,
+  dataCurta,
+  mesAno,
+  mesCurto,
+  multiplo,
   numero,
   pct,
   percentual,
+  reaisCompactos,
   tempoRelativo,
   vezesPorExtenso,
 } from "./format";
@@ -112,5 +118,46 @@ describe("vezesPorExtenso", () => {
 
   it("acima de doze, usa algarismos", () => {
     expect(vezesPorExtenso(13)).toBe("13 vezes");
+  });
+});
+
+describe("dataCurta", () => {
+  it("troca AAAA-MM-DD por dd/mm/aaaa sem depender do fuso", () => {
+    expect(dataCurta("2026-10-09")).toBe("09/10/2026");
+    expect(dataCurta("2026-01-01")).toBe("01/01/2026");
+  });
+
+  it("ignora a hora quando vem um ISO completo", () => {
+    expect(dataCurta("2026-03-20T00:00:00.000Z")).toBe("20/03/2026");
+  });
+});
+
+describe("reaisCompactos", () => {
+  it("usa bilhões a partir de 1 bi e milhões abaixo disso", () => {
+    expect(semEspacosEspeciais(reaisCompactos(3.2))).toBe("R$ 3,2 bi");
+    expect(semEspacosEspeciais(reaisCompactos(0.7))).toBe("R$ 700 mi");
+  });
+});
+
+describe("contagemCompacta", () => {
+  it("escreve mil e mi em vez do número inteiro", () => {
+    expect(contagemCompacta(985_000)).toBe("985 mil");
+    expect(contagemCompacta(1_250_000)).toBe("1,3 mi");
+    expect(contagemCompacta(430)).toBe("430");
+  });
+});
+
+describe("multiplo", () => {
+  it("escreve o múltiplo com vírgula e o x colado", () => {
+    expect(multiplo(0.6)).toBe("0,6x");
+    expect(multiplo(2.65, 2)).toBe("2,65x");
+  });
+});
+
+describe('mesCurto e mesAno', () => {
+  it('escrevem o mês em três letras, em português', () => {
+    expect(mesCurto('2025-11')).toBe('nov');
+    expect(mesCurto('2026-01')).toBe('jan');
+    expect(mesAno('2026-10')).toBe('out/2026');
   });
 });
