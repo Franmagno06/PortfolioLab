@@ -82,7 +82,7 @@ export function ProventosCard({ ativos }: Props) {
       <TituloCard
         acessorio={
           <div className="flex items-center gap-3">
-            <span className="tnum font-mono text-sm font-semibold text-gain-ink">
+            <span className="tnum text-sm font-semibold text-gain-ink">
               {total === null ? "—" : `${brl(total)} recebidos`}
             </span>
             <Botao
@@ -140,7 +140,7 @@ export function ProventosCard({ ativos }: Props) {
             step="0.01"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
-            className="tnum text-right font-mono"
+            className="tnum text-right"
           />
         </div>
         <div className="w-36">
@@ -150,7 +150,7 @@ export function ProventosCard({ ativos }: Props) {
             required
             value={paidAt}
             onChange={(e) => setPaidAt(e.target.value)}
-            className="tnum font-mono"
+            className="tnum"
           />
         </div>
         <Botao type="submit" variante="secundario" disabled={salvando}>
@@ -175,7 +175,7 @@ export function ProventosCard({ ativos }: Props) {
         <ul className="mt-4 divide-y divide-line">
           {proventos.slice(0, 8).map((p) => (
             <li key={p.id} className="flex items-center gap-3 py-2.5 text-sm">
-              <span className="w-20 shrink-0 font-mono font-semibold">{p.asset.ticker}</span>
+              <span className="w-20 shrink-0 tnum font-semibold">{p.asset.ticker}</span>
               {p.source === "MANUAL" && (
                 <span className="shrink-0 rounded border border-line px-1.5 py-0.5 text-[10px] font-semibold text-mute">
                   manual
@@ -184,10 +184,10 @@ export function ProventosCard({ ativos }: Props) {
               <span className="truncate text-mute">
                 {p.unitAmount ? `${brl(Number(p.unitAmount))} por cota` : p.asset.name}
               </span>
-              <span className="tnum ml-auto font-mono font-semibold text-gain-ink">
+              <span className="tnum ml-auto font-semibold text-gain-ink">
                 {brl(Number(p.amount))}
               </span>
-              <span className="tnum w-24 shrink-0 text-right font-mono text-xs text-mute">
+              <span className="tnum w-24 shrink-0 text-right text-xs text-mute">
                 {new Date(p.paidAt).toLocaleDateString("pt-BR")}
               </span>
             </li>

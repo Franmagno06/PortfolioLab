@@ -1,5 +1,5 @@
 // Logomarca: três barras ascendentes nas cores das classes de ativo.
-// Vivia duplicada na sidebar e no layout de autenticação.
+// Uma definição só para o cabeçalho do site, a gaveta, o rodapé e o login.
 export function Marca({ tamanho = 26 }: { tamanho?: number }) {
   return (
     <svg width={tamanho} height={tamanho} viewBox="0 0 26 26" aria-hidden>
@@ -10,9 +10,11 @@ export function Marca({ tamanho = 26 }: { tamanho?: number }) {
   );
 }
 
+// font-sans explícito: no site público a fonte padrão é a Public Sans, e o
+// logotipo continua em Space Grotesk (font-sans aponta para --font-grotesk).
 export function Wordmark({ className = "" }: { className?: string }) {
   return (
-    <span className={`font-bold tracking-tight ${className}`}>
+    <span className={`font-sans font-bold tracking-tight ${className}`}>
       Portfolio<span className="text-mint">Lab</span>
     </span>
   );

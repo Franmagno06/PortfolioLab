@@ -28,7 +28,7 @@ export function Botao({
   return (
     <button
       {...props}
-      className={`rounded-lg font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${variantes[variante]} ${tamanhos[tamanho]} ${className}`}
+      className={`rounded font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${variantes[variante]} ${tamanhos[tamanho]} ${className}`}
     />
   );
 }

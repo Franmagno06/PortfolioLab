@@ -79,7 +79,7 @@ export default function CarteiraPage() {
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       <PageHeader
-        titulo="Minha carteira"
+        titulo="Posições"
         descricao="Posição consolidada, derivada das suas transações"
         contexto={
           ativos.length > 0 ? (
@@ -124,7 +124,7 @@ export default function CarteiraPage() {
                   className="border-b border-line last:border-0 hover:bg-paper"
                 >
                   <td className="py-3.5 pr-3 pl-5">
-                    <p className="font-mono font-semibold">{a.ticker}</p>
+                    <p className="tnum font-semibold">{a.ticker}</p>
                     {/* nomes de ETF vêm do Yahoo com até 90 caracteres: duas
                         linhas bastam para reconhecer, o title guarda o resto */}
                     <p className="line-clamp-2 max-w-52 text-xs text-mute" title={a.name}>
@@ -134,16 +134,16 @@ export default function CarteiraPage() {
                   <td className="px-3 py-3.5">
                     <EtiquetaClasse tipo={a.type} />
                   </td>
-                  <td className="tnum px-3 py-3.5 text-right font-mono">{a.quantidade}</td>
-                  <td className="tnum px-3 py-3.5 text-right font-mono text-mute">
+                  <td className="tnum px-3 py-3.5 text-right">{a.quantidade}</td>
+                  <td className="tnum px-3 py-3.5 text-right text-mute">
                     {brl(a.precoMedio)}
                   </td>
-                  <td className="tnum px-3 py-3.5 text-right font-mono">{brl(a.precoAtual)}</td>
-                  <td className="tnum px-3 py-3.5 text-right font-mono font-semibold">
+                  <td className="tnum px-3 py-3.5 text-right">{brl(a.precoAtual)}</td>
+                  <td className="tnum px-3 py-3.5 text-right font-semibold">
                     {brl(a.valorAtual)}
                   </td>
                   <td
-                    className={`tnum px-3 py-3.5 text-right font-mono font-semibold whitespace-nowrap ${
+                    className={`tnum px-3 py-3.5 text-right font-semibold whitespace-nowrap ${
                       ganhou ? "text-gain-ink" : "text-loss-ink"
                     }`}
                   >
@@ -161,7 +161,7 @@ export default function CarteiraPage() {
                           style={{ width: `${comprimento}%`, background: cor }}
                         />
                       </div>
-                      <span className="tnum w-12 text-right font-mono text-xs text-ink-soft">
+                      <span className="tnum w-12 text-right text-xs text-ink-2">
                         {fatiaTexto}
                       </span>
                     </div>
@@ -175,15 +175,15 @@ export default function CarteiraPage() {
               <td className="py-3.5 pr-3 pl-5" colSpan={5}>
                 Total
               </td>
-              <td className="tnum px-3 py-3.5 text-right font-mono">{brl(patrimonio)}</td>
+              <td className="tnum px-3 py-3.5 text-right">{brl(patrimonio)}</td>
               <td
-                className={`tnum px-3 py-3.5 text-right font-mono ${
+                className={`tnum px-3 py-3.5 text-right ${
                   lucroTotal >= 0 ? "text-gain-ink" : "text-loss-ink"
                 }`}
               >
                 {brl(lucroTotal)}
               </td>
-              <td className="tnum py-3.5 pr-5 pl-3 text-right font-mono text-xs text-mute">
+              <td className="tnum py-3.5 pr-5 pl-3 text-right text-xs text-mute">
                 100%
               </td>
             </tr>

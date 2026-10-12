@@ -5,13 +5,13 @@ import { api, ApiError } from "@/lib/api";
 import {
   alocacaoDepois,
   APORTE_DO_DESAFIO,
-  CARTEIRA_EXEMPLO,
   custoDasCompras,
   desvioDasMetas,
   type AtivoExemplo,
   type Compras,
 } from "@/lib/carteira-exemplo";
-import { brl, coresClasse } from "@/lib/format";
+import { brl, coresClasse, numero, percentual } from "@/lib/format";
+import { CONTA_DEMO } from "@/lib/site-dados";
 import { BotaoDemo } from "./botao-demo";
 
 const NOME_CLASSE: Record<AtivoExemplo["classe"], string> = {
@@ -24,50 +24,56 @@ const NOME_CLASSE: Record<AtivoExemplo["classe"], string> = {
 // medir contra 100% deixaria tudo espremido no começo da trilha.
 const ESCALA_PCT = 40;
 
-// Calculado uma vez, fora do componente: a carteira de exemplo não muda.
-const DESVIO_INICIAL = desvioDasMetas(CARTEIRA_EXEMPLO, {});
-const ALOCACAO_INICIAL = alocacaoDepois(CARTEIRA_EXEMPLO, {});
+type RespostaExemplo = {
+  compras: { ticker: string; quantidade: number }[];
+  ignorados: { ticker: string; motivo: string }[];
+};
 
-type RespostaExemplo = { compras: { ticker: string; quantidade: number }[] };
+type Comparacao = {
+  minhas: Compras;
+  sugeridas: Compras;
+  /** Quem ficou de fora da sugestão e por quê, nas palavras do backend. */
+  ignorados: RespostaExemplo["ignorados"];
+};
 
-type Comparacao = { minhas: Compras; sugeridas: Compras };
-
-function umaCasa(valor: number) {
-  return valor.toFixed(1).replace(".", ",");
+function metaPct(meta: number) {
+  return percentual(meta, Number.isInteger(meta) ? 0 : 1);
 }
 
-function listaDeCompras(compras: Compras) {
-  const itens = CARTEIRA_EXEMPLO.filter((a) => (compras[a.ticker] ?? 0) > 0);
+function ListaDeCompras({ carteira, compras }: { carteira: readonly AtivoExemplo[]; compras: Compras }) {
+  const itens = carteira.filter((a) => (compras[a.ticker] ?? 0) > 0);
   if (itens.length === 0) return <p className="text-sm text-mute">Nenhuma compra.</p>;
   return (
     <ul className="space-y-1.5">
-      {itens.map((a) => (
-        <li key={a.ticker} className="flex items-baseline justify-between gap-3 text-sm">
-          <span>
-            <span className="tnum font-mono font-semibold">{compras[a.ticker]}</span>{" "}
-            {compras[a.ticker] === 1 ? "cota" : "cotas"} de{" "}
-            <span className="font-mono font-semibold">{a.ticker}</span>
-          </span>
-          <span className="tnum font-mono text-mute">
-            {brl((compras[a.ticker] ?? 0) * a.preco)}
-          </span>
-        </li>
-      ))}
+      {itens.map((a) => {
+        const cotas = compras[a.ticker] ?? 0;
+        return (
+          <li key={a.ticker} className="flex items-baseline justify-between gap-3 text-[15px]">
+            <span>
+              <span className="tnum font-semibold">{cotas}</span> {cotas === 1 ? "cota" : "cotas"} de{" "}
+              <span className="font-semibold">{a.ticker}</span>
+            </span>
+            <span className="tnum text-ink-2">{brl(cotas * a.preco)}</span>
+          </li>
+        );
+      })}
     </ul>
   );
 }
 
-export function DesafioAporte() {
+export function DesafioAporte({ carteira }: { carteira: readonly AtivoExemplo[] }) {
   const [compras, setCompras] = useState<Compras>({});
   const [comparacao, setComparacao] = useState<Comparacao | null>(null);
   const [comparando, setComparando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
   // Tudo derivado na renderização: são seis ativos, recalcular é instantâneo.
-  const gasto = custoDasCompras(CARTEIRA_EXEMPLO, compras);
+  const antes = alocacaoDepois(carteira, {});
+  const desvioInicial = desvioDasMetas(carteira, {});
+  const gasto = custoDasCompras(carteira, compras);
   const sobra = APORTE_DO_DESAFIO - gasto;
-  const depois = alocacaoDepois(CARTEIRA_EXEMPLO, compras);
-  const desvio = desvioDasMetas(CARTEIRA_EXEMPLO, compras);
+  const depois = alocacaoDepois(carteira, compras);
+  const desvio = desvioDasMetas(carteira, compras);
   const comprouAlgo = gasto > 0;
 
   function mudar(ticker: string, delta: number) {
@@ -88,11 +94,12 @@ export function DesafioAporte() {
     try {
       const r = await api<RespostaExemplo>("/rebalance/exemplo", {
         method: "POST",
-        body: JSON.stringify({ amount: APORTE_DO_DESAFIO, ativos: CARTEIRA_EXEMPLO }),
+        body: JSON.stringify({ amount: APORTE_DO_DESAFIO, ativos: carteira }),
       });
       setComparacao({
         minhas: compras,
         sugeridas: Object.fromEntries(r.compras.map((c) => [c.ticker, c.quantidade])),
+        ignorados: r.ignorados,
       });
     } catch (err) {
       setErro(
@@ -106,32 +113,35 @@ export function DesafioAporte() {
   }
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-line bg-card">
-      {/* Placar: o que o visitante gastou e quão longe as metas estão */}
-      <div className="grid grid-cols-2 gap-px border-b border-line bg-line sm:grid-cols-4">
-        {[
-          { rotulo: "Para investir", valor: brl(APORTE_DO_DESAFIO) },
-          { rotulo: "Você já usou", valor: brl(gasto) },
-          { rotulo: "Sobra", valor: brl(sobra) },
-          {
-            rotulo: "Fora das metas",
-            valor: `${umaCasa(desvio)} pts`,
-            nota: `começou em ${umaCasa(DESVIO_INICIAL)}`,
-          },
-        ].map((item) => (
-          <div key={item.rotulo} className="bg-card px-5 py-4">
-            <p className="text-xs text-mute">{item.rotulo}</p>
-            <p className="tnum mt-1 font-mono text-lg font-bold">{item.valor}</p>
-            {item.nota && <p className="text-xs text-mute">{item.nota}</p>}
-          </div>
-        ))}
+    <article
+      aria-labelledby="folha-de-novembro"
+      className="overflow-hidden rounded-md border border-pauta bg-card text-ink shadow-folha"
+    >
+      <div className="flex flex-wrap items-end justify-between gap-4 px-6 pt-6 pb-[18px]">
+        <div>
+          <h3 id="folha-de-novembro" className="font-leitura text-2xl leading-[30px] font-semibold">
+            Aporte de novembro
+          </h3>
+          <p className="mt-1 text-[13px] text-mute">
+            Carteira de exemplo depois de outubro, {carteira.length} ativos
+          </p>
+        </div>
+        <p className="tnum text-lg font-semibold">{brl(APORTE_DO_DESAFIO)}</p>
       </div>
 
-      <ul className="divide-y divide-line">
-        {CARTEIRA_EXEMPLO.map((a, i) => {
+      {/* O placar é uma frase, não uma fileira de números grandes */}
+      <p className="border-y border-pauta bg-caderno px-6 py-3 text-[15px] leading-6 text-ink-2">
+        Você usou <span className="tnum font-semibold text-ink">{brl(gasto)}</span> e sobram{" "}
+        <span className="tnum font-semibold text-ink">{brl(sobra)}</span>. Fora das metas:{" "}
+        <span className="tnum font-semibold text-ink">{numero(desvio, 1)} pontos</span>, começou em{" "}
+        <span className="tnum">{numero(desvioInicial, 1)}</span>.
+      </p>
+
+      <ul className="divide-y divide-pauta">
+        {carteira.map((a, i) => {
           const qtd = compras[a.ticker] ?? 0;
-          const antes = ALOCACAO_INICIAL[i]?.pct ?? 0;
-          const agora = depois[i]?.pct ?? 0;
+          const pctAntes = antes[i]?.pct ?? 0;
+          const pctDepois = depois[i]?.pct ?? 0;
           const cor = coresClasse[a.classe] ?? "var(--color-mute)";
           // Em centavos: em float, 1000 − 990,92 dá 9,0799…, e a última cota
           // de R$ 9,08 que cabe exatamente seria recusada.
@@ -139,33 +149,33 @@ export function DesafioAporte() {
           return (
             <li
               key={a.ticker}
-              className="grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-3 px-5 py-4 md:grid-cols-[11rem_1fr_auto]"
+              className="grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-3 px-6 py-4 md:grid-cols-[13.5rem_1fr_auto]"
             >
               <div>
-                <p className="flex items-center gap-2">
-                  <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: cor }} />
-                  <span className="font-mono font-semibold">{a.ticker}</span>
+                <p className="flex items-baseline gap-2">
+                  <span aria-hidden className="h-2 w-2 shrink-0 self-center rounded-full" style={{ background: cor }} />
+                  <span className="text-[15px] font-semibold">{a.ticker}</span>
                   <span className="text-xs text-mute">{NOME_CLASSE[a.classe]}</span>
                 </p>
-                <p className="mt-0.5 text-xs text-mute">
-                  {a.nome}, <span className="tnum font-mono">{brl(a.preco)}</span> a cota
+                <p className="mt-0.5 text-[13px] text-mute">
+                  {a.nome}, <span className="tnum">{brl(a.preco)}</span> a cota
                 </p>
               </div>
 
-              {/* Barra: cinza é hoje, colorida é depois das suas compras, o
-                  traço é a meta. Mesma linguagem da tela de simulação do app. */}
+              {/* Cinza é a carteira de antes, colorida é depois das suas
+                  compras, o traço é a meta. */}
               <div className="col-span-2 md:col-span-1 md:col-start-2 md:row-start-1">
                 <div className="relative space-y-1">
-                  <div className="h-1.5 overflow-hidden rounded-full bg-paper">
+                  <div className="h-1.5 overflow-hidden rounded-full bg-caderno">
                     <div
-                      className="h-full rounded-full bg-mute-soft/60"
-                      style={{ width: `${Math.min((antes / ESCALA_PCT) * 100, 100)}%` }}
+                      className="h-full rounded-full bg-mute/45"
+                      style={{ width: `${Math.min((pctAntes / ESCALA_PCT) * 100, 100)}%` }}
                     />
                   </div>
-                  <div className="h-2 overflow-hidden rounded-full bg-paper">
+                  <div className="h-2 overflow-hidden rounded-full bg-caderno">
                     <div
                       className="h-full rounded-full transition-[width] duration-300 motion-reduce:transition-none"
-                      style={{ width: `${Math.min((agora / ESCALA_PCT) * 100, 100)}%`, background: cor }}
+                      style={{ width: `${Math.min((pctDepois / ESCALA_PCT) * 100, 100)}%`, background: cor }}
                     />
                   </div>
                   <span
@@ -174,10 +184,9 @@ export function DesafioAporte() {
                     style={{ left: `${(a.meta / ESCALA_PCT) * 100}%` }}
                   />
                 </div>
-                <p className="tnum mt-1.5 font-mono text-xs text-mute">
-                  {umaCasa(antes)}% → <span className="font-semibold text-ink">{umaCasa(agora)}%</span>
-                  <span className="font-sans">, meta </span>
-                  {a.meta}%
+                <p className="tnum mt-1.5 text-xs text-mute">
+                  {percentual(pctAntes)} para <span className="font-semibold text-ink">{percentual(pctDepois)}</span>,
+                  meta {metaPct(a.meta)}
                 </p>
               </div>
 
@@ -187,13 +196,13 @@ export function DesafioAporte() {
                   onClick={() => mudar(a.ticker, -1)}
                   disabled={qtd === 0}
                   aria-label={`Uma cota a menos de ${a.ticker}`}
-                  className="grid h-9 w-9 touch-manipulation place-items-center rounded-lg border border-line text-lg leading-none transition-colors hover:bg-paper disabled:opacity-35"
+                  className="grid h-11 w-11 touch-manipulation place-items-center rounded border border-pauta text-lg leading-none transition-colors hover:bg-caderno disabled:opacity-35 md:h-9 md:w-9"
                 >
                   −
                 </button>
                 <output
                   aria-label={`Cotas de ${a.ticker} na sua compra`}
-                  className="tnum w-9 text-center font-mono font-semibold"
+                  className="tnum w-9 text-center font-semibold"
                 >
                   {qtd}
                 </output>
@@ -203,7 +212,7 @@ export function DesafioAporte() {
                   disabled={!cabe}
                   aria-label={`Comprar mais uma cota de ${a.ticker}`}
                   title={cabe ? undefined : "A sobra não paga mais uma cota"}
-                  className="grid h-9 w-9 touch-manipulation place-items-center rounded-lg border border-line text-lg leading-none transition-colors hover:bg-paper disabled:opacity-35"
+                  className="grid h-11 w-11 touch-manipulation place-items-center rounded border border-pauta text-lg leading-none transition-colors hover:bg-caderno disabled:opacity-35 md:h-9 md:w-9"
                 >
                   +
                 </button>
@@ -213,12 +222,12 @@ export function DesafioAporte() {
         })}
       </ul>
 
-      <div className="flex flex-wrap items-center gap-3 border-t border-line bg-paper/60 px-5 py-4">
+      <div className="flex flex-wrap items-center gap-3 border-t border-pauta bg-caderno px-6 py-4">
         <button
           type="button"
           onClick={comparar}
           disabled={!comprouAlgo || comparando}
-          className="rounded-lg bg-ink px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-ink-lift disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded bg-ink px-4 py-2.5 text-[15px] font-semibold text-white transition-colors hover:bg-ink-lift disabled:cursor-not-allowed disabled:opacity-50"
         >
           {comparando ? "Calculando…" : "Comparar com o PortfolioLab"}
         </button>
@@ -226,7 +235,7 @@ export function DesafioAporte() {
           <button
             type="button"
             onClick={recomecar}
-            className="rounded-lg px-3 py-2.5 text-sm font-semibold text-mute hover:text-ink"
+            className="rounded px-2 py-2.5 text-[15px] font-semibold text-ink-2 underline decoration-1 underline-offset-4 hover:text-ink"
           >
             Recomeçar
           </button>
@@ -236,54 +245,62 @@ export function DesafioAporte() {
         </p>
       </div>
 
-      {comparacao && <Resultado comparacao={comparacao} />}
-    </div>
+      {comparacao && <Resultado carteira={carteira} comparacao={comparacao} />}
+    </article>
   );
 }
 
-function Resultado({ comparacao }: { comparacao: Comparacao }) {
-  const meu = desvioDasMetas(CARTEIRA_EXEMPLO, comparacao.minhas);
-  const deles = desvioDasMetas(CARTEIRA_EXEMPLO, comparacao.sugeridas);
+function Resultado({ carteira, comparacao }: { carteira: readonly AtivoExemplo[]; comparacao: Comparacao }) {
+  const meu = desvioDasMetas(carteira, comparacao.minhas);
+  const deles = desvioDasMetas(carteira, comparacao.sugeridas);
   const diferenca = meu - deles;
   // décimo de ponto é ruído de arredondamento, não vitória
   const veredito =
     diferenca <= 0.05
       ? "Você chegou tão perto das metas quanto o PortfolioLab."
-      : `O PortfolioLab deixou a carteira ${umaCasa(diferenca)} pontos mais perto das metas.`;
+      : `O PortfolioLab deixou a carteira ${numero(diferenca, 1)} pontos mais perto das metas.`;
 
   return (
-    <section aria-label="Resultado da comparação" className="border-t border-line px-5 py-6">
-      <p className="text-lg font-semibold">{veredito}</p>
+    <section aria-label="Resultado da comparação" className="border-t border-pauta px-6 py-7">
+      <p className="font-leitura text-[22px] leading-[30px] font-semibold">{veredito}</p>
 
-      <div className="mt-5 grid gap-6 md:grid-cols-2">
+      <div className="mt-6 grid gap-8 md:grid-cols-2">
         <div>
-          <h3 className="flex items-baseline justify-between text-sm font-semibold">
+          <h4 className="flex items-baseline justify-between gap-3 border-b border-pauta pb-2 text-sm font-semibold">
             Sua compra
-            <span className="tnum font-mono text-mute">{umaCasa(meu)} pts fora</span>
-          </h3>
-          <div className="mt-3">{listaDeCompras(comparacao.minhas)}</div>
+            <span className="tnum font-medium text-ink-2">{numero(meu, 1)} pontos fora</span>
+          </h4>
+          <div className="mt-3">
+            <ListaDeCompras carteira={carteira} compras={comparacao.minhas} />
+          </div>
         </div>
         <div>
-          <h3 className="flex items-baseline justify-between text-sm font-semibold">
+          <h4 className="flex items-baseline justify-between gap-3 border-b border-pauta pb-2 text-sm font-semibold">
             Sugestão do PortfolioLab
-            <span className="tnum font-mono text-gain-ink">{umaCasa(deles)} pts fora</span>
-          </h3>
-          <div className="mt-3">{listaDeCompras(comparacao.sugeridas)}</div>
+            <span className="tnum font-medium text-gain-ink">{numero(deles, 1)} pontos fora</span>
+          </h4>
+          <div className="mt-3">
+            <ListaDeCompras carteira={carteira} compras={comparacao.sugeridas} />
+          </div>
         </div>
       </div>
 
-      <div className="mt-6 rounded-xl bg-paper px-5 py-4 text-sm leading-relaxed text-ink-soft">
-        <p className="font-semibold text-ink">Por que essa sugestão</p>
-        <p className="mt-1.5 max-w-prose">
-          O dinheiro novo vai só para quem está abaixo da meta, e cada ativo recebe uma fatia
-          proporcional ao tamanho do seu buraco. Vender o que passou da meta geraria imposto;
-          aportar no que ficou para trás não. Cotas são inteiras: quando uma cota custa mais que a
-          fatia, como o IVVB11 aqui, o troco vai para o próximo mais longe da meta.
+      {/* A explicação é uma anotação na margem, como as das folhas */}
+      <div className="mt-7 max-w-[68ch] space-y-2 border-l-[1.5px] border-anotacao-margem pl-4 font-leitura text-[15px] leading-[22px] italic text-anotacao">
+        <p>
+          O dinheiro novo vai só para quem está abaixo da meta, e cada ativo recebe uma fatia proporcional ao
+          tamanho do seu buraco. Vender o que passou da meta geraria imposto; aportar no que ficou para trás,
+          não. As cotas são inteiras, então o troco vai para quem continua mais longe da meta.
         </p>
+        {comparacao.ignorados.map((i) => (
+          <p key={i.ticker}>
+            {i.ticker} ficou de fora: {i.motivo}.
+          </p>
+        ))}
       </div>
 
-      <div className="mt-6">
-        <BotaoDemo tom="escuro" rotulo="Fazer isso numa carteira de 16 ativos" />
+      <div className="mt-7">
+        <BotaoDemo tom="escuro" rotulo={`Fazer isso numa carteira de ${CONTA_DEMO.ativos} ativos`} />
       </div>
     </section>
   );

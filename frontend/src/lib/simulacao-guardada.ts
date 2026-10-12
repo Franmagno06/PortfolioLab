@@ -41,7 +41,7 @@ export type SimulacaoGuardada = {
  *
  * O sessionStorage dura enquanto a aba estiver aberta (sobrevive a navegação e
  * a F5) e some ao fechá-la: guarda o cálculo sem deixar dado financeiro no
- * computador para sempre. O logout apaga explicitamente (ver sidebar.tsx).
+ * computador para sempre. O logout apaga explicitamente (ver useSair em cabecalho-site.tsx).
  *
  * useSyncExternalStore é a forma do React de ler um valor que vive FORA dele.
  * Ler o sessionStorage direto no useState quebraria a hidratação: no servidor

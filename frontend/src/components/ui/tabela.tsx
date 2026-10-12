@@ -34,7 +34,7 @@ export function CardTabela({
   larguraMinima: string;
 }) {
   return (
-    <div className="overflow-x-auto rounded-xl border border-line bg-card">
+    <div className="overflow-x-auto rounded-md border border-line bg-card">
       <table className={`w-full text-sm ${larguraMinima}`}>{children}</table>
     </div>
   );

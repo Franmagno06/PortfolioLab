@@ -70,14 +70,14 @@ export function NovaTransacao({ aberto, aoFechar, aoCriar }: Props) {
   if (!aberto) return null;
 
   return (
-    <form onSubmit={salvar} className="reveal rounded-xl border border-line bg-card p-5">
+    <form onSubmit={salvar} className="reveal rounded-md border border-line bg-card p-5">
       <div className="flex items-center justify-between">
         <h2 className="font-semibold">Registrar transação</h2>
         <button
           type="button"
           onClick={fechar}
           aria-label="Fechar formulário"
-          className="rounded-lg p-1 text-mute transition-colors hover:bg-paper hover:text-ink"
+          className="rounded p-1 text-mute transition-colors hover:bg-paper hover:text-ink"
         >
           <IconeFechar />
         </button>
@@ -94,7 +94,7 @@ export function NovaTransacao({ aberto, aoFechar, aoCriar }: Props) {
             placeholder="Ex: PETR4, MXRF11, WEGE3"
             maxLength={6}
             autoFocus
-            className="font-mono uppercase"
+            className="tnum uppercase placeholder:normal-case"
           />
         </div>
 
@@ -115,7 +115,7 @@ export function NovaTransacao({ aberto, aoFechar, aoCriar }: Props) {
           step="any"
           value={quantity}
           onChange={(e) => setQuantity(e.target.value)}
-          className="tnum font-mono"
+          className="tnum"
         />
 
         <Campo
@@ -129,7 +129,7 @@ export function NovaTransacao({ aberto, aoFechar, aoCriar }: Props) {
             setUnitPrice(e.target.value);
             setPrecoEditado(true);
           }}
-          className="tnum font-mono"
+          className="tnum"
         />
 
         <Campo
@@ -138,7 +138,7 @@ export function NovaTransacao({ aberto, aoFechar, aoCriar }: Props) {
           required
           value={executedAt}
           onChange={(e) => setExecutedAt(e.target.value)}
-          className="tnum font-mono"
+          className="tnum"
         />
       </div>
 
@@ -146,16 +146,16 @@ export function NovaTransacao({ aberto, aoFechar, aoCriar }: Props) {
       {buscando && <p className="mt-3 text-sm text-mute">Buscando {ticker} na B3...</p>}
 
       {cotacao && !buscando && (
-        <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg bg-gain/7 px-3 py-2 text-sm">
+        <div className="mt-3 flex flex-wrap items-center gap-2 rounded bg-gain/7 px-3 py-2 text-sm">
           <span className="flex items-center gap-1.5 font-semibold text-gain-ink">
             <IconeCheck />
             {cotacao.ticker}
           </span>
-          <span className="text-ink-soft">{cotacao.nome}</span>
+          <span className="text-ink-2">{cotacao.nome}</span>
           <span className="rounded-full bg-card px-2 py-0.5 text-[11px] font-semibold text-mute">
             {nomesClasse[cotacao.tipo] ?? cotacao.tipo}
           </span>
-          <span className="tnum ml-auto font-mono text-xs text-mute">
+          <span className="tnum ml-auto text-xs text-mute">
             cotação hoje: {brl(cotacao.preco)}
           </span>
         </div>

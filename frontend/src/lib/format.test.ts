@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { brl, pct, tempoRelativo } from "./format";
+import {
+  brl,
+  brlSemCentavos,
+  numero,
+  pct,
+  percentual,
+  tempoRelativo,
+  vezesPorExtenso,
+} from "./format";
 
 // \s no regex do JS casa também o espaço não-quebrável (U+00A0) que
 // toLocaleString("pt-BR", {style:"currency"}) usa entre "R$" e o valor —
@@ -62,5 +70,47 @@ describe("tempoRelativo", () => {
   it("30 dias ou mais vira data absoluta", () => {
     const iso = new Date(Date.now() - 31 * 24 * 60 * 60_000).toISOString();
     expect(tempoRelativo(iso)).toBe(new Date(iso).toLocaleDateString("pt-BR"));
+  });
+});
+
+describe("numero", () => {
+  it("agrupa milhar com ponto, inclusive em quatro dígitos", () => {
+    expect(numero(192115)).toBe("192.115");
+    expect(numero(3772)).toBe("3.772");
+  });
+
+  it("fixa as casas decimais com vírgula", () => {
+    expect(numero(20.84, 1)).toBe("20,8");
+    expect(numero(15.1, 1)).toBe("15,1");
+  });
+});
+
+describe("percentual", () => {
+  it("não acrescenta sinal, ao contrário de pct()", () => {
+    expect(percentual(7.02)).toBe("7,0%");
+    expect(percentual(20.9)).toBe("20,9%");
+  });
+
+  it("aceita outras casas, para taxa e variação de índice", () => {
+    expect(percentual(13.75, 2)).toBe("13,75%");
+    expect(percentual(3.1, 2)).toBe("3,10%");
+    expect(percentual(9, 0)).toBe("9%");
+  });
+});
+
+describe("brlSemCentavos", () => {
+  it("formata valor redondo sem os centavos", () => {
+    expect(semEspacosEspeciais(brlSemCentavos(1000))).toBe("R$ 1.000");
+  });
+});
+
+describe("vezesPorExtenso", () => {
+  it("escreve a contagem por extenso até doze", () => {
+    expect(vezesPorExtenso(1)).toBe("uma vez");
+    expect(vezesPorExtenso(4)).toBe("quatro vezes");
+  });
+
+  it("acima de doze, usa algarismos", () => {
+    expect(vezesPorExtenso(13)).toBe("13 vezes");
   });
 });

@@ -8,6 +8,55 @@ export function pct(valor: number): string {
   return `${valor >= 0 ? "+" : ""}${valor.toFixed(1).replace(".", ",")}%`;
 }
 
+// Um Intl.NumberFormat por quantidade de casas, criado uma vez: montar o
+// formatador custa mais do que formatar, e o site formata dezenas de números.
+const formatadoresDeNumero = new Map<number, Intl.NumberFormat>();
+
+function formatadorDeNumero(casas: number): Intl.NumberFormat {
+  let formatador = formatadoresDeNumero.get(casas);
+  if (!formatador) {
+    formatador = new Intl.NumberFormat("pt-BR", {
+      minimumFractionDigits: casas,
+      maximumFractionDigits: casas,
+    });
+    formatadoresDeNumero.set(casas, formatador);
+  }
+  return formatador;
+}
+
+/** Número em pt-BR com casas fixas: numero(192115) → "192.115"; numero(20.84, 1) → "20,8". */
+export function numero(valor: number, casas = 0): string {
+  return formatadorDeNumero(casas).format(valor);
+}
+
+/**
+ * Percentual sem sinal, para taxa e indicador: percentual(7.02) → "7,0%";
+ * percentual(13.75, 2) → "13,75%". Para variação, que precisa do sinal, use pct().
+ */
+export function percentual(valor: number, casas = 1): string {
+  return `${numero(valor, casas)}%`;
+}
+
+/** Reais sem centavos, para valor redondo dentro de uma frase: "R$ 1.000". */
+export function brlSemCentavos(valor: number): string {
+  return valor.toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  });
+}
+
+const VEZES_POR_EXTENSO = [
+  "nenhuma vez", "uma vez", "duas vezes", "três vezes", "quatro vezes", "cinco vezes",
+  "seis vezes", "sete vezes", "oito vezes", "nove vezes", "dez vezes", "onze vezes", "doze vezes",
+];
+
+/** Contagem por extenso em frase corrida: vezesPorExtenso(4) → "quatro vezes". Acima de doze, em algarismos. */
+export function vezesPorExtenso(n: number): string {
+  return VEZES_POR_EXTENSO[n] ?? `${numero(n)} vezes`;
+}
+
 /** Indicador que o provedor não informou (comum em FII e empresa recém-listada). */
 export function indicadorOuTraco(valor: number | null): string {
   return valor === null ? "—" : valor.toFixed(2).replace(".", ",");

@@ -16,12 +16,11 @@ const AVISO_DEPOIS_MS = 4000;
 
 type Props = {
   rotulo?: string;
-  /** "claro" sobre o fundo azul do topo; "escuro" sobre o papel. */
+  /** "claro": branco sobre a tinta. "escuro": tinta sobre o papel. */
   tom?: "claro" | "escuro";
-  compacto?: boolean;
 };
 
-export function BotaoDemo({ rotulo = "Explorar a demonstração", tom = "claro", compacto }: Props) {
+export function BotaoDemo({ rotulo = "Ver a demonstração", tom = "claro" }: Props) {
   const router = useRouter();
   const [entrando, setEntrando] = useState(false);
   const [demorando, setDemorando] = useState(false);
@@ -50,29 +49,20 @@ export function BotaoDemo({ rotulo = "Explorar a demonstração", tom = "claro",
   }
 
   const estilo =
-    tom === "claro"
-      ? "bg-white text-ink hover:bg-paper"
-      : "bg-ink text-white hover:bg-ink-lift";
-  const tamanho = compacto ? "px-3.5 py-2 text-sm" : "px-5 py-3 text-base";
+    tom === "claro" ? "bg-card text-ink hover:bg-caderno" : "bg-ink text-white hover:bg-ink-lift";
 
   return (
-    <div className={`flex flex-col items-start ${compacto ? "" : "gap-2"}`}>
+    <div className="flex flex-col items-start">
       <button
         type="button"
         onClick={entrar}
         disabled={entrando}
-        className={`rounded-lg font-semibold transition-colors disabled:cursor-wait disabled:opacity-80 ${estilo} ${tamanho}`}
+        className={`rounded px-5 py-3 text-base font-semibold transition-colors disabled:cursor-wait disabled:opacity-80 ${estilo}`}
       >
-        {entrando ? (demorando && compacto ? "Acordando o servidor…" : "Entrando…") : rotulo}
+        {entrando ? "Entrando…" : rotulo}
       </button>
-      {/* aria-live: quem usa leitor de tela também fica sabendo da espera. No
-          cabeçalho, o texto visível cabe no próprio botão. */}
-      <p
-        aria-live="polite"
-        className={
-          compacto ? "sr-only" : `text-sm ${tom === "claro" ? "text-white/75" : "text-mute"}`
-        }
-      >
+      {/* aria-live: quem usa leitor de tela também fica sabendo da espera */}
+      <p aria-live="polite" className={`mt-2 text-sm empty:mt-0 ${tom === "claro" ? "text-white/78" : "text-mute"}`}>
         {demorando
           ? "Acordando o servidor gratuito. Na primeira visita do dia isso leva até um minuto."
           : erro}

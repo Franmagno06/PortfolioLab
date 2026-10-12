@@ -198,7 +198,7 @@ export default function RelatoriosPage() {
                         setChat([]);
                       }}
                       aria-current={ativo ? "true" : undefined}
-                      className={`w-full rounded-lg px-3 py-2 text-left text-sm transition-colors ${
+                      className={`w-full rounded px-3 py-2 text-left text-sm transition-colors ${
                         ativo ? "bg-ink text-white" : "hover:bg-paper"
                       }`}
                     >
@@ -270,13 +270,13 @@ export default function RelatoriosPage() {
                       return (
                         <div
                           key={i}
-                          className="rounded-lg border-l-3 bg-paper py-3 pr-4 pl-4"
+                          className="rounded border-l-3 bg-paper py-3 pr-4 pl-4"
                           style={{ borderColor: sev.barra }}
                         >
                           <p className="text-sm font-semibold">
                             {sev.rotulo}: {a.titulo}
                           </p>
-                          <p className="mt-1 text-sm leading-relaxed text-ink-soft">
+                          <p className="mt-1 text-sm leading-relaxed text-ink-2">
                             {a.detalhe}
                           </p>
                         </div>
@@ -293,10 +293,10 @@ export default function RelatoriosPage() {
                     {analise.indicadores.map((ind, i) => (
                       <span
                         key={i}
-                        className="rounded-lg border border-line bg-paper px-3 py-1.5 text-sm"
+                        className="rounded border border-line bg-paper px-3 py-1.5 text-sm"
                       >
                         {ind.nome}:{" "}
-                        <span className="tnum font-mono font-semibold">{ind.valor}</span>
+                        <span className="tnum font-semibold">{ind.valor}</span>
                       </span>
                     ))}
                   </div>
@@ -324,7 +324,7 @@ export default function RelatoriosPage() {
                       {chat.map((m, i) => (
                         <div
                           key={i}
-                          className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
+                          className={`max-w-[85%] rounded-md px-4 py-2.5 text-sm leading-relaxed ${
                             m.role === "user" ? "ml-auto bg-ink text-white" : "bg-paper"
                           }`}
                         >
@@ -332,7 +332,7 @@ export default function RelatoriosPage() {
                         </div>
                       ))}
                       {perguntando && (
-                        <p className="max-w-[85%] rounded-2xl bg-paper px-4 py-2.5 text-sm text-mute">
+                        <p className="max-w-[85%] rounded-md bg-paper px-4 py-2.5 text-sm text-mute">
                           Consultando o relatório...
                         </p>
                       )}

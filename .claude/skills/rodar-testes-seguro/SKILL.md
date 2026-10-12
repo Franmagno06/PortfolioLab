@@ -125,6 +125,22 @@ O config sobe um backend próprio na **porta 3333**, que precisa estar livre por
 `npm run dev` do backend. O teste cria um usuário `playwright-<uuid>@portfoliolab.dev` no
 Docker. Na primeira vez numa máquina, pode ser preciso rodar `npx playwright install chromium`.
 
+Esse backend roda com `NODE_ENV=test`, como o Vitest. Assim o limitador de autenticação (10
+tentativas a cada 15 minutos por IP) fica desligado. Com ele ligado, a suíte e as repetições
+(`--repeat-each`) recebiam 429 no login, e os testes da área logada falhavam sem sessão.
+
+**Servidores órfãos no Windows.** O Playwright às vezes deixa o `npm run dev` que ele subiu
+vivo depois do fim dos testes, segurando a porta 3000 ou a 3333. Antes de encerrar um processo
+numa dessas portas, confira se ele é da rodada de testes: o backend sobe primeiro e o frontend
+uns 10 segundos depois. Use a hora de início do processo:
+
+```bash
+netstat -ano | grep -E ":(3000|3333) .*LISTENING"
+powershell -NoProfile -Command "(Get-Process -Id <PID>).StartTime"
+```
+
+Se não for da rodada de testes, o servidor é do usuário: não encerre, peça a ele.
+
 ## 5. Quando algo falha
 
 1. **Descubra se a falha já existia.** Rode o mesmo comando no `main` com
