@@ -88,6 +88,7 @@ describe("GET /indicators", () => {
       roe: null,
       roa: null,
       margemLiquida: null,
+      dividaEbitda: null,
       setorBancario: false,
       atualizadoEm: null,
     });

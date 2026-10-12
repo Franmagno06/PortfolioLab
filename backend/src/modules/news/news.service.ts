@@ -10,16 +10,24 @@ export type NoticiaClassificada = ItemNoticia & {
 // martelar os servidores deles e deixa a resposta instantânea.
 const CACHE_MS = 10 * 60 * 1000;
 let cache: { em: number; itens: ItemNoticia[] } | null = null;
+// Uma ida aos feeds por vez: quando o cache vence, as fichas dos 30 ativos pedem as notícias juntas,
+// e sem isto cada uma faria suas duas requisições aos feeds.
+let buscaEmVoo: Promise<ItemNoticia[]> | null = null;
 
-async function noticiasComCache(): Promise<ItemNoticia[]> {
-  if (cache && Date.now() - cache.em < CACHE_MS) return cache.itens;
+export function noticiasComCache(): Promise<ItemNoticia[]> {
+  if (cache && Date.now() - cache.em < CACHE_MS) return Promise.resolve(cache.itens);
 
-  const itens = await buscarNoticias();
-  // só substitui o cache se veio algo — se todas as fontes falharem,
-  // é melhor servir notícia velha do que lista vazia
-  if (itens.length > 0) cache = { em: Date.now(), itens };
-
-  return cache?.itens ?? [];
+  buscaEmVoo ??= buscarNoticias()
+    .then((itens) => {
+      // só substitui o cache se veio algo — se todas as fontes falharem,
+      // é melhor servir notícia velha do que lista vazia
+      if (itens.length > 0) cache = { em: Date.now(), itens };
+      return cache?.itens ?? [];
+    })
+    .finally(() => {
+      buscaEmVoo = null;
+    });
+  return buscaEmVoo;
 }
 
 /** Remove acentos e caixa para comparar "Itaú" com "itau". */

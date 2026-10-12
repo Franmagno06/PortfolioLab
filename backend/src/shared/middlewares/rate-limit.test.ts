@@ -1,10 +1,11 @@
 import express, { type Router } from "express";
 import request from "supertest";
 import { describe, expect, it } from "vitest";
+import { ativosRoutes } from "../../modules/ativos/ativos.routes.js";
 import { authRoutes } from "../../modules/auth/auth.routes.js";
 import { reportsRoutes } from "../../modules/reports/reports.routes.js";
 import { errorHandler } from "./error-handler.js";
-import { criarLimitador, limitadorAuth, limitadorRelatorios } from "./rate-limit.js";
+import { criarLimitador, limitadorAtivos, limitadorAuth, limitadorRelatorios } from "./rate-limit.js";
 
 // Achado 8: sem teto de requisições, /auth/login aceita força bruta e
 // /reports queima cota paga do Gemini. O limitador é testado aqui isolado,
@@ -96,5 +97,22 @@ describe("fiação dos limitadores nas rotas", () => {
 
   it("GET /reports é leitura barata e não leva o limitador de relatórios", () => {
     expect(middlewaresDa(reportsRoutes, "get", "/")).not.toContain(limitadorRelatorios);
+  });
+});
+
+describe("fiação do limitador das páginas públicas de ativos", () => {
+  // Rota aberta, sem login: o limitador é a única proteção contra quem a martela. Ele está no
+  // roteador (router.use), então vem ANTES de qualquer rota na pilha.
+  const pilha = (ativosRoutes as unknown as { stack: (CamadaDeRota & { handle: unknown })[] }).stack;
+
+  it("o limitador de ativos é a primeira camada do roteador, antes de qualquer rota", () => {
+    expect(pilha[0]?.handle).toBe(limitadorAtivos);
+    expect(pilha[0]?.route).toBeUndefined();
+  });
+
+  it("as quatro rotas públicas estão no roteador, depois do limitador", () => {
+    const rotas = pilha.filter((c) => c.route).map((c) => c.route?.path);
+
+    expect(rotas).toEqual(["/acoes", "/acoes/:ticker", "/fiis", "/fiis/:ticker"]);
   });
 });

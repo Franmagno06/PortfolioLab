@@ -60,6 +60,7 @@ model Asset {
   indicator    AssetIndicator?
   reports      Report[]
   cvmSummaries CvmSummary[]
+  snapshots    AssetSnapshot[]
 
   @@map("assets")
 }
@@ -94,6 +95,10 @@ model AssetIndicator {
   roa     Decimal? @db.Decimal(7, 2)
   /// Margem líquida, em pontos percentuais.
   margemLiquida Decimal? @map("margem_liquida") @db.Decimal(7, 2)
+  /// Dívida líquida ÷ EBITDA, em vezes: (dívida total − caixa) ÷ EBITDA, ambos do Yahoo
+  /// (financialData). Null quando o provedor não informa, quando o EBITDA é zero ou
+  /// negativo (a razão perde o sentido) e para bancos, onde a dívida é o negócio.
+  dividaEbitda Decimal? @map("divida_ebitda") @db.Decimal(10, 2)
   /// Setor/indústria como o Yahoo classifica (ex.: "Banks - Regional").
   /// Usado só para decidir se a tela mostra ROA no lugar de margem líquida.
   industria String? @db.Text
@@ -203,6 +208,49 @@ model CvmSummary {
 
   @@unique([assetId, period])
   @@map("cvm_summaries")
+}
+
+/// O que as fontes públicas disseram sobre um ativo, guardado para as páginas de
+/// Ativos não baixarem de novo a cada visita: resultados trimestrais da CVM, o último
+/// informe mensal de um FII e as notícias. Só dado público, nunca de usuário.
+/// A validade de cada tipo vive em modules/ativos (ativos.snapshots.ts).
+enum SnapshotType {
+  CVM_RESULTS
+  CVM_FUND_REPORT
+  NEWS
+}
+
+model AssetSnapshot {
+  id        String       @id @default(uuid())
+  assetId   String       @map("asset_id")
+  type      SnapshotType
+  /// O conteúdo já interpretado (jsonb), no formato que a API devolve.
+  data      Json
+  updatedAt DateTime     @map("updated_at")
+
+  asset Asset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  /// Uma fotografia de cada tipo por ativo. Também serve de índice para a busca por ativo.
+  @@unique([assetId, type])
+  @@map("asset_snapshots")
+}
+
+/// Histórico de notícias de mercado lidas dos feeds RSS públicos, guardado por poucos dias (a retenção
+/// vive em modules/news). Os feeds só mostram as últimas dezenas de matérias; sem o histórico, uma
+/// ação pouco comentada ficaria sem notícia na ficha. Só título, resumo e link da matéria original.
+model NewsItem {
+  id          String   @id @default(uuid())
+  /// O link da matéria na editora. É a chave: a mesma notícia lida duas vezes não duplica.
+  url         String   @unique
+  title       String
+  summary     String   @default("")
+  source      String
+  publishedAt DateTime @map("published_at")
+  fetchedAt   DateTime @default(now()) @map("fetched_at")
+
+  /// A leitura é sempre "as dos últimos N dias", e a limpeza apaga as mais velhas.
+  @@index([publishedAt])
+  @@map("news_items")
 }
 
 /// De onde veio o provento. MANUAL é o que o usuário lançou à mão; PROVEDOR é

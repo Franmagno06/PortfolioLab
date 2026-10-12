@@ -24,12 +24,18 @@ Nunca rode sem confirmar o banco de destino:
 - `npx prisma db push`
 
 **Todo teste que importa `src/database/prisma.js` escreve no banco apontado pela `DATABASE_URL`**
-— hoje são onze arquivos, entre eles todos os `*.api.test.ts`, `auth.test.ts`, `news.test.ts` e
+— hoje são dezoito arquivos, entre eles todos os `*.api.test.ts`, `auth.test.ts`, `news.test.ts` e
 `src/database/integridade.test.ts`. Confira com:
 
 ```bash
 grep -rl "database/prisma" backend/src --include=*.test.ts
 ```
+
+**Ordem do deploy quando há migration.** O Render publica a API no push para a `main`, mas a migration do
+Supabase de produção é manual (`npm run supabase:migrate`). Rode a migration **antes** do push que a
+contém: código novo contra um banco sem a coluna dá P2022 em toda leitura que passa pelo model alterado
+(a coluna `divida_ebitda`, por exemplo, quebraria `/indicators` e a carteira). Só rode contra a produção
+com o pedido explícito de quem é dono do banco.
 
 Use a skill `rodar-testes-seguro` antes de `npm test`. Testes de regra pura (`calcularPosicao`,
 `calcularAporte`, a cota de relatórios) não tocam o banco e não dependem disso.
@@ -131,6 +137,24 @@ do PDF, então `POST /reports/:id/ask` responde 409. A tabela ticker → CNPJ
 (`modules/assets/tabela-cnpj.json`) é fixa e se regenera com `npx tsx scripts/gerar-tabela-cnpj.ts`.
 
 Nenhuma delas pode derrubar uma rota. Ao mexer nesses módulos, preserve o tratamento defensivo.
+
+**Páginas públicas de Ativos** (`modules/ativos/`, `GET /ativos/{acoes,fiis}[/:ticker]`, sem login).
+Só ticker do catálogo curado (`ativos.catalogo.ts`, 15 ações e 15 FIIs) chega às fontes; qualquer
+outro dá 404 antes de qualquer chamada externa. Cotação e proventos vêm do Yahoo (cache em memória),
+indicadores de `AssetIndicator` (24h) e resultados trimestrais e informe de FII da CVM de
+`asset_snapshots`. A renovação é preguiçosa; em produção o catálogo também é aquecido ao subir a API.
+Duas regras que não podem se perder:
+
+- Interpretar o zip da CVM é **CPU síncrona** (0,5 a 2 s por trimestre). Essas renovações passam pela
+  fila serial de `ativos.snapshots.ts` e pausam entre um trimestre e outro; nunca as chame num caminho
+  de requisição sem limite de tempo, ou o Node para de atender todo mundo.
+- `buscarProventosOuNulo` distingue "o Yahoo falhou" (null) de "o ativo não pagou nada" (lista vazia).
+  O Dividend Yield depende dessa diferença: falha preserva o DY gravado, nunca vira 0%.
+
+O feed do Google Notícias **não** é usado: o próprio XML o restringe a leitor de feeds pessoal, de uso
+não comercial. As notícias de cada ficha vêm de feeds RSS públicos de vários portais (Money Times, Suno, InfoMoney, Valor Investe, Seu Dinheiro, Exame, Bora Investir; `FONTES_PARA_ATIVOS` em `news/rss.ts`), guardadas por 14 dias em `news_items` (`news/news.historico.ts`) e filtradas pelo ticker. A aba Notícias da carteira continua só com Money Times e Suno, sem banco.
+
+O front lê essa API no servidor (`frontend/src/lib/ativos-api.ts`, direto em `API_URL`, e não por `/api`), com as páginas em `revalidate = 0` e a resposta guardada 2 min pelo Next. `ativos-catalogo.ts` do front é uma cópia só de tickers e nomes, e um teste confere que não diverge do backend. O E2E das páginas (`npm run test:e2e:ativos`) é isolado: lê uma API de mentira (`e2e/ativos/stub-api.mjs`) em portas próprias, sem backend, Docker, Yahoo nem CVM. Mudou um campo do DTO de `/ativos`? Atualize `ativos-tipos.ts` e o stub.
 
 ## Qual modelo usar em cada tarefa
 

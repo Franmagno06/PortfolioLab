@@ -15,9 +15,29 @@ export type ItemNoticia = {
 // Escolhidas por serem focadas em mercado e virem com UTF-8 correto.
 // (O feed do InfoMoney mistura esporte; o do Investing.com vem com
 // encoding quebrado — por isso ficaram de fora.)
-const FONTES = [
+type FonteRss = { nome: string; url: string };
+
+/** As fontes da aba Notícias da carteira: só mercado, porque a aba mostra também o que não é da carteira. */
+const FONTES_DA_ABA: FonteRss[] = [
   { nome: "Money Times", url: "https://www.moneytimes.com.br/feed/" },
   { nome: "Suno Notícias", url: "https://www.suno.com.br/noticias/feed/" },
+];
+
+/**
+ * As fontes que alimentam as fichas de ativos. Bem mais amplas que as da aba: aqui as notícias são
+ * filtradas por ticker e nome da empresa, então um feed com política e esporte misturados (o do
+ * InfoMoney) não incomoda — o que não cita o ativo é descartado. Cada feed foi testado antes de entrar:
+ * responde, vem em UTF-8 e tem matérias do dia. Ficaram de fora o E-Investidor (parado desde maio de
+ * 2026), o Investing.com (encoding quebrado), o Bloomberg Línea (negócios em geral) e o Investidor10
+ * (devolve HTML, não RSS).
+ */
+export const FONTES_PARA_ATIVOS: FonteRss[] = [
+  ...FONTES_DA_ABA,
+  { nome: "InfoMoney", url: "https://www.infomoney.com.br/feed/" },
+  { nome: "Valor Investe", url: "https://valorinveste.globo.com/rss/valorinveste/" },
+  { nome: "Seu Dinheiro", url: "https://www.seudinheiro.com/feed/" },
+  { nome: "Exame", url: "https://exame.com/invest/feed/" },
+  { nome: "Bora Investir", url: "https://borainvestir.b3.com.br/feed/" },
 ];
 
 const parser = new XMLParser({ ignoreAttributes: false, trimValues: true });
@@ -109,7 +129,18 @@ function texto(valor: unknown): string {
   return "";
 }
 
-async function lerFeed(fonte: { nome: string; url: string }): Promise<ItemNoticia[]> {
+/**
+ * A data de um item do feed, em ISO. RFC 822 (a do RSS) e ISO com fuso o JavaScript lê direto. O feed
+ * do Exame manda ISO SEM fuso ("2026-10-12T08:01:04"), que o Date leria como horário do servidor — em
+ * produção, UTC, três horas adiantado. É horário de Brasília. Data ilegível vira "agora".
+ */
+export function interpretarDataDoFeed(bruto: string): string {
+  const semFuso = /^d{4}-d{2}-d{2}Td{2}:d{2}:d{2}(.d+)?$/.test(bruto.trim());
+  const data = new Date(semFuso ? `${bruto.trim()}-03:00` : bruto);
+  return isNaN(data.getTime()) ? new Date().toISOString() : data.toISOString();
+}
+
+async function lerFeed(fonte: FonteRss): Promise<ItemNoticia[]> {
   // timeout próprio: um feed lento não pode travar a resposta da API
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 8000);
@@ -135,14 +166,13 @@ async function lerFeed(fonte: { nome: string; url: string }): Promise<ItemNotici
 
       const resumo = limparResumo(texto(item.description));
 
-      const data = new Date(texto(item.pubDate));
       return [
         {
           titulo,
           resumo,
           link,
           fonte: fonte.nome,
-          publicadoEm: isNaN(data.getTime()) ? new Date().toISOString() : data.toISOString(),
+          publicadoEm: interpretarDataDoFeed(texto(item.pubDate)),
         },
       ];
     });
@@ -155,8 +185,8 @@ async function lerFeed(fonte: { nome: string; url: string }): Promise<ItemNotici
 }
 
 /** Busca todas as fontes em paralelo e devolve as notícias mais recentes primeiro. */
-export async function buscarNoticias(): Promise<ItemNoticia[]> {
-  const resultados = await Promise.all(FONTES.map(lerFeed));
+export async function buscarNoticias(fontes: FonteRss[] = FONTES_DA_ABA): Promise<ItemNoticia[]> {
+  const resultados = await Promise.all(fontes.map(lerFeed));
 
   // dedupe por link (a mesma notícia pode ser sindicada em mais de um feed)
   const porLink = new Map<string, ItemNoticia>();

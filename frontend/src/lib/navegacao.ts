@@ -1,3 +1,4 @@
+import { ACOES_INICIAIS, FIIS_INICIAIS } from "./ativos-catalogo";
 import { APORTE_DO_DESAFIO } from "./carteira-exemplo";
 import { brlSemCentavos } from "./format";
 import { TRILHAS } from "./site-dados";
@@ -7,8 +8,8 @@ import { TRILHAS } from "./site-dados";
  * celular e o rodapé.
  *
  * Destino sem `href` é "em breve": aparece apagado, não vira link e não recebe
- * foco. Quando a página existir, basta pôr o `href` — e, se for pública, incluir
- * a rota em `rotasPublicas` no src/proxy.ts.
+ * foco. Quando a página existir, basta pôr o `href` — e, se for pública, liberar
+ * a rota no src/proxy.ts (`/` e `/ativos/*` são as públicas hoje).
  */
 
 /** Os caminhos que existem hoje. navegacao.test.ts confere cada um contra src/app. */
@@ -21,10 +22,15 @@ export const ROTAS = {
   relatorios: "/relatorios",
   indicadores: "/indicadores",
   noticias: "/noticias",
+  acoes: "/ativos/acoes",
+  fiis: "/ativos/fiis",
   dashboard: "/dashboard",
   login: "/login",
   registro: "/registro",
 } as const;
+
+/** Um atalho direto para a ficha de um ativo, que o menu mostra ao passar o mouse. */
+export type Atalho = { rotulo: string; descricao: string; href: string };
 
 export type Destino = {
   rotulo: string;
@@ -32,6 +38,8 @@ export type Destino = {
   href?: string;
   /** Posição numa sequência (as trilhas): só elas têm número. */
   numero?: number;
+  /** Fichas que abrem num pequeno painel quando o mouse (ou o foco) chega ao item. */
+  atalhos?: { titulo: string; itens: Atalho[] };
 };
 
 export type Coluna = {
@@ -99,14 +107,39 @@ export const NAVEGACAO: Intencao[] = [
       {
         titulo: "Ações",
         itens: [
-          { rotulo: "Buscar ações", descricao: "Todas as empresas listadas na B3." },
+          {
+            rotulo: "Buscar ações",
+            descricao: "15 empresas da bolsa, para começar a olhar de perto.",
+            href: ROTAS.acoes,
+            atalhos: {
+              // "Da lista", e não "principais": a ordem do catálogo não é um ranking.
+              titulo: "Ações da lista",
+              itens: ACOES_INICIAIS.map((a) => ({
+                rotulo: a.ticker,
+                descricao: a.nome,
+                href: `${ROTAS.acoes}/${a.ticker}`,
+              })),
+            },
+          },
           { rotulo: "Ações por setor", descricao: "Bancos, energia, varejo e outros." },
         ],
       },
       {
         titulo: "Fundos imobiliários",
         itens: [
-          { rotulo: "Buscar FIIs", descricao: "Fundos de tijolo, papel e híbridos." },
+          {
+            rotulo: "Buscar FIIs",
+            descricao: "15 fundos de tijolo, papel e híbridos.",
+            href: ROTAS.fiis,
+            atalhos: {
+              titulo: "Fundos da lista",
+              itens: FIIS_INICIAIS.map((f) => ({
+                rotulo: f.ticker,
+                descricao: f.nome,
+                href: `${ROTAS.fiis}/${f.ticker}`,
+              })),
+            },
+          },
           { rotulo: "Agenda de proventos", descricao: "Quem paga, quanto e quando, com a data-com." },
         ],
       },
@@ -178,6 +211,13 @@ export const RODAPE: { titulo: string; links: { rotulo: string; href: string }[]
     links: [
       { rotulo: "Desafio do aporte", href: ROTAS.desafio },
       { rotulo: "Indicadores explicados", href: ROTAS.comoLerUmAtivo },
+    ],
+  },
+  {
+    titulo: "Ativos",
+    links: [
+      { rotulo: "Ações", href: ROTAS.acoes },
+      { rotulo: "Fundos imobiliários", href: ROTAS.fiis },
     ],
   },
   {

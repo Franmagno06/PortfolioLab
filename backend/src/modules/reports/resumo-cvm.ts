@@ -59,7 +59,7 @@ function receita(d: DadosAcao): ContaCvm | undefined {
  * se chama só "Atribuído a Sócios da Empresa Controladora". Senão, a última
  * conta de lucro do período, que é o lucro líquido.
  */
-function lucro(d: DadosAcao): ContaCvm | undefined {
+export function lucro(d: DadosAcao): ContaCvm | undefined {
   return (
     d.resultado.find((c) => /controladora/i.test(c.conta)) ??
     d.resultado.filter((c) => /^3\.\d{2}$/.test(c.codigo) && /lucro|preju[ií]zo/i.test(c.conta)).at(-1)
@@ -73,7 +73,7 @@ function lucro(d: DadosAcao): ContaCvm | undefined {
  */
 const temReceitaDeVenda = (r: ContaCvm) => /venda|servi[cç]os/i.test(r.conta);
 
-function patrimonioLiquido(d: DadosAcao): ContaCvm | undefined {
+export function patrimonioLiquido(d: DadosAcao): ContaCvm | undefined {
   return d.balanco.find((c) => /^2\.\d{2}$/.test(c.codigo) && /patrim[oô]nio l[ií]quido/i.test(c.conta));
 }
 

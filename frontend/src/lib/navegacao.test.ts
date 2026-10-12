@@ -1,6 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { ACOES, FIIS } from "./ativos-catalogo";
 import { ABAS_DA_CARTEIRA, NAVEGACAO, RODAPE, ROTAS } from "./navegacao";
 
 // "Nenhum link quebrado": cada href da navegação precisa ser uma rota de
@@ -59,6 +60,47 @@ describe("navegação do site", () => {
     const glossario = NAVEGACAO[0]?.colunas?.[1]?.itens[0];
     expect(glossario?.rotulo).toBe("Glossário");
     expect(glossario?.href).toBeUndefined();
+  });
+
+  it("Buscar ações e Buscar FIIs são links de verdade; ações por setor, agenda e ETFs seguem em breve", () => {
+    const ativos = NAVEGACAO.find((i) => i.id === "ativos");
+    const itens = (ativos?.colunas ?? []).flatMap((c) => c.itens);
+    const porRotulo = Object.fromEntries(itens.map((i) => [i.rotulo, i.href]));
+
+    expect(porRotulo["Buscar ações"]).toBe(ROTAS.acoes);
+    expect(porRotulo["Buscar FIIs"]).toBe(ROTAS.fiis);
+    expect(porRotulo["Ações por setor"]).toBeUndefined();
+    expect(porRotulo["Agenda de proventos"]).toBeUndefined();
+    expect(porRotulo["Buscar ETFs"]).toBeUndefined();
+  });
+
+  it("o menu Ativos oferece cinco fichas em cada listagem, e cada atalho existe no catálogo", () => {
+    const ativos = NAVEGACAO.find((i) => i.id === "ativos");
+    const itens = (ativos?.colunas ?? []).flatMap((c) => c.itens).filter((i) => i.atalhos);
+    expect(itens.map((i) => i.href)).toEqual([ROTAS.acoes, ROTAS.fiis]);
+
+    for (const item of itens) {
+      const atalhos = item.atalhos?.itens ?? [];
+      expect(atalhos).toHaveLength(5);
+      const catalogo = item.href === ROTAS.acoes ? ACOES : FIIS;
+      for (const atalho of atalhos) {
+        expect(catalogo.some((a) => `${item.href}/${a.ticker}` === atalho.href), atalho.href).toBe(true);
+      }
+    }
+  });
+
+  it("o título dos atalhos não fala em 'principais' (a ordem do catálogo não é ranking)", () => {
+    const titulos = NAVEGACAO.flatMap((i) => i.colunas ?? [])
+      .flatMap((c) => c.itens)
+      .flatMap((i) => (i.atalhos ? [i.atalhos.titulo] : []));
+    expect(titulos.length).toBe(2);
+    for (const t of titulos) expect(t.toLowerCase()).not.toContain("principa");
+  });
+
+  it("o rodapé aponta para as duas listagens", () => {
+    const hrefs = RODAPE.flatMap((c) => c.links.map((l) => l.href));
+    expect(hrefs).toContain(ROTAS.acoes);
+    expect(hrefs).toContain(ROTAS.fiis);
   });
 
   it("as abas da carteira cobrem as seis telas da área logada, sem repetir rota", () => {

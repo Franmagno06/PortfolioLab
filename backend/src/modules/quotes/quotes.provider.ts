@@ -14,6 +14,10 @@ export type Cotacao = {
   nome: string;
   preco: number;
   tipo: AssetType;
+  /** Fechamento do pregão anterior, para a variação do dia. Ausente quando o Yahoo não informa. */
+  fechamentoAnterior?: number | null;
+  /** Quando ocorreu o último negócio. Ausente quando o Yahoo não informa. */
+  negociadoEm?: Date | null;
 };
 
 const BASE = "https://query1.finance.yahoo.com/v8/finance/chart";
@@ -42,6 +46,9 @@ function naUrl(simbolo: string): string {
 
 type MetaYahoo = {
   regularMarketPrice?: number;
+  regularMarketTime?: number;
+  chartPreviousClose?: number;
+  previousClose?: number;
   longName?: string;
   shortName?: string;
   currency?: string;
@@ -89,7 +96,20 @@ export async function buscarCotacao(ticker: string): Promise<Cotacao | null> {
 
     const nome = (meta.longName ?? meta.shortName ?? simbolo).trim();
 
-    return { ticker: simbolo, nome, preco, tipo: classificar(simbolo, nome) };
+    // chartPreviousClose é o fechamento anterior à janela pedida (range=1d), ou seja,
+    // o do pregão de ontem. previousClose só vem em alguns instrumentos.
+    const anterior = meta.chartPreviousClose ?? meta.previousClose;
+    const negociadoEm =
+      typeof meta.regularMarketTime === "number" ? new Date(meta.regularMarketTime * 1000) : null;
+
+    return {
+      ticker: simbolo,
+      nome,
+      preco,
+      tipo: classificar(simbolo, nome),
+      fechamentoAnterior: typeof anterior === "number" && anterior > 0 ? anterior : null,
+      negociadoEm,
+    };
   } catch {
     return null;
   } finally {
@@ -147,6 +167,13 @@ export type IndicadoresDoProvedor = {
   roa: number | null;
   /** Margem líquida, em pontos percentuais. */
   margemLiquida: number | null;
+  /**
+   * Dívida líquida ÷ EBITDA, em vezes: (dívida total − caixa) ÷ EBITDA. Negativo quando a
+   * empresa tem mais caixa que dívida. Null se o Yahoo não informa um dos três campos ou se o
+   * EBITDA não é positivo (a razão não tem leitura). O Yahoo conta arrendamentos na dívida,
+   * então pode diferir do que a própria empresa divulga.
+   */
+  dividaEbitda: number | null;
   /** Setor/indústria como o Yahoo classifica (ex.: "Banks - Regional"). */
   industria: string | null;
   /** Preço no instante da consulta — usado pelo job para o cálculo do P/L e do Dividend Yield. */
@@ -189,6 +216,16 @@ function calcularPL(
   const lucroPorAcao = netIncomeToCommon / sharesOutstanding;
   if (lucroPorAcao === 0) return null;
   return precoAtual / lucroPorAcao;
+}
+
+/** Dívida líquida ÷ EBITDA. Pura: recebe os três números do Yahoo, em reais. */
+export function calcularDividaEbitda(
+  dividaTotal: number | null,
+  caixa: number | null,
+  ebitda: number | null,
+): number | null {
+  if (dividaTotal === null || caixa === null || ebitda === null || ebitda <= 0) return null;
+  return (dividaTotal - caixa) / ebitda;
 }
 
 type QuoteSummaryModulo = Record<string, CampoYahoo>;
@@ -277,6 +314,11 @@ async function interpretarRespostaIndicadores(
     roa: percentualOuNulo(financialData?.["returnOnAssets"]),
     margemLiquida: percentualOuNulo(
       financialData?.["profitMargins"] ?? defaultKeyStatistics?.["profitMargins"],
+    ),
+    dividaEbitda: calcularDividaEbitda(
+      numeroOuNulo(financialData?.["totalDebt"]),
+      numeroOuNulo(financialData?.["totalCash"]),
+      numeroOuNulo(financialData?.["ebitda"]),
     ),
     industria: assetProfile?.industry ?? null,
     precoAtual,
@@ -375,11 +417,26 @@ export type ProventoDoProvedor = {
  *
  * Devolve lista vazia se a API falhar: proventos são enfeite da carteira, não
  * podem derrubar a rota. Mesmo contrato defensivo de buscarCotacao.
+ *
+ * Quem precisa distinguir "a API falhou" de "o ativo não pagou nada" — o Dividend Yield, em
+ * que zero é um número e ausência não é — usa buscarProventosOuNulo.
  */
 export async function buscarProventos(
   ticker: string,
   desde: Date,
 ): Promise<ProventoDoProvedor[]> {
+  return (await buscarProventosOuNulo(ticker, desde)) ?? [];
+}
+
+/**
+ * Como buscarProventos, mas devolve null quando a consulta falha (rede, timeout, resposta
+ * inválida, ticker desconhecido) e lista vazia só quando o Yahoo respondeu e o ativo não
+ * pagou proventos no período.
+ */
+export async function buscarProventosOuNulo(
+  ticker: string,
+  desde: Date,
+): Promise<ProventoDoProvedor[] | null> {
   const simbolo = ticker.toUpperCase().trim();
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 8000);
@@ -393,7 +450,7 @@ export async function buscarProventos(
       `${BASE}/${naUrl(simbolo)}.SA?period1=${inicio}&period2=${fim}&interval=1d&events=div`,
       { headers: CABECALHOS, signal: controller.signal },
     );
-    if (!res.ok) return [];
+    if (!res.ok) return null;
 
     const json = (await res.json()) as {
       chart?: {
@@ -401,7 +458,11 @@ export async function buscarProventos(
       };
     };
 
-    const eventos = json.chart?.result?.[0]?.events?.dividends;
+    // Sem `result` o Yahoo não reconheceu o ticker (ou falhou): não é "zero proventos".
+    const resultado = json.chart?.result?.[0];
+    if (!resultado) return null;
+
+    const eventos = resultado.events?.dividends;
     if (!eventos) return [];
 
     return Object.values(eventos)
@@ -412,7 +473,7 @@ export async function buscarProventos(
       .map((e) => ({ dataEx: new Date(e.date * 1000), valorPorCota: e.amount }))
       .sort((a, b) => a.dataEx.getTime() - b.dataEx.getTime());
   } catch {
-    return [];
+    return null;
   } finally {
     clearTimeout(timer);
   }

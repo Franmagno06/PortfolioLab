@@ -4,6 +4,11 @@ export function brl(valor: number): string {
   return valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
+/** Valor em reais, ou "—" quando a fonte não informou. */
+export function brlOuTraco(valor: number | null): string {
+  return valor === null ? "—" : brl(valor);
+}
+
 export function pct(valor: number): string {
   return `${valor >= 0 ? "+" : ""}${valor.toFixed(1).replace(".", ",")}%`;
 }
@@ -65,6 +70,46 @@ export function indicadorOuTraco(valor: number | null): string {
 /** Mesma regra de "—" para indicador ausente, mas em pontos percentuais (DY, ROE, margem). */
 export function pctIndicadorOuTraco(valor: number | null): string {
   return valor === null ? "—" : pct(valor);
+}
+
+/** Data ISO (AAAA-MM-DD) em dd/mm/aaaa, sem passar por Date: o fuso não desloca o dia. */
+export function dataCurta(iso: string): string {
+  const [ano, mes, dia] = iso.slice(0, 10).split("-");
+  return `${dia}/${mes}/${ano}`;
+}
+
+/** Instante ISO (com hora) em dd/mm/aaaa no fuso de Brasília: às 22h o dia não vira o seguinte, como viraria em UTC. */
+export function dataDeLeitura(iso: string): string {
+  return new Date(iso).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
+}
+
+const MESES_CURTOS = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+
+/** Mês de um "AAAA-MM" em três letras, para o eixo de um gráfico: "2025-11" → "nov". */
+export function mesCurto(anoMes: string): string {
+  return MESES_CURTOS[Number(anoMes.slice(5, 7)) - 1] ?? anoMes;
+}
+
+/** "2025-11" → "nov/2025". */
+export function mesAno(anoMes: string): string {
+  return `${mesCurto(anoMes)}/${anoMes.slice(0, 4)}`;
+}
+
+/** Valor em bilhões de reais, como cabe numa frase: 3.2 → "R$ 3,2 bi"; 0.7 → "R$ 700 mi". */
+export function reaisCompactos(bilhoes: number): string {
+  return bilhoes >= 1 ? `R$ ${numero(bilhoes, 1)} bi` : `R$ ${numero(bilhoes * 1000)} mi`;
+}
+
+/** Contagem em palavras curtas: 985000 → "985 mil"; 1250000 → "1,3 mi". */
+export function contagemCompacta(n: number): string {
+  if (n >= 1_000_000) return `${numero(n / 1_000_000, 1)} mi`;
+  if (n >= 1_000) return `${numero(Math.round(n / 1_000))} mil`;
+  return numero(n);
+}
+
+/** Múltiplo de uma vez: 0.6 → "0,6x". */
+export function multiplo(valor: number, casas = 1): string {
+  return `${numero(valor, casas)}x`;
 }
 
 /** "há 2 horas", "há 3 dias" — para o feed de notícias */

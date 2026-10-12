@@ -3,6 +3,7 @@ import express from "express";
 import helmet from "helmet";
 import { verificarConexao } from "./database/prisma.js";
 import { assetsRoutes } from "./modules/assets/assets.routes.js";
+import { ativosRoutes } from "./modules/ativos/ativos.routes.js";
 import { authRoutes } from "./modules/auth/auth.routes.js";
 import { dividendsRoutes } from "./modules/dividends/dividends.routes.js";
 import { goalsRoutes } from "./modules/goals/goals.routes.js";
@@ -39,6 +40,13 @@ app.use(
     crossOriginResourcePolicy: { policy: "cross-origin" },
   }),
 );
+
+// Pública: as páginas de ações e FIIs do site. Montada ANTES do limitador global, de propósito: o Next
+// serve todos os visitantes a partir do mesmo IP, então o contador global (500 por 15 min) é de todo
+// mundo ao mesmo tempo. Se /ativos gastasse dele, alguém martelando essas rotas esgotaria o teto e
+// derrubaria o login e a carteira de todos os usuários. Ela tem o limitador dela (limitadorAtivos),
+// e só ticker do catálogo curado chega às fontes externas.
+app.use("/ativos", ativosRoutes);
 
 // Teto global folgado. Antes do express.json() de propósito, pelo mesmo motivo
 // que o limitador de /reports vem antes do multer: recusar sem gastar o parse.

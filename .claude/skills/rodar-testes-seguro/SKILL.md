@@ -120,7 +120,9 @@ Pule se for só backend interno: service sem rota nova, script ou documentação
 cd frontend && npm run test:e2e
 ```
 
-O config sobe um backend próprio na **porta 3333**, que precisa estar livre porque o
+As páginas de ativos têm E2E à parte (`npm run test:e2e:ativos`, que o `test:e2e` já inclui no fim): ele lê uma API de mentira nas portas **3100 e 3399**, sem backend nem Docker, e não encontra o `npm run dev` da pessoa porque usa a pasta `.next-e2e`. Dá para rodá-lo mesmo com a 3000 e a 3333 ocupadas.
+
+O config principal sobe um backend próprio na **porta 3333**, que precisa estar livre porque o
 `reuseExistingServer` é `false`. Se a porta estiver ocupada, peça ao usuário para parar o
 `npm run dev` do backend. O teste cria um usuário `playwright-<uuid>@portfoliolab.dev` no
 Docker. Na primeira vez numa máquina, pode ser preciso rodar `npx playwright install chromium`.
