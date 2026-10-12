@@ -95,7 +95,7 @@ Em particular, a proteção de rota vive em `src/proxy.ts` (ex-`middleware.ts`).
 Todo acesso à API passa por `src/lib/api.ts` (`api()` e `apiUpload()`), que lança `ApiError`
 com a mensagem vinda do backend. Formatação de número/moeda só em `src/lib/format.ts`.
 
-Use a skill `frontend-design` sempre que a tarefa envolver possível melhoria de layout — tela
+Use a skill `frontend-design`e `web-design-guidelines` sempre que a tarefa envolver possível melhoria de layout — tela
 nova, redesign de página existente, padronização das interfaces existentes, ou qualquer pedido de deixar a interface mais moderna ou
 mais fácil de entender. Carregue a skill antes de escrever o JSX, não depois.
 
