@@ -317,6 +317,18 @@ export type InformeFii = {
   cotasDeFii: Prisma.Decimal | null;
   disponibilidades: Prisma.Decimal | null;
   totalPassivo: Prisma.Decimal | null;
+  /**
+   * Os três grandes grupos da carteira, somados de várias colunas do informe, para a
+   * composição que as páginas de ativos mostram. Cada um é null se nenhuma coluna veio.
+   *
+   * imoveisTotal: imóveis para renda ou venda (prontos ou em construção), terrenos, outros
+   * direitos reais e participação em sociedades de atividade imobiliária.
+   * papelTotal: CRI/CRA, LCI/LCA, LIG e letras hipotecárias.
+   * liquidezTotal: caixa, títulos públicos e privados e fundos de renda fixa.
+   */
+  imoveisTotal: Prisma.Decimal | null;
+  papelTotal: Prisma.Decimal | null;
+  liquidezTotal: Prisma.Decimal | null;
 };
 
 export type DadosFii = {
@@ -366,7 +378,40 @@ function informeDoMes(
     cotasDeFii: decimalOuNull(a["FII"]),
     disponibilidades: decimalOuNull(a["Disponibilidades"]),
     totalPassivo: decimalOuNull(a["Total_Passivo"]),
+    imoveisTotal: somarColunas(a, [
+      "Imoveis_Renda_Acabados",
+      "Imoveis_Renda_Construcao",
+      "Imoveis_Venda_Acabados",
+      "Imoveis_Venda_Construcao",
+      "Terrenos",
+      "Outros_Direitos_Reais",
+      "Acoes_Sociedades_Atividades_FII",
+      "Cotas_Sociedades_Atividades_FII",
+    ]),
+    // CRI e CRI_CRA não se somam: um é o layout antigo e o outro o atual, e o mesmo
+    // arquivo traz as duas colunas (uma delas vazia). LCI e LCI_LCA, idem.
+    papelTotal: somarColunas(a, [
+      ["CRI_CRA", "CRI"],
+      ["LCI_LCA", "LCI"],
+      "LIG",
+      "Letras_Hipotecarias",
+    ]),
+    liquidezTotal: decimalOuNull(a["Total_Necessidades_Liquidez"]),
   };
+}
+
+/**
+ * Soma colunas do informe. Um item que é uma lista de nomes alternativos usa o primeiro
+ * que tiver valor (layouts diferentes da CVM para o mesmo dado). Null se nenhuma tiver.
+ */
+function somarColunas(linha: LinhaCsv, colunas: (string | string[])[]): Prisma.Decimal | null {
+  let soma: Prisma.Decimal | null = null;
+  for (const coluna of colunas) {
+    const nomes = Array.isArray(coluna) ? coluna : [coluna];
+    const valor = nomes.map((n) => decimalOuNull(linha[n])).find((v) => v !== null) ?? null;
+    if (valor) soma = (soma ?? new Prisma.Decimal(0)).plus(valor);
+  }
+  return soma;
 }
 
 /** Monta os dados do fundo a partir dos CSVs do Informe Mensal. Pura, como montarDadosAcao. */

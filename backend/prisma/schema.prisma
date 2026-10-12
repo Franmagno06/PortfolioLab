@@ -214,24 +214,24 @@ model CvmSummary {
 /// Ativos não baixarem de novo a cada visita: resultados trimestrais da CVM, o último
 /// informe mensal de um FII e as notícias. Só dado público, nunca de usuário.
 /// A validade de cada tipo vive em modules/ativos (ativos.snapshots.ts).
-enum SnapshotTipo {
-  CVM_RESULTADOS
-  CVM_INFORME_FII
-  NOTICIAS
+enum SnapshotType {
+  CVM_RESULTS
+  CVM_FUND_REPORT
+  NEWS
 }
 
 model AssetSnapshot {
-  id           String       @id @default(uuid())
-  assetId      String       @map("asset_id")
-  tipo         SnapshotTipo
+  id        String       @id @default(uuid())
+  assetId   String       @map("asset_id")
+  type      SnapshotType
   /// O conteúdo já interpretado (jsonb), no formato que a API devolve.
-  dados        Json
-  atualizadoEm DateTime     @map("atualizado_em")
+  data      Json
+  updatedAt DateTime     @map("updated_at")
 
   asset Asset @relation(fields: [assetId], references: [id], onDelete: Cascade)
 
   /// Uma fotografia de cada tipo por ativo. Também serve de índice para a busca por ativo.
-  @@unique([assetId, tipo])
+  @@unique([assetId, type])
   @@map("asset_snapshots")
 }
 

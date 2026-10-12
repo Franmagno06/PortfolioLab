@@ -269,6 +269,28 @@ describe("indicatorsService.getIndicadoresDaCarteira — refresh preguiçoso", (
     expect(gravado).not.toHaveProperty("dividendYield");
   });
 
+  it("Yahoo respondeu os fundamentos mas sem preço: o DY não é calculável e o gravado é preservado", async () => {
+    vi.mocked(indicatorsRepository.ativosAcaoDoUsuario).mockResolvedValue([{ ...SEM_INDICADOR }] as never);
+    vi.mocked(buscarIndicadoresFundamentalistas).mockResolvedValue({
+      pl: 8.8,
+      pvp: 1.3,
+      roe: 30,
+      roa: null,
+      margemLiquida: 24,
+      dividaEbitda: null,
+      industria: null,
+      precoAtual: null, // o módulo price do quoteSummary veio vazio
+    });
+    vi.mocked(buscarProventosOuNulo).mockResolvedValue([{ dataEx, valorPorCota: 2 }]);
+    vi.mocked(indicatorsRepository.upsert).mockResolvedValue({ updatedAt: new Date() } as never);
+
+    await indicatorsService.getIndicadoresDaCarteira("user-1");
+
+    const gravado = vi.mocked(indicatorsRepository.upsert).mock.calls[0]?.[1];
+    expect(gravado).toMatchObject({ pl: 8.8 });
+    expect(gravado).not.toHaveProperty("dividendYield");
+  });
+
   it("falha ao gravar o indicador (banco) não derruba a leitura da carteira", async () => {
     vi.mocked(indicatorsRepository.ativosAcaoDoUsuario).mockResolvedValue([
       { ...SEM_INDICADOR },

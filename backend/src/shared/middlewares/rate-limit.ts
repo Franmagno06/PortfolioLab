@@ -94,3 +94,16 @@ export const limitadorExemplo = criarLimitador({
   mensagem: "Muitas simulações seguidas. Aguarde um minuto e tente de novo.",
   pular: noTeste,
 });
+
+/**
+ * Camada 5 — as páginas públicas de Ativos. Rota aberta, mas só chega a Yahoo, CVM e feeds de
+ * notícia com ticker do catálogo, e com cache: este teto contém abuso, não o uso normal.
+ * Folgado de propósito: o Next renderiza essas páginas no servidor, então todas as visitas
+ * chegam aqui do mesmo IP (o do frontend), e um teto apertado valeria para o site inteiro.
+ */
+export const limitadorAtivos = criarLimitador({
+  janelaMs: 60 * 1000,
+  max: 300,
+  mensagem: "Muitas consultas aos ativos. Aguarde um minuto e tente de novo.",
+  pular: noTeste,
+});

@@ -132,6 +132,22 @@ do PDF, então `POST /reports/:id/ask` responde 409. A tabela ticker → CNPJ
 
 Nenhuma delas pode derrubar uma rota. Ao mexer nesses módulos, preserve o tratamento defensivo.
 
+**Páginas públicas de Ativos** (`modules/ativos/`, `GET /ativos/{acoes,fiis}[/:ticker]`, sem login).
+Só ticker do catálogo curado (`ativos.catalogo.ts`, 15 ações e 15 FIIs) chega às fontes; qualquer
+outro dá 404 antes de qualquer chamada externa. Cotação e proventos vêm do Yahoo (cache em memória),
+indicadores de `AssetIndicator` (24h) e resultados trimestrais e informe de FII da CVM de
+`asset_snapshots`. A renovação é preguiçosa; em produção o catálogo também é aquecido ao subir a API.
+Duas regras que não podem se perder:
+
+- Interpretar o zip da CVM é **CPU síncrona** (0,5 a 2 s por trimestre). Essas renovações passam pela
+  fila serial de `ativos.snapshots.ts` e pausam entre um trimestre e outro; nunca as chame num caminho
+  de requisição sem limite de tempo, ou o Node para de atender todo mundo.
+- `buscarProventosOuNulo` distingue "o Yahoo falhou" (null) de "o ativo não pagou nada" (lista vazia).
+  O Dividend Yield depende dessa diferença: falha preserva o DY gravado, nunca vira 0%.
+
+O feed do Google Notícias **não** é usado: o próprio XML o restringe a leitor de feeds pessoal, de uso
+não comercial. As notícias de cada ficha vêm dos feeds do site (Money Times e Suno), filtradas pelo ticker.
+
 ## Qual modelo usar em cada tarefa
 
 Regra em uma frase: **quanto mais caro for um erro silencioso, mais forte o modelo.** Aqui o

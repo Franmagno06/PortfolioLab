@@ -46,7 +46,8 @@ export function calcularDividendYield(
 // lembrar de rodar o job manual.
 const VALIDADE_MS = 24 * 60 * 60 * 1000;
 
-function estaDesatualizado(indicator: Pick<AssetIndicator, "updatedAt"> | null): boolean {
+/** Vencido (mais de 24h) ou nunca calculado. As páginas de Ativos usam a mesma regra para decidir quando renovar. */
+export function estaDesatualizado(indicator: Pick<AssetIndicator, "updatedAt"> | null): boolean {
   if (!indicator) return true; // job nunca rodou para este ativo
   return Date.now() - indicator.updatedAt.getTime() > VALIDADE_MS;
 }
@@ -75,11 +76,14 @@ export async function atualizarIndicador(asset: {
   const proventos = await buscarProventosOuNulo(asset.ticker, new Date(Date.now() - DOZE_MESES_MS));
 
   const { precoAtual, ...campos } = indicadores;
+
+  // Sem proventos (a consulta falhou) OU sem preço (o Yahoo veio sem regularMarketPrice), o DY não é
+  // calculável: a chave fica de fora e o que já estava gravado é preservado. Gravar null apagaria um
+  // DY bom por 24h por causa de uma resposta incompleta.
+  const dividendYield = proventos === null ? null : calcularDividendYield(somarProventos(proventos), precoAtual);
   return indicatorsRepository.upsert(asset.id, {
     ...campos,
-    ...(proventos === null
-      ? {}
-      : { dividendYield: calcularDividendYield(somarProventos(proventos), precoAtual) }),
+    ...(dividendYield === null ? {} : { dividendYield }),
   });
 }
 
