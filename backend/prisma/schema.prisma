@@ -235,6 +235,24 @@ model AssetSnapshot {
   @@map("asset_snapshots")
 }
 
+/// Histórico de notícias de mercado lidas dos feeds RSS públicos, guardado por poucos dias (a retenção
+/// vive em modules/news). Os feeds só mostram as últimas dezenas de matérias; sem o histórico, uma
+/// ação pouco comentada ficaria sem notícia na ficha. Só título, resumo e link da matéria original.
+model NewsItem {
+  id          String   @id @default(uuid())
+  /// O link da matéria na editora. É a chave: a mesma notícia lida duas vezes não duplica.
+  url         String   @unique
+  title       String
+  summary     String   @default("")
+  source      String
+  publishedAt DateTime @map("published_at")
+  fetchedAt   DateTime @default(now()) @map("fetched_at")
+
+  /// A leitura é sempre "as dos últimos N dias", e a limpeza apaga as mais velhas.
+  @@index([publishedAt])
+  @@map("news_items")
+}
+
 /// De onde veio o provento. MANUAL é o que o usuário lançou à mão; PROVEDOR é
 /// o que a sincronização importou do Yahoo Finance e recalculou pela posição.
 enum DividendSource {

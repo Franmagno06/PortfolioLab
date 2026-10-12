@@ -13,7 +13,7 @@
  */
 export const ACOES_COM_LOGO = [
   "PETR4", "VALE3", "ITUB4", "BBDC4", "BBAS3", "ABEV3", "WEGE3", "B3SA3",
-  "SUZB3", "ELET3", "RENT3", "JBSS3", "RADL3", "EQTL3", "TAEE11",
+  "SUZB3", "AXIA3", "RENT3", "CMIG4", "RADL3", "EQTL3", "TAEE11",
 ] as const;
 
 /** O caminho público do logo, ou null quando o ativo não tem (aí a tela usa a inicial). */

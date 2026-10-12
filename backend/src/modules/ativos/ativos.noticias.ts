@@ -1,14 +1,13 @@
-import { citaAtivo, noticiasComCache, termosDoAtivo } from "../news/news.service.js";
+import { atualizarHistorico, noticiasDosUltimosDias } from "../news/news.historico.js";
+import { citaAtivo, normalizar, termosDoAtivo } from "../news/news.service.js";
 import type { ItemNoticia } from "../news/rss.js";
 import type { NoticiaDoAtivo } from "./ativos.tipos.js";
 
 /**
- * As notícias da ficha de um ativo: as mesmas fontes da aba de Notícias (Money Times e Suno,
- * feeds RSS das próprias editoras), filtradas pelas que citam o ticker ou o nome da empresa.
- * Usa o cache de 10 minutos dessa aba, então abrir uma ficha não faz outra ida aos feeds.
- *
- * Os feeds guardam só as últimas dezenas de matérias, então um ativo pouco comentado pode ficar
- * sem nenhuma. A ficha mostra isso como "nenhuma notícia recente", e não como erro.
+ * As notícias da ficha de um ativo: dos feeds RSS públicos de várias editoras, guardados por 14 dias
+ * (news.historico.ts), filtradas pelas que citam o ticker ou o nome da empresa. Cada feed mostra só
+ * as últimas dezenas de matérias, mas o histórico acumula, então um ativo pouco comentado ainda
+ * acha as de alguns dias atrás. Sem nenhuma, a ficha diz "nenhuma notícia recente", e não erro.
  */
 
 const MAXIMO_NA_FICHA = 5;
@@ -25,14 +24,24 @@ export function nomeParaBusca(nome: string): string {
 /** Pura: as notícias do ativo dentre as de um feed, as mais recentes primeiro. */
 export function noticiasDoAtivo(itens: ItemNoticia[], ticker: string, nome: string): NoticiaDoAtivo[] {
   const termos = termosDoAtivo(ticker, nomeParaBusca(nome));
+  // a mesma matéria sai em vários portais, com links diferentes: fica a mais recente de cada título
+  const vistas = new Set<string>();
 
   return itens
     .filter((n) => citaAtivo(n.titulo, n.resumo, termos))
     .sort((a, b) => b.publicadoEm.localeCompare(a.publicadoEm))
+    .filter((n) => {
+      const chave = normalizar(n.titulo);
+      if (vistas.has(chave)) return false;
+      vistas.add(chave);
+      return true;
+    })
     .slice(0, MAXIMO_NA_FICHA)
     .map((n) => ({ titulo: n.titulo, fonte: n.fonte, publicadaEm: n.publicadoEm, url: n.link }));
 }
 
 export async function buscarNoticiasDoAtivo(ticker: string, nome: string): Promise<NoticiaDoAtivo[]> {
-  return noticiasDoAtivo(await noticiasComCache(), ticker, nome);
+  // lê os feeds se já passou o prazo, e procura o ativo em tudo o que está guardado
+  await atualizarHistorico();
+  return noticiasDoAtivo(await noticiasDosUltimosDias(), ticker, nome);
 }

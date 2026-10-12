@@ -90,3 +90,16 @@ describe("noticiasDoAtivo", () => {
     expect(noticiasDoAtivo([], "PETR4", "Petrobras PN")).toEqual([]);
   });
 });
+
+describe("noticiasDoAtivo: matéria repetida em vários portais", () => {
+  it("fica só a mais recente de cada título", () => {
+    const itens = [
+      item("VALE3 sobe com minério", "2026-10-09T10:00:00.000Z", "", "Money Times"),
+      item("Vale3 sobe com minério", "2026-10-09T12:00:00.000Z", "", "InfoMoney"),
+      item("VALE3 paga dividendos", "2026-10-08T12:00:00.000Z"),
+    ];
+    const r = noticiasDoAtivo(itens, "VALE3", "Vale ON");
+    expect(r.map((n) => n.fonte)).toEqual(["InfoMoney", "Money Times"]);
+    expect(r).toHaveLength(2);
+  });
+});

@@ -8,7 +8,7 @@ import {
 } from "../quotes/quotes.provider.js";
 import { buscarDadosAcao, buscarDadosFii, type ContaCvm, type DadosAcao, type DadosFii, type InformeFii } from "../reports/cvm.provider.js";
 import { indicatorsRepository } from "../indicators/indicators.repository.js";
-import { noticiasComCache } from "../news/news.service.js";
+import { atualizarHistorico, noticiasDosUltimosDias } from "../news/news.historico.js";
 import { limparBuscasEmVoo } from "./ativos.snapshots.js";
 import { fontes } from "./ativos.fontes.js";
 import { ativosRepository } from "./ativos.repository.js";
@@ -33,10 +33,7 @@ vi.mock("../quotes/quotes.provider.js", () => ({
   buscarProventosOuNulo: vi.fn(),
 }));
 vi.mock("../reports/cvm.provider.js", () => ({ buscarDadosAcao: vi.fn(), buscarDadosFii: vi.fn() }));
-vi.mock("../news/news.service.js", async (original) => ({
-  ...(await original<typeof import("../news/news.service.js")>()),
-  noticiasComCache: vi.fn(),
-}));
+vi.mock("../news/news.historico.js", () => ({ atualizarHistorico: vi.fn(), noticiasDosUltimosDias: vi.fn() }));
 
 const D = (v: string | number) => new Prisma.Decimal(v);
 const AGORA = new Date("2026-10-12T15:00:00.000Z");
@@ -189,7 +186,8 @@ beforeEach(() => {
   vi.mocked(buscarIndicadoresFundamentalistas).mockResolvedValue(null);
   vi.mocked(buscarDadosAcao).mockResolvedValue(null);
   vi.mocked(buscarDadosFii).mockResolvedValue(null);
-  vi.mocked(noticiasComCache).mockResolvedValue([]);
+  vi.mocked(atualizarHistorico).mockResolvedValue();
+  vi.mocked(noticiasDosUltimosDias).mockResolvedValue([]);
   // Como o Prisma faria: o que entra como número sai como Decimal.
   vi.mocked(indicatorsRepository.upsert).mockImplementation(((assetId: string, dados: Record<string, unknown>) => {
     const campos = Object.fromEntries(
@@ -526,7 +524,7 @@ describe("ativosService.fichaDaAcao", () => {
 
   it("notícias: só as que citam a empresa, e a ficha guarda o resultado por 30 minutos", async () => {
     vi.mocked(buscarCotacao).mockResolvedValue(cotacao("VALE3", 62.48));
-    vi.mocked(noticiasComCache).mockResolvedValue([
+    vi.mocked(noticiasDosUltimosDias).mockResolvedValue([
       { titulo: "VALE3 sobe com minério", resumo: "", link: "https://exemplo.com/1", fonte: "Money Times", publicadoEm: "2026-10-09T12:00:00.000Z" },
       { titulo: "Selic fica estável", resumo: "", link: "https://exemplo.com/2", fonte: "Suno Notícias", publicadoEm: "2026-10-09T13:00:00.000Z" },
     ]);
