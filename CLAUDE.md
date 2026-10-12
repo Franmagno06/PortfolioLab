@@ -115,6 +115,36 @@ do PDF, então `POST /reports/:id/ask` responde 409. A tabela ticker → CNPJ
 
 Nenhuma delas pode derrubar uma rota. Ao mexer nesses módulos, preserve o tratamento defensivo.
 
+## Qual modelo usar em cada tarefa
+
+Regra em uma frase: **quanto mais caro for um erro silencioso, mais forte o modelo.** Aqui o
+erro silencioso mais caro é dinheiro calculado errado que compila e passa nos testes.
+
+- **Haiku** — mudança local e mecânica (renomear, mensagem de erro, texto, Zod simples, commit).
+- **Sonnet** — padrão do dia a dia: módulo novo seguindo o template, endpoint simples,
+  componente/página seguindo um padrão existente, testes de regra pura.
+- **Opus** — regra de negócio multi-camada onde o erro pode passar despercebido:
+  `calcularPosicao` (preço médio), `rebalance.service.ts`, `dividends.service.ts`,
+  `indicators.service.ts`, recorte/chamadas de IA em `reports/`, auth/cookie/JWT/rate limit/upload,
+  estado complexo no frontend (`simulacao/page.tsx`, `dashboard/page.tsx`), qualquer afirmação de
+  conteúdo educativo com lei/imposto/número de mercado (com busca na web).
+- **Fable** — alto risco: migration que altera dados em produção, qualquer escrita no Supabase
+  de produção, ou quando o Opus já travou duas vezes na mesma correção.
+
+Sinais para subir de modelo: o modelo "consertou" o teste em vez do código; a mesma correção
+falhou duas vezes; passou nos testes mas você não consegue explicar por quê; toca em dinheiro,
+imposto, autenticação ou produção.
+
+Sinais para descer: há um modelo pronto para copiar; o erro seria óbvio na hora; é a mesma
+transformação repetida em dezenas de arquivos.
+
+Agentes somente-leitura do projeto já têm modelo sugerido no próprio cabeçalho
+(`auditor-financeiro` → Opus, `revisor-camadas` → Sonnet/Haiku). Revisão deve rodar em modelo
+igual ou mais forte que quem escreveu o código.
+
+Isso vale só para o modelo que **ajuda a programar** — não confundir com o Gemini usado dentro
+do app (`gemini.ts`) para analisar relatórios em PDF, que é decisão separada.
+
 ## Fluxo de branches
 
 Toda nova funcionalidade segue este processo:
