@@ -1,4 +1,4 @@
-import type { EspecieAcao, TipoFii } from "./ativos.catalogo.js";
+import type { CategoriaDeEtf, EspecieAcao, TipoFii } from "./ativos.catalogo.js";
 import type { EstadoDoBloco } from "./ativos.snapshots.js";
 
 /**
@@ -91,6 +91,8 @@ export type FiiResumoDto = {
 };
 
 export type CabecalhoDoAtivoDto = {
+  /** "O que é este ativo": duas ou três frases, escritas à mão (ativos.descricoes.ts). */
+  descricao: string;
   preco: number | null;
   variacaoDia: number | null;
   /** Data do último pregão em que o ativo negociou (AAAA-MM-DD), ou null se o Yahoo não informou. */
@@ -125,6 +127,34 @@ export type FiiFichaDto = FiiResumoDto &
     /** De onde vêm os campos da CVM: o mês do informe e quando foi lido. */
     informe: { estado: EstadoDoBloco; atualizadoEm: string | null; competencia: string | null };
     composicao: Bloco<ComposicaoDoFundo>;
+    historico: Bloco<PontoDePreco[]>;
+    proventos: Bloco<ProventoDoAtivo[]>;
+    noticias: Bloco<NoticiaDoAtivo[]>;
+  };
+
+export type EtfResumoDto = {
+  ticker: string;
+  nome: string;
+  categoria: CategoriaDeEtf;
+  indice: string;
+  preco: number | null;
+  variacaoDia: number | null;
+  /** Variação do preço da cota em 12 meses, em %. Não inclui proventos. Null se o histórico não cobre 12 meses. */
+  retorno12m: number | null;
+  /** Proventos pagos nos últimos 12 meses ÷ preço, em %. A maioria dos ETFs não paga nada: 0. */
+  dy12m: number | null;
+};
+
+export type PatrimonioDoEtf = {
+  /** Em reais. */
+  patrimonioLiquido: number;
+  /** Data do patrimônio informada no cadastro da CVM (AAAA-MM-DD). */
+  dataReferencia: string;
+};
+
+export type EtfFichaDto = EtfResumoDto &
+  CabecalhoDoAtivoDto & {
+    patrimonio: Bloco<PatrimonioDoEtf>;
     historico: Bloco<PontoDePreco[]>;
     proventos: Bloco<ProventoDoAtivo[]>;
     noticias: Bloco<NoticiaDoAtivo[]>;

@@ -32,7 +32,11 @@ vi.mock("../quotes/quotes.provider.js", () => ({
   buscarIndicadoresFundamentalistas: vi.fn(),
   buscarProventosOuNulo: vi.fn(),
 }));
-vi.mock("../reports/cvm.provider.js", () => ({ buscarDadosAcao: vi.fn(), buscarDadosFii: vi.fn() }));
+vi.mock("../reports/cvm.provider.js", () => ({
+  buscarDadosAcao: vi.fn(),
+  buscarDadosFii: vi.fn(),
+  buscarPatrimonioDeClasses: vi.fn(),
+}));
 vi.mock("../news/news.historico.js", () => ({ atualizarHistorico: vi.fn(), noticiasDosUltimosDias: vi.fn() }));
 
 const D = (v: string | number) => new Prisma.Decimal(v);
@@ -754,14 +758,14 @@ describe("ativosService.listarFiis", () => {
 });
 
 describe("ativosService.aquecerCatalogo", () => {
-  it("renova os 30 ativos do catálogo, um de cada vez", async () => {
+  it("renova os 40 ativos do catálogo, um de cada vez", async () => {
     vi.mocked(buscarCotacao).mockImplementation(async (t) => cotacao(t, 10));
 
     ativosService.aquecerCatalogo();
     await ativosService.aguardarFila();
 
     const tickers = vi.mocked(buscarCotacao).mock.calls.map(([t]) => t);
-    expect(new Set(tickers).size).toBe(30);
+    expect(new Set(tickers).size).toBe(40);
   });
 
   it("chamar duas vezes seguidas não repete o trabalho: o que já está na fila não entra de novo", async () => {

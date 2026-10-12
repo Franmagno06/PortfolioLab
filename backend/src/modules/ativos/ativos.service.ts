@@ -11,13 +11,17 @@ import { AppError } from "../../shared/errors/AppError.js";
 import { comLimiteDeTempo, criarFila } from "./ativos.cache.js";
 import {
   ACOES,
+  ETFS,
   FIIS,
   acharAcao,
+  acharEtf,
   acharFii,
   ehBanco,
   type AcaoDoCatalogo,
+  type EtfDoCatalogo,
   type FiiDoCatalogo,
 } from "./ativos.catalogo.js";
+import { descricaoDe } from "./ativos.descricoes.js";
 import { taxaAdministracaoAnual } from "./ativos.composicao.js";
 import { fontes } from "./ativos.fontes.js";
 import { buscarNoticiasDoAtivo } from "./ativos.noticias.js";
@@ -27,11 +31,14 @@ import type {
   AcaoFichaDto,
   AcaoResumoDto,
   Bloco,
+  EtfFichaDto,
+  EtfResumoDto,
   FiiFichaDto,
   FiiResumoDto,
   IndicadoresDaAcao,
   InformeDoFii,
   NoticiaDoAtivo,
+  PatrimonioDoEtf,
   PontoDePreco,
   ProventoDoAtivo,
   ResultadoTrimestral,
@@ -251,6 +258,39 @@ function resumoDoFii(
   };
 }
 
+/** Variação do preço em 12 meses: a cota de hoje contra o fechamento do mês de 12 meses atrás. Precisa dos 13 meses. */
+function retorno12mDoEtf(preco: number | null, porMes: Map<string, number>): number | null {
+  if (preco === null || porMes.size < 13) return null;
+  const antigo = [...porMes.entries()].sort(([a], [b]) => a.localeCompare(b)).at(-13)?.[1];
+  if (!antigo || antigo <= 0) return null;
+  return arredondar((preco / antigo - 1) * 100);
+}
+
+function resumoDoEtf(
+  item: EtfDoCatalogo,
+  cotacao: Cotacao | null,
+  asset: AssetComIndicador | null,
+  porMes: Map<string, number>,
+  proventos: ProventoDoProvedor[] | null,
+): EtfResumoDto {
+  const preco = cotacao?.preco ?? numero(asset?.currentPrice) ?? null;
+  return {
+    ticker: item.ticker,
+    nome: item.nome,
+    categoria: item.categoria,
+    indice: item.indice,
+    preco: preco === null ? null : arredondar(preco),
+    variacaoDia: variacaoDoDia(preco, cotacao?.fechamentoAnterior),
+    retorno12m: retorno12mDoEtf(preco, porMes),
+    dy12m: dy12mDoFii(proventos, preco),
+  };
+}
+
+async function patrimonioDoEtf(item: EtfDoCatalogo, esperaMs: number): Promise<Bloco<PatrimonioDoEtf>> {
+  const todos = await comLimiteDeTempo(fontes.patrimonioDosEtfs(), esperaMs, null);
+  return bloco(todos?.get(item.cnpj) ?? null);
+}
+
 // ---------------------------------------------------------------------------
 // Aquecimento em segundo plano
 // ---------------------------------------------------------------------------
@@ -297,6 +337,20 @@ async function aquecerFii(item: FiiDoCatalogo): Promise<void> {
   });
 }
 
+async function aquecerEtf(item: EtfDoCatalogo): Promise<void> {
+  const cotacao = await fontes.cotacao(item.ticker);
+  const asset = await garantirAsset(item, "ETF", cotacao);
+  await Promise.all([fontes.historicoMensal(item.ticker), fontes.proventos12Meses(item.ticker), fontes.patrimonioDosEtfs()]);
+  if (!asset) return;
+  await obterFotografia({
+    assetId: asset.id,
+    tipo: "NEWS",
+    buscar: () => buscarNoticiasDoAtivo(item.ticker, item.nome),
+    esperaMaximaMs: ESPERA_EM_SEGUNDO_PLANO_MS,
+  });
+}
+
+const agendarEtf = (item: EtfDoCatalogo) => fila.adicionar(`etf:${item.ticker}`, () => aquecerEtf(item));
 const agendarAcao = (item: AcaoDoCatalogo) => fila.adicionar(`acao:${item.ticker}`, () => aquecerAcao(item));
 const agendarFii = (item: FiiDoCatalogo) => fila.adicionar(`fii:${item.ticker}`, () => aquecerFii(item));
 
@@ -356,6 +410,57 @@ export const ativosService = {
     });
   },
 
+  /**
+   * A listagem de ETFs. Não depende do banco: cotação, histórico e proventos vêm do Yahoo, em cache
+   * na memória, e o resumo sai pronto na hora.
+   */
+  async listarEtfs(): Promise<EtfResumoDto[]> {
+    return Promise.all(
+      ETFS.map(async (item) => {
+        const [cotacao, historico, proventos] = await Promise.all([
+          comLimiteDeTempo(fontes.cotacao(item.ticker), ESPERA_DA_FICHA_MS, null),
+          comLimiteDeTempo(fontes.historicoMensal(item.ticker), ESPERA_DA_FICHA_MS, new Map<string, number>()),
+          comLimiteDeTempo(fontes.proventos12Meses(item.ticker), ESPERA_DA_FICHA_MS, null),
+        ]);
+        return resumoDoEtf(item, cotacao, null, historico, proventos);
+      }),
+    );
+  },
+
+  /** A ficha de um ETF do catálogo. Ticker que não é do catálogo é 404, antes de qualquer fonte externa. */
+  async fichaDoEtf(ticker: string): Promise<EtfFichaDto> {
+    const item = acharEtf(ticker);
+    if (!item) throw new AppError("ETF não encontrado no catálogo", 404);
+
+    const [cotacao, historico, proventos] = await Promise.all([
+      comLimiteDeTempo(fontes.cotacao(item.ticker), ESPERA_DA_FICHA_MS, null),
+      comLimiteDeTempo(fontes.historicoMensal(item.ticker), ESPERA_DA_FICHA_MS, new Map<string, number>()),
+      comLimiteDeTempo(fontes.proventos12Meses(item.ticker), ESPERA_DA_FICHA_MS, null),
+    ]);
+
+    const asset = await garantirAsset(item, "ETF", cotacao);
+    const [patrimonio, noticias] = await Promise.all([
+      patrimonioDoEtf(item, ESPERA_DA_FICHA_MS),
+      asset
+        ? obterFotografia({
+            assetId: asset.id,
+            tipo: "NEWS",
+            buscar: () => buscarNoticiasDoAtivo(item.ticker, item.nome),
+          })
+        : semFotografia<NoticiaDoAtivo[]>(),
+    ]);
+
+    return {
+      ...resumoDoEtf(item, cotacao, asset, historico, proventos),
+      descricao: descricaoDe(item.ticker),
+      fechamentoEm: dataDoPregao(cotacao),
+      patrimonio,
+      historico: bloco(historico.size > 0 ? historicoDeMeses(historico) : null),
+      proventos: bloco(proventos === null ? null : proventosRecentes(proventos)),
+      noticias: emBloco(noticias),
+    };
+  },
+
   /** A ficha de uma ação do catálogo. Ticker que não é do catálogo é 404, antes de qualquer fonte externa. */
   async fichaDaAcao(ticker: string): Promise<AcaoFichaDto> {
     const item = acharAcao(ticker);
@@ -392,6 +497,7 @@ export const ativosService = {
 
     return {
       ...resumoDaAcao(item, cotacao, assetAtual),
+      descricao: descricaoDe(item.ticker),
       fechamentoEm: dataDoPregao(cotacao),
       banco,
       indicadores: {
@@ -442,6 +548,7 @@ export const ativosService = {
 
     return {
       ...resumo,
+      descricao: descricaoDe(item.ticker),
       fechamentoEm: dataDoPregao(cotacao),
       indicadores: {
         dyMensal: dyMensalDoFii(proventos, precoBruto),
@@ -477,6 +584,7 @@ export const ativosService = {
   aquecerCatalogo(): void {
     for (const item of ACOES) agendarAcao(item);
     for (const item of FIIS) agendarFii(item);
+    for (const item of ETFS) agendarEtf(item);
   },
 
   /** Resolve quando a fila de renovação esvazia. Para testes e para o desligamento. */

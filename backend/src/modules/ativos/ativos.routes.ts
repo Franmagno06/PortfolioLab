@@ -11,3 +11,5 @@ ativosRoutes.get("/acoes", ativosController.listarAcoes);
 ativosRoutes.get("/acoes/:ticker", ativosController.fichaDaAcao);
 ativosRoutes.get("/fiis", ativosController.listarFiis);
 ativosRoutes.get("/fiis/:ticker", ativosController.fichaDoFii);
+ativosRoutes.get("/etfs", ativosController.listarEtfs);
+ativosRoutes.get("/etfs/:ticker", ativosController.fichaDoEtf);
