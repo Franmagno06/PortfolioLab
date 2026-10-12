@@ -43,6 +43,20 @@ test.describe("listagem de ações", () => {
     semErros();
   });
 
+  test("cada ação mostra o logo da empresa, servido pelo próprio site", async ({ page }) => {
+    await page.goto("/ativos/acoes");
+    // só os visíveis: a tabela (computador) e os cards (celular) estão ambos no HTML, um deles escondido
+    const logos = page.locator('img[src^="/logos/"]:visible');
+
+    await expect(logos).toHaveCount(5);
+    await expect(logos.first()).toHaveAttribute("src", "/logos/PETR4.svg");
+    // a imagem carregou de verdade (não é um ícone quebrado)
+    for (const logo of await logos.all()) {
+      expect(await logo.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true);
+    }
+    await expect(page.getByText("Os logos são marcas de seus titulares")).toBeVisible();
+  });
+
   test("a linha é um link de verdade e abre a ficha certa", async ({ page }) => {
     await page.goto("/ativos/acoes");
     const link = page.getByRole("link", { name: /VALE3/ });
@@ -113,6 +127,17 @@ test.describe("listagem de FIIs", () => {
     semErros();
   });
 
+  test("FII não usa logo: cada fundo mostra o ícone do seu tipo", async ({ page }) => {
+    await page.goto("/ativos/fiis");
+
+    await expect(page.locator('img[src^="/logos/"]')).toHaveCount(0);
+    const icones = page.getByRole("table").locator("[data-icone-de-fii]");
+    await expect(icones).toHaveCount(5);
+    // MXRF11, HGLG11, KNRI11, KNCR11, KNIP11
+    await expect(icones).toHaveText(["", "", "", "", ""]);
+    expect(await icones.evaluateAll((els) => els.map((el) => el.getAttribute("data-icone-de-fii")))).toEqual(["Papel", "Tijolo", "Híbrido", "Papel", "Papel"]);
+  });
+
   test("a coluna Tipo explica tijolo, papel, híbrido e FoF", async ({ page }) => {
     await page.goto("/ativos/fiis");
     await dica(page, "Tipo de fundo").click();
@@ -166,6 +191,16 @@ test.describe("ficha da ação", () => {
     await expect(tabela.getByRole("row")).toHaveCount(13);
     await expect(tabela.getByRole("row", { name: /out\/2026/ })).toContainText("62,48");
     await expect(page.getByRole("img", { name: /Preço de VALE3/ }).locator("[tabindex]")).toHaveCount(0);
+  });
+
+  test("o gráfico desenha de verdade a linha do preço, na ação e no FII", async ({ page }) => {
+    for (const rota of ["/ativos/acoes/PETR4", "/ativos/fiis/HGLG11"]) {
+      await page.goto(rota);
+      const linha = page.getByRole("img", { name: /Preço de/ }).locator("path.recharts-area-curve");
+
+      await expect(linha, rota).toHaveCount(1);
+      await expect(linha, rota).toHaveAttribute("d", /^M[\d.]+,[\d.]+C/);
+    }
   });
 
   test("as duas armadilhas da ação estão sempre visíveis", async ({ page }) => {

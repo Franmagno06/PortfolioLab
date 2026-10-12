@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Dica } from "@/components/ativos/dica";
 import { Anotacao, Avatar, VariacaoDoDia } from "@/components/ativos/pecas";
 import { Secao } from "@/components/ativos/secao";
+import type { TipoFii } from "@/lib/ativos-catalogo";
 import type { FaixaDaCarteira, NoticiaDoAtivo, Provento, ResultadoTrimestral } from "@/lib/ativos-fichas";
 import { brl, dataCurta, numero } from "@/lib/format";
 import type { IdDaDica } from "@/lib/indicadores-explicados";
@@ -18,6 +19,7 @@ export function CabecalhoDoAtivo({
   preco,
   variacaoDia,
   fechamentoEm,
+  tipoFii,
 }: {
   ticker: string;
   nome: string;
@@ -26,11 +28,13 @@ export function CabecalhoDoAtivo({
   preco: number;
   variacaoDia: number;
   fechamentoEm: string;
+  /** Só no FII: escolhe o ícone do avatar. Ação usa o logo da empresa. */
+  tipoFii?: TipoFii;
 }) {
   return (
     <header className="rounded-md border border-line bg-card px-6 py-5 md:flex md:items-center md:justify-between md:gap-8">
       <div className="flex items-center gap-4 md:gap-5">
-        <Avatar ticker={ticker} tamanho="ficha" />
+        <Avatar ticker={ticker} tamanho="ficha" tipoFii={tipoFii} />
         <div className="min-w-0">
           <h1 className="font-leitura text-[34px] leading-[40px] font-semibold tracking-[-0.01em] text-balance text-ink md:text-4xl md:leading-[44px]">
             {ticker}

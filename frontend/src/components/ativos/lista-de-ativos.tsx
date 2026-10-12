@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { Avatar } from "@/components/ativos/pecas";
 import { Dica } from "@/components/ativos/dica";
-import { QUANTIDADE_INICIAL, type AcaoResumo, type FiiResumo } from "@/lib/ativos-catalogo";
+import { QUANTIDADE_INICIAL, type AcaoResumo, type FiiResumo, type TipoFii } from "@/lib/ativos-catalogo";
 import { brl, numero, percentual } from "@/lib/format";
 import type { IdDaDica } from "@/lib/indicadores-explicados";
 import { ROTAS } from "@/lib/navegacao";
@@ -50,7 +50,7 @@ const COLUNAS_FIIS: Coluna<FiiResumo>[] = [
   { id: "pvp", rotulo: "P/VP", papel: "indicador", dica: "pvpFii", valor: (f) => duasCasas(f.pvp) },
 ];
 
-type Ativo = { ticker: string; nome: string };
+type Ativo = { ticker: string; nome: string; tipo?: TipoFii };
 
 type Props<T extends Ativo> = {
   itens: T[];
@@ -105,7 +105,7 @@ function Listagem<T extends Ativo>({ itens, colunas, hrefBase, plural, rotuloDoA
                 <tr key={item.ticker} className="group relative border-t border-line hover:bg-paper">
                   <td className="py-3.5 pr-3 pl-6">
                     <div className="flex items-center gap-3.5">
-                      <Avatar ticker={item.ticker} tamanho="lista" />
+                      <Avatar ticker={item.ticker} tamanho="lista" tipoFii={item.tipo} />
                       <Link
                         href={`${hrefBase}/${item.ticker}`}
                         className="block min-w-0 rounded after:absolute after:inset-0 focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-ink"
@@ -151,7 +151,7 @@ function Listagem<T extends Ativo>({ itens, colunas, hrefBase, plural, rotuloDoA
           {visiveis.map((item) => (
             <li key={item.ticker} className="relative rounded-md border border-line bg-card p-4 active:bg-paper">
               <div className="flex items-start gap-3">
-                <Avatar ticker={item.ticker} tamanho="lista" />
+                <Avatar ticker={item.ticker} tamanho="lista" tipoFii={item.tipo} />
                 <div className="min-w-0 flex-1">
                   <Link
                     href={`${hrefBase}/${item.ticker}`}

@@ -70,6 +70,7 @@ export default async function FichaDoFii({ params }: Props) {
         preco={ficha.preco}
         variacaoDia={ficha.variacaoDia}
         fechamentoEm={ficha.fechamentoEm}
+        tipoFii={ficha.tipo}
       />
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:grid-rows-[auto_1fr] lg:items-start">

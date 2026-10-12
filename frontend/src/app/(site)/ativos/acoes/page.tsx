@@ -34,7 +34,8 @@ export default async function AcoesPage() {
       <p className="mt-10 max-w-[760px] text-[13px] leading-5 text-mute">
         Dados de exemplo, do fechamento de {dataCurta(FECHAMENTO_DOS_DADOS)}. Na versão final, as cotações vêm do
         Yahoo Finance, com atraso, e os indicadores são calculados pelo PortfolioLab. A ordem da lista é fixa e não
-        indica qual empresa é melhor: nada aqui é recomendação de investimento.
+        indica qual empresa é melhor: nada aqui é recomendação de investimento. Os logos são marcas de seus
+        titulares e aparecem só para identificar a empresa.
       </p>
     </>
   );
