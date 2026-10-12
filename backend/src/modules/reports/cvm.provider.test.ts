@@ -142,6 +142,24 @@ describe("montarDadosFii", () => {
     expect(d?.mesAnterior?.valorPatrimonialCota?.toString()).toBe("9.38");
   });
 
+  it("layout atual da CVM: os CRIs vêm na coluna CRI_CRA, e a coluna CRI fica vazia", () => {
+    // o MXRF11 em ago/2026: R$ 3,77 bi em CRI_CRA e a coluna CRI sem nada
+    const novoLayout = [
+      "CNPJ_Fundo_Classe;Data_Referencia;Versao;CRI;CRI_CRA;Rendimentos_Distribuir",
+      `${FUNDO};2026-05-01;2;;3768715784.34;43270000`,
+    ].join("\r\n");
+
+    const d = montarDadosFii({ geral, complemento, ativoPassivo: novoLayout }, FUNDO, { tipo: "mes", ano: 2026, mes: 5 });
+
+    expect(d?.mes.cri?.toString()).toBe("3768715784.34");
+  });
+
+  it("sem a coluna CRI_CRA (arquivo antigo), cai para CRI", () => {
+    const d = montarDadosFii({ geral, complemento, ativoPassivo }, FUNDO, { tipo: "mes", ano: 2026, mes: 5 });
+
+    expect(d?.mes.cri?.toString()).toBe("3000000000");
+  });
+
   it("janeiro não tem mês anterior no mesmo arquivo", () => {
     const jan = complemento.replaceAll("2026-05-01", "2026-01-01");
     const d = montarDadosFii({ geral: "", complemento: jan, ativoPassivo: "" }, FUNDO, { tipo: "mes", ano: 2026, mes: 1 });

@@ -359,7 +359,10 @@ function informeDoMes(
     rendimentosADistribuir: decimalOuNull(a["Rendimentos_Distribuir"]),
     totalInvestido: decimalOuNull(a["Total_Investido"]),
     imoveisParaRenda: decimalOuNull(a["Imoveis_Renda_Acabados"]),
-    cri: decimalOuNull(a["CRI"]),
+    // O layout atual do Informe Mensal guarda os CRIs em CRI_CRA; CRI sozinho é o layout
+    // antigo, e nos arquivos novos vem vazio mesmo em fundo de papel (o MXRF11 tinha
+    // R$ 3,77 bi em CRI e o sistema lia zero).
+    cri: decimalOuNull(a["CRI_CRA"]) ?? decimalOuNull(a["CRI"]),
     cotasDeFii: decimalOuNull(a["FII"]),
     disponibilidades: decimalOuNull(a["Disponibilidades"]),
     totalPassivo: decimalOuNull(a["Total_Passivo"]),

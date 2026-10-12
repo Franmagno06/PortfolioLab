@@ -1,28 +1,31 @@
 import { Prisma } from "@prisma/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { buscarIndicadoresFundamentalistas } from "../quotes/quotes.provider.js";
+import { buscarIndicadoresFundamentalistas, buscarProventosOuNulo } from "../quotes/quotes.provider.js";
 import { indicatorsRepository } from "./indicators.repository.js";
 import {
   calcularDividendYield,
   indicatorsService,
   industriaEhBanco,
+  somarProventos,
 } from "./indicators.service.js";
 
 vi.mock("./indicators.repository.js", () => ({
   indicatorsRepository: {
     ativosAcaoDoUsuario: vi.fn(),
-    somaProventosUltimos12Meses: vi.fn(),
     upsert: vi.fn(),
   },
 }));
 
 vi.mock("../quotes/quotes.provider.js", () => ({
   buscarIndicadoresFundamentalistas: vi.fn(),
+  buscarProventosOuNulo: vi.fn(),
 }));
 
 beforeEach(() => {
   vi.mocked(buscarIndicadoresFundamentalistas).mockReset();
-  vi.mocked(indicatorsRepository.somaProventosUltimos12Meses).mockReset();
+  vi.mocked(buscarProventosOuNulo).mockReset();
+  // padrão: o Yahoo respondeu e o ativo não pagou nada. Os testes de proventos sobrescrevem.
+  vi.mocked(buscarProventosOuNulo).mockResolvedValue([]);
   vi.mocked(indicatorsRepository.upsert).mockReset();
 });
 
@@ -40,6 +43,7 @@ const COM_INDICADOR = {
     roe: new Prisma.Decimal("32.50"),
     roa: new Prisma.Decimal("12.00"),
     margemLiquida: new Prisma.Decimal("15.80"),
+    dividaEbitda: new Prisma.Decimal("1.30"),
     industria: "Electrical Equipment & Parts",
     updatedAt: AGORA,
   },
@@ -67,6 +71,7 @@ const INDICADOR_PARCIAL = {
     roe: null,
     roa: null,
     margemLiquida: null,
+    dividaEbitda: null,
     industria: "Banks - Regional",
     updatedAt: AGORA,
   },
@@ -86,6 +91,7 @@ describe("indicatorsService.getIndicadoresDaCarteira — mapeamento (cache fresc
       roe: 32.5,
       roa: 12,
       margemLiquida: 15.8,
+      dividaEbitda: 1.3,
       setorBancario: false,
     });
     expect(buscarIndicadoresFundamentalistas).not.toHaveBeenCalled();
@@ -103,6 +109,7 @@ describe("indicatorsService.getIndicadoresDaCarteira — mapeamento (cache fresc
     expect(resultado?.roe).toBeNull();
     expect(resultado?.roa).toBeNull();
     expect(resultado?.margemLiquida).toBeNull();
+    expect(resultado?.dividaEbitda).toBeNull();
     expect(resultado?.setorBancario).toBe(true);
   });
 
@@ -117,6 +124,8 @@ describe("indicatorsService.getIndicadoresDaCarteira — mapeamento (cache fresc
 });
 
 describe("indicatorsService.getIndicadoresDaCarteira — refresh preguiçoso", () => {
+  const dataEx = new Date("2026-03-20");
+
   it("indicador ausente: busca no provedor e grava antes de responder", async () => {
     // clone: getIndicadoresDaCarteira muta o objeto (asset.indicator = ...),
     // e SEM_INDICADOR é reaproveitado por outro teste abaixo
@@ -129,10 +138,15 @@ describe("indicatorsService.getIndicadoresDaCarteira — refresh preguiçoso", (
       roe: 30,
       roa: null,
       margemLiquida: 24,
+      dividaEbitda: 1.1,
       industria: "Oil & Gas Integrated",
       precoAtual: 48.5,
     });
-    vi.mocked(indicatorsRepository.somaProventosUltimos12Meses).mockResolvedValue(4.34);
+    // dois proventos de R$ 2,17 por cota nos últimos 12 meses = R$ 4,34
+    vi.mocked(buscarProventosOuNulo).mockResolvedValue([
+      { dataEx, valorPorCota: 2.17 },
+      { dataEx, valorPorCota: 2.17 },
+    ]);
     vi.mocked(indicatorsRepository.upsert).mockResolvedValue({
       id: "id-1",
       assetId: "asset-1",
@@ -142,6 +156,7 @@ describe("indicatorsService.getIndicadoresDaCarteira — refresh preguiçoso", (
       roe: new Prisma.Decimal("30"),
       roa: null,
       margemLiquida: new Prisma.Decimal("24"),
+      dividaEbitda: new Prisma.Decimal("1.10"),
       industria: "Oil & Gas Integrated",
       updatedAt: new Date(),
     } as never);
@@ -149,13 +164,16 @@ describe("indicatorsService.getIndicadoresDaCarteira — refresh preguiçoso", (
     const [resultado] = await indicatorsService.getIndicadoresDaCarteira("user-1");
 
     expect(buscarIndicadoresFundamentalistas).toHaveBeenCalledWith("RECM11");
-    // DY calculado a partir dos Proventos (4.34 / 48.5 * 100), não da fonte de cotação
+    // os proventos são os do ATIVO, pedidos ao Yahoo — não os que um usuário importou
+    expect(buscarProventosOuNulo).toHaveBeenCalledWith("RECM11", expect.any(Date));
+    // DY = 4,34 ÷ 48,5 × 100
     expect(indicatorsRepository.upsert).toHaveBeenCalledWith(
       "asset-1",
-      expect.objectContaining({ dividendYield: expect.closeTo(8.95, 1) }),
+      expect.objectContaining({ dividendYield: expect.closeTo(8.95, 1), dividaEbitda: 1.1 }),
     );
     expect(resultado?.pl).toBe(8.8);
     expect(resultado?.dividendYield).toBeCloseTo(8.95, 1);
+    expect(resultado?.dividaEbitda).toBe(1.1);
   });
 
   it("indicador vencido (mais de 24h) também dispara refresh", async () => {
@@ -170,10 +188,10 @@ describe("indicatorsService.getIndicadoresDaCarteira — refresh preguiçoso", (
       roe: 10,
       roa: null,
       margemLiquida: 5,
+      dividaEbitda: null,
       industria: null,
       precoAtual: 100,
     });
-    vi.mocked(indicatorsRepository.somaProventosUltimos12Meses).mockResolvedValue(0);
     vi.mocked(indicatorsRepository.upsert).mockResolvedValue({
       ...vencido.indicator,
       pl: new Prisma.Decimal("20"),
@@ -183,6 +201,31 @@ describe("indicatorsService.getIndicadoresDaCarteira — refresh preguiçoso", (
     await indicatorsService.getIndicadoresDaCarteira("user-1");
 
     expect(buscarIndicadoresFundamentalistas).toHaveBeenCalledWith("WEGE3");
+  });
+
+  it("empresa que não pagou proventos em 12 meses: DY é 0, e não ausente", async () => {
+    vi.mocked(indicatorsRepository.ativosAcaoDoUsuario).mockResolvedValue([
+      { ...SEM_INDICADOR },
+    ] as never);
+    vi.mocked(buscarIndicadoresFundamentalistas).mockResolvedValue({
+      pl: 12,
+      pvp: 2,
+      roe: 15,
+      roa: null,
+      margemLiquida: 8,
+      dividaEbitda: null,
+      industria: null,
+      precoAtual: 50,
+    });
+    vi.mocked(buscarProventosOuNulo).mockResolvedValue([]); // o Yahoo respondeu: nada pago
+    vi.mocked(indicatorsRepository.upsert).mockResolvedValue({ updatedAt: new Date() } as never);
+
+    await indicatorsService.getIndicadoresDaCarteira("user-1");
+
+    expect(indicatorsRepository.upsert).toHaveBeenCalledWith(
+      "asset-1",
+      expect.objectContaining({ dividendYield: 0 }),
+    );
   });
 
   it("provedor fora do ar: mantém o cache anterior e não derruba a leitura", async () => {
@@ -196,11 +239,12 @@ describe("indicatorsService.getIndicadoresDaCarteira — refresh preguiçoso", (
     const [resultado] = await indicatorsService.getIndicadoresDaCarteira("user-1");
 
     expect(indicatorsRepository.upsert).not.toHaveBeenCalled();
+    expect(buscarProventosOuNulo).not.toHaveBeenCalled();
     // continua respondendo com o que já tinha em cache, não com null
     expect(resultado?.pl).toBe(28.4);
   });
 
-  it("falha ao consultar Proventos (DB) não derruba a leitura da carteira", async () => {
+  it("consulta de proventos que falhou: grava o resto e NÃO toca no DY (nem zera, nem apaga)", async () => {
     vi.mocked(indicatorsRepository.ativosAcaoDoUsuario).mockResolvedValue([
       { ...SEM_INDICADOR },
     ] as never);
@@ -210,17 +254,51 @@ describe("indicatorsService.getIndicadoresDaCarteira — refresh preguiçoso", (
       roe: 30,
       roa: null,
       margemLiquida: 24,
+      dividaEbitda: null,
       industria: null,
       precoAtual: 48.5,
     });
-    vi.mocked(indicatorsRepository.somaProventosUltimos12Meses).mockRejectedValue(
-      new Error("timeout do pool"),
-    );
+    vi.mocked(buscarProventosOuNulo).mockResolvedValue(null); // timeout, rede ou ticker desconhecido
+    vi.mocked(indicatorsRepository.upsert).mockResolvedValue({ updatedAt: new Date() } as never);
+
+    await indicatorsService.getIndicadoresDaCarteira("user-1");
+
+    const gravado = vi.mocked(indicatorsRepository.upsert).mock.calls[0]?.[1];
+    expect(gravado).toMatchObject({ pl: 8.8, pvp: 1.3 });
+    // a chave nem existe: o Prisma ignora campo ausente e preserva o valor gravado
+    expect(gravado).not.toHaveProperty("dividendYield");
+  });
+
+  it("falha ao gravar o indicador (banco) não derruba a leitura da carteira", async () => {
+    vi.mocked(indicatorsRepository.ativosAcaoDoUsuario).mockResolvedValue([
+      { ...SEM_INDICADOR },
+    ] as never);
+    vi.mocked(buscarIndicadoresFundamentalistas).mockResolvedValue({
+      pl: 8.8,
+      pvp: 1.3,
+      roe: 30,
+      roa: null,
+      margemLiquida: 24,
+      dividaEbitda: null,
+      industria: null,
+      precoAtual: 48.5,
+    });
+    vi.mocked(indicatorsRepository.upsert).mockRejectedValue(new Error("timeout do pool"));
 
     const resultado = await indicatorsService.getIndicadoresDaCarteira("user-1");
 
     expect(resultado).toHaveLength(1);
-    expect(resultado[0]?.pl).toBeNull(); // upsert nunca rodou: fica no null anterior
+    expect(resultado[0]?.pl).toBeNull(); // upsert nunca concluiu: fica no null anterior
+  });
+});
+
+describe("somarProventos", () => {
+  it("soma em Decimal: 0,1 + 0,2 é exatamente 0,3", () => {
+    expect(somarProventos([{ valorPorCota: 0.1 }, { valorPorCota: 0.2 }])).toBe(0.3);
+  });
+
+  it("lista vazia soma zero", () => {
+    expect(somarProventos([])).toBe(0);
   });
 });
 
