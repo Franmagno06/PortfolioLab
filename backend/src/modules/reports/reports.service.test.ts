@@ -54,7 +54,7 @@ function comRelatoriosGuardados(quantidade: number) {
 }
 
 /** Buffer irrelevante: a cota é conferida antes de qualquer leitura dele. */
-const arquivoQualquer = { originalname: "irrelevante.pdf", buffer: Buffer.from("") };
+const arquivoQualquer = { originalname: "irrelevante.pdf", buffer: Buffer.from("%PDF-") };
 
 const statusDe = async (userId: string) =>
   reportsService
@@ -238,11 +238,26 @@ describe("mesmo PDF enviado de novo", () => {
     const comTexto = { text: "conteúdo" } as Awaited<ReturnType<typeof extractText>>;
     vi.mocked(extractText).mockResolvedValueOnce(comTexto).mockResolvedValueOnce(comTexto);
 
-    await reportsService.analisar("u1", { originalname: "a.pdf", buffer: Buffer.from("versão 1") });
-    await reportsService.analisar("u1", { originalname: "a.pdf", buffer: Buffer.from("versão 2") });
+    await reportsService.analisar("u1", { originalname: "a.pdf", buffer: Buffer.from("%PDF- versão 1") });
+    await reportsService.analisar("u1", { originalname: "a.pdf", buffer: Buffer.from("%PDF- versão 2") });
 
     const [primeiro, segundo] = busca.mock.calls.map(([hash]) => hash);
     expect(primeiro).not.toBe(segundo);
+  });
+});
+
+describe("arquivo que não é PDF", () => {
+  it("recusa com 400 pelo conteúdo, mesmo com nome .pdf, sem abrir o parser", async () => {
+    comRelatoriosGuardados(0);
+    vi.mocked(getDocumentProxy).mockClear();
+
+    const erro = await reportsService
+      .analisar("u1", { originalname: "falso.pdf", buffer: Buffer.from("<html>não sou pdf</html>") })
+      .catch((e: AppError) => e);
+
+    expect(erro).toBeInstanceOf(AppError);
+    expect((erro as AppError).statusCode).toBe(400);
+    expect(getDocumentProxy).not.toHaveBeenCalled();
   });
 });
 
@@ -296,7 +311,7 @@ function espiarCreate() {
     Promise.resolve({ ...data, id: "relatorio-cvm", createdAt: new Date() })) as unknown as typeof reportsRepository.create);
 }
 
-const arquivo = { originalname: "BBAS3-1T26.pdf", buffer: Buffer.from("") };
+const arquivo = { originalname: "BBAS3-1T26.pdf", buffer: Buffer.from("%PDF-") };
 
 describe("relatório com ativo informado", () => {
   beforeEach(() => {

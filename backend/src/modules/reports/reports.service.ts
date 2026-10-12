@@ -28,6 +28,41 @@ const LIMITE_CARACTERES = 2_000_000;
 // carrega o texto inteiro do PDF no banco. A cota limita os dois de uma vez.
 export const COTA_RELATORIOS = 50;
 
+// Assinatura de arquivo PDF ("%PDF-"). O multer só confere o Content-Type
+// declarado pelo cliente, que é forjável — isto confere o conteúdo de verdade
+// antes de o buffer seguir para o parser.
+const ASSINATURA_PDF = Buffer.from("%PDF-", "ascii");
+
+function pareceUmPdf(buffer: Buffer): boolean {
+  return buffer.subarray(0, ASSINATURA_PDF.length).equals(ASSINATURA_PDF);
+}
+
+// Teto de tempo para o parsing do PDF em si (pdf.js/unpdf). As chamadas de
+// rede (Yahoo, Gemini) já têm timeout próprio; um PDF adversarial (muitas
+// fontes, objetos aninhados) pode prender CPU sem passar por rede nenhuma.
+const TIMEOUT_PARSING_MS = 30_000;
+
+async function comTimeout<T>(promessa: Promise<T>): Promise<T> {
+  let temporizador: NodeJS.Timeout | undefined;
+  const limite = new Promise<never>((_, rejeitar) => {
+    temporizador = setTimeout(
+      () =>
+        rejeitar(
+          new AppError(
+            `A leitura do PDF demorou mais de ${TIMEOUT_PARSING_MS / 1000}s. Tente outro arquivo.`,
+            400,
+          ),
+        ),
+      TIMEOUT_PARSING_MS,
+    );
+  });
+  try {
+    return await Promise.race([promessa, limite]);
+  } finally {
+    clearTimeout(temporizador);
+  }
+}
+
 // Teto do que a análise inicial manda para a IA. O release trimestral do Banco
 // do Brasil tem 760 mil caracteres: mandado inteiro levava ~70s e consumia a
 // cota de um minuto inteiro numa tacada.
@@ -109,7 +144,7 @@ async function semRuidoDePdf<T>(leitura: () => Promise<T>): Promise<T> {
 }
 
 async function extrairTexto(pdf: DocumentoPdf): Promise<string> {
-  const { text } = await semRuidoDePdf(() => extractText(pdf, { mergePages: true }));
+  const { text } = await comTimeout(semRuidoDePdf(() => extractText(pdf, { mergePages: true })));
   return text;
 }
 
@@ -219,11 +254,17 @@ export const reportsService = {
       );
     }
 
+    if (!pareceUmPdf(arquivo.buffer)) {
+      throw new AppError("O arquivo enviado não é um PDF válido", 400);
+    }
+
     // Antes de o pdf.js tocar no buffer: ele pode transferir o ArrayBuffer
     // para dentro da biblioteca e deixar o original vazio.
     const contentHash = createHash("sha256").update(arquivo.buffer).digest("hex");
 
-    const pdf = await semRuidoDePdf(() => getDocumentProxy(new Uint8Array(arquivo.buffer)));
+    const pdf = await comTimeout(
+      semRuidoDePdf(() => getDocumentProxy(new Uint8Array(arquivo.buffer))),
+    );
 
     // 1. com o ativo informado, o PDF só identifica o período e os números
     // vêm da CVM. Sem ativo, ou sem o documento na CVM, lê o PDF inteiro.
