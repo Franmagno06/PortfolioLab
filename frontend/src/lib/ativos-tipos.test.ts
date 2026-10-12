@@ -43,10 +43,12 @@ describe("ativos-tipos.ts acompanha os DTOs do backend", () => {
     FiiResumoDto: "FiiResumo",
     AcaoFichaDto: "AcaoFicha",
     FiiFichaDto: "FiiFicha",
+    EtfResumoDto: "EtfResumo",
+    CabecalhoDoAtivoDto: "Cabecalho",
   };
 
   it("tem os mesmos campos nos tipos que atravessam a API", () => {
-    const nomes = ["Bloco", "PontoDePreco", "ProventoDoAtivo", "NoticiaDoAtivo", "ResultadoTrimestral", "ComposicaoDoFundo", "IndicadoresDaAcao", "IndicadoresDoFii", "AcaoResumoDto", "FiiResumoDto"];
+    const nomes = ["Bloco", "PontoDePreco", "ProventoDoAtivo", "NoticiaDoAtivo", "ResultadoTrimestral", "ComposicaoDoFundo", "IndicadoresDaAcao", "IndicadoresDoFii", "AcaoResumoDto", "FiiResumoDto", "EtfResumoDto", "PatrimonioDoEtf", "CabecalhoDoAtivoDto"];
     for (const nome of nomes) {
       const doFront = front[NOME_NO_FRONT[nome] ?? nome];
       expect(doFront, `${nome} existe no front`).toBeDefined();
@@ -56,6 +58,9 @@ describe("ativos-tipos.ts acompanha os DTOs do backend", () => {
 
   it("as fichas têm os mesmos blocos (o cabeçalho vem de um tipo auxiliar nos dois lados)", () => {
     const blocosDaAcao = ["banco", "indicadores", "historico", "proventos", "resultados", "noticias"];
+    const blocosDoEtf = ["patrimonio", "historico", "proventos", "noticias"];
+    expect(front["EtfFicha"]).toEqual(expect.arrayContaining(blocosDoEtf));
+    expect(backend["EtfFichaDto"]).toEqual(expect.arrayContaining(blocosDoEtf));
     const blocosDoFii = ["indicadores", "informe", "composicao", "historico", "proventos", "noticias"];
     expect(front["AcaoFicha"]).toEqual(expect.arrayContaining(blocosDaAcao));
     expect(front["FiiFicha"]).toEqual(expect.arrayContaining(blocosDoFii));

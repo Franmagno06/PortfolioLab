@@ -47,6 +47,20 @@ const FIIS = [
   ["HGCR11", "Pátria Recebíveis Imobiliários (antigo CSHG Recebíveis)", "Papel", "Recebíveis (CRI)", 71.3, -0.7, 12.9, 0.85],
 ];
 
+// [ticker, nome, categoria, índice, preço, variação, retorno 12m, DY 12m]
+const ETFS = [
+  ["BOVA11", "iShares Ibovespa", "Ações do Brasil", "Ibovespa", 205.55, 1.22, 40.39, 0],
+  ["IVVB11", "iShares S&P 500", "Ações do exterior", "S&P 500", 439.25, -0.25, 6.27, 0],
+  ["SMAL11", "iShares Small Caps", "Ações do Brasil", "Índice Small Cap (SMLL)", 139.8, 4.03, 27.02, 2.5],
+  ["DIVO11", "It Now IDIV", "Ações do Brasil", "Índice de Dividendos (IDIV)", 148.05, 1.33, 35.39, 0],
+  ["B5P211", "It Now IMA-B5 P2", "Renda fixa", "IMA-B 5 P2", 11.2, 0.1, 9.8, 0],
+  ["IMAB11", "It Now IMA-B", "Renda fixa", "IMA-B", 120.4, 0.2, -3.1, 0],
+  ["FIXA11", "BB ETF Renda Fixa Pré", "Renda fixa", "S&P/B3 Índice Futuro de Taxas de Juros", 98.7, 0.0, null, 0],
+  ["NASD11", "Trend ETF Nasdaq 100", "Ações do exterior", "Nasdaq-100", 160.3, -0.6, 18.4, 0],
+  ["GOLD11", "Trend ETF Ouro", "Ouro", "Preço do ouro (LBMA)", 15.9, 0.9, 32.0, 0],
+  ["HASH11", "Hashdex Nasdaq Crypto", "Criptoativos", "Nasdaq Crypto Index (NCI)", 31.4, -2.2, 55.0, 0],
+];
+
 // ---- casos de estado ------------------------------------------------------
 const CASOS = {
   // ficha inteira falha: a página mostra o erro, e a listagem continua normal
@@ -59,6 +73,8 @@ const CASOS = {
   historicoAntigo: ["RENT3", "VILG11"],
   // a fonte respondeu, mas não há notícia nem provento
   semNoticias: ["WEGE3", "KNCR11"],
+  // patrimônio do ETF que a CVM não devolveu
+  semCvmEtf: ["IVVB11"],
 };
 const emCaso = (nome, ticker) => CASOS[nome].includes(ticker);
 
@@ -118,6 +134,7 @@ function fichaDaAcao(linha) {
   const banco = setor === "Bancos";
   return {
     ...resumo,
+    descricao: `Explicação breve de ${ticker}, escrita para o teste.`,
     fechamentoEm: semPreco ? null : "2026-10-09",
     banco,
     indicadores: semPreco
@@ -152,6 +169,7 @@ function fichaDoFii(linha) {
   const semInforme = emCaso("semCvm", ticker);
   return {
     ...resumo,
+    descricao: `Explicação breve de ${ticker}, escrita para o teste.`,
     fechamentoEm: semPreco ? null : "2026-10-09",
     indicadores: {
       dyMensal: semPreco ? null : 1.0,
@@ -184,6 +202,23 @@ function fichaDoFii(linha) {
   };
 }
 
+function resumoDoEtf([ticker, nome, categoria, indice, preco, variacaoDia, retorno12m, dy12m]) {
+  return { ticker, nome, categoria, indice, preco, variacaoDia, retorno12m, dy12m };
+}
+
+function fichaDoEtf(linha) {
+  const [ticker, , , , preco, , , dy12m] = linha;
+  return {
+    ...resumoDoEtf(linha),
+    descricao: `Explicação breve de ${ticker}, escrita para o teste.`,
+    fechamentoEm: "2026-10-09",
+    patrimonio: emCaso("semCvmEtf", ticker) ? indisponivel() : ok({ patrimonioLiquido: 17_669_434_547.72, dataReferencia: "2026-10-05" }),
+    historico: ok(historico(preco)),
+    proventos: ok(dy12m > 0 ? proventos(preco, dy12m) : []),
+    noticias: ok(NOTICIAS[ticker] ?? []),
+  };
+}
+
 // ---- servidor -------------------------------------------------------------
 let modo = {};
 
@@ -212,16 +247,18 @@ createServer((req, res) => {
     return;
   }
 
-  if (req.method !== "GET" || partes[0] !== "ativos" || !["acoes", "fiis"].includes(partes[1] ?? "")) {
+  if (req.method !== "GET" || partes[0] !== "ativos" || !["acoes", "fiis", "etfs"].includes(partes[1] ?? "")) {
     return responder(res, 404, { error: "Rota não encontrada" });
   }
 
   const classe = partes[1];
-  const tabela = classe === "acoes" ? ACOES : FIIS;
+  const tabela = classe === "acoes" ? ACOES : classe === "fiis" ? FIIS : ETFS;
+  const resumir = classe === "acoes" ? resumoDaAcao : classe === "fiis" ? resumoDoFii : resumoDoEtf;
+  const detalhar = classe === "acoes" ? fichaDaAcao : classe === "fiis" ? fichaDoFii : fichaDoEtf;
 
   if (partes.length === 2) {
     if (modo.listas === "erro") return responder(res, 503, { error: "Fora do ar" });
-    return responder(res, 200, tabela.map(classe === "acoes" ? resumoDaAcao : resumoDoFii));
+    return responder(res, 200, tabela.map(resumir));
   }
 
   const ticker = (partes[2] ?? "").toUpperCase();
@@ -229,5 +266,5 @@ createServer((req, res) => {
   const linha = tabela.find((l) => l[0] === ticker);
   if (!linha) return responder(res, 404, { error: "Ativo não encontrado" });
   if (emCaso("ficha503", ticker)) return responder(res, 503, { error: "Fora do ar" });
-  return responder(res, 200, classe === "acoes" ? fichaDaAcao(linha) : fichaDoFii(linha));
+  return responder(res, 200, detalhar(linha));
 }).listen(PORTA, () => console.log(`API de mentira dos ativos em http://localhost:${PORTA}`));

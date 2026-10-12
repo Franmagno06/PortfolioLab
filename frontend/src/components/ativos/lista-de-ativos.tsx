@@ -5,7 +5,7 @@ import { useState } from "react";
 import { Avatar } from "@/components/ativos/pecas";
 import { Dica } from "@/components/ativos/dica";
 import { QUANTIDADE_INICIAL } from "@/lib/ativos-catalogo";
-import type { AcaoResumo, FiiResumo, TipoFii } from "@/lib/ativos-tipos";
+import type { AcaoResumo, EtfResumo, FiiResumo, TipoFii } from "@/lib/ativos-tipos";
 import { brlOuTraco, numero, percentual } from "@/lib/format";
 import type { IdDaDica } from "@/lib/indicadores-explicados";
 import { ROTAS } from "@/lib/navegacao";
@@ -51,6 +51,14 @@ const COLUNAS_FIIS: Coluna<FiiResumo>[] = [
   { id: "pvp", rotulo: "P/VP", papel: "indicador", dica: "pvpFii", valor: (f) => duasCasas(f.pvp) },
 ];
 
+const COLUNAS_ETFS: Coluna<EtfResumo>[] = [
+  { id: "categoria", rotulo: "Categoria", papel: "chip", dica: "categoriaEtf", valor: (e) => e.categoria },
+  { id: "indice", rotulo: "Índice", papel: "texto", dica: "indiceEtf", valor: (e) => e.indice, largura: "w-[22%]" },
+  { id: "preco", rotulo: "Preço", papel: "preco", valor: (e) => brlOuTraco(e.preco) },
+  { id: "retorno12m", rotulo: "Var. 12m", papel: "indicador", dica: "retorno12m", valor: (e) => pctOuTraco(e.retorno12m) },
+  { id: "dy12m", rotulo: "DY 12m", papel: "indicador", dica: "dyEtf", valor: (e) => pctOuTraco(e.dy12m) },
+];
+
 type Ativo = { ticker: string; nome: string; tipo?: TipoFii };
 
 type Props<T extends Ativo> = {
@@ -62,9 +70,11 @@ type Props<T extends Ativo> = {
   plural: string;
   rotuloDoAtivo: string;
   legendaDaTabela: string;
+  /** ETF não tem logo nem tipo de FII: o avatar vira o ícone de ETF. */
+  etf?: boolean;
 };
 
-function Listagem<T extends Ativo>({ itens, colunas, hrefBase, plural, rotuloDoAtivo, legendaDaTabela }: Props<T>) {
+function Listagem<T extends Ativo>({ itens, colunas, hrefBase, plural, rotuloDoAtivo, legendaDaTabela, etf }: Props<T>) {
   const [todas, setTodas] = useState(false);
   const visiveis = todas ? itens : itens.slice(0, QUANTIDADE_INICIAL);
   const idDaLista = `lista-${plural}`;
@@ -106,7 +116,7 @@ function Listagem<T extends Ativo>({ itens, colunas, hrefBase, plural, rotuloDoA
                 <tr key={item.ticker} className="group relative border-t border-line hover:bg-paper">
                   <td className="py-3.5 pr-3 pl-6">
                     <div className="flex items-center gap-3.5">
-                      <Avatar ticker={item.ticker} tamanho="lista" tipoFii={item.tipo} />
+                      <Avatar ticker={item.ticker} tamanho="lista" tipoFii={item.tipo} etf={etf} />
                       <Link
                         href={`${hrefBase}/${item.ticker}`}
                         className="block min-w-0 rounded after:absolute after:inset-0 focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-ink"
@@ -152,7 +162,7 @@ function Listagem<T extends Ativo>({ itens, colunas, hrefBase, plural, rotuloDoA
           {visiveis.map((item) => (
             <li key={item.ticker} className="relative rounded-md border border-line bg-card p-4 active:bg-paper">
               <div className="flex items-start gap-3">
-                <Avatar ticker={item.ticker} tamanho="lista" tipoFii={item.tipo} />
+                <Avatar ticker={item.ticker} tamanho="lista" tipoFii={item.tipo} etf={etf} />
                 <div className="min-w-0 flex-1">
                   <Link
                     href={`${hrefBase}/${item.ticker}`}
@@ -231,6 +241,20 @@ export function ListaDeAcoes({ itens }: { itens: AcaoResumo[] }) {
       plural="ações"
       rotuloDoAtivo="Ativo"
       legendaDaTabela="Ações do catálogo, com preço e indicadores. Cada linha abre a ficha da ação."
+    />
+  );
+}
+
+export function ListaDeEtfs({ itens }: { itens: EtfResumo[] }) {
+  return (
+    <Listagem
+      itens={itens}
+      colunas={COLUNAS_ETFS}
+      hrefBase={ROTAS.etfs}
+      plural="ETFs"
+      rotuloDoAtivo="ETF"
+      legendaDaTabela="ETFs do catálogo, com preço e indicadores. Cada linha abre a ficha do ETF."
+      etf
     />
   );
 }

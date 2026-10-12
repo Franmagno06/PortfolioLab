@@ -258,10 +258,14 @@ function resumoDoFii(
   };
 }
 
-/** Variação do preço em 12 meses: a cota de hoje contra o fechamento do mês de 12 meses atrás. Precisa dos 13 meses. */
+/**
+ * Variação do preço em 12 meses: a cota de hoje contra o fechamento do mês anterior ao mesmo mês do ano
+ * passado (de hoje, 12/10/2026, contra o fim de set/2025: cerca de 12 meses e meio). O histórico é pedido
+ * com 13 meses, o que dá 14 fechamentos, e a base é o mais antigo deles.
+ */
 function retorno12mDoEtf(preco: number | null, porMes: Map<string, number>): number | null {
-  if (preco === null || porMes.size < 13) return null;
-  const antigo = [...porMes.entries()].sort(([a], [b]) => a.localeCompare(b)).at(-13)?.[1];
+  if (preco === null || porMes.size < 14) return null;
+  const antigo = [...porMes.entries()].sort(([a], [b]) => a.localeCompare(b)).at(-14)?.[1];
   if (!antigo || antigo <= 0) return null;
   return arredondar((preco / antigo - 1) * 100);
 }

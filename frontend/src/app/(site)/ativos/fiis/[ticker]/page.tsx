@@ -9,6 +9,7 @@ import {
   NotaDaFonte,
   ProventosDoAtivo,
   RelatoriosDoAtivo,
+  SobreOAtivo,
 } from "@/components/ativos/blocos-da-ficha";
 import { GraficoDePreco } from "@/components/ativos/grafico-de-preco";
 import { Armadilha, GrupoDeIndicadores, Indicador } from "@/components/ativos/indicadores-da-ficha";
@@ -84,6 +85,8 @@ export default async function FichaDoFii({ params }: Props) {
         fechamentoEm={ficha.fechamentoEm}
         tipoFii={ficha.tipo}
       />
+
+      <SobreOAtivo ticker={ficha.ticker} texto={ficha.descricao} />
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:grid-rows-[auto_1fr] lg:items-start">
         <div className="lg:col-start-2 lg:row-start-1">

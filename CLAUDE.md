@@ -138,8 +138,8 @@ do PDF, então `POST /reports/:id/ask` responde 409. A tabela ticker → CNPJ
 
 Nenhuma delas pode derrubar uma rota. Ao mexer nesses módulos, preserve o tratamento defensivo.
 
-**Páginas públicas de Ativos** (`modules/ativos/`, `GET /ativos/{acoes,fiis}[/:ticker]`, sem login).
-Só ticker do catálogo curado (`ativos.catalogo.ts`, 15 ações e 15 FIIs) chega às fontes; qualquer
+**Páginas públicas de Ativos** (`modules/ativos/`, `GET /ativos/{acoes,fiis,etfs}[/:ticker]`, sem login).
+Só ticker do catálogo curado (`ativos.catalogo.ts`, 15 ações, 15 FIIs e 10 ETFs) chega às fontes; qualquer
 outro dá 404 antes de qualquer chamada externa. Cotação e proventos vêm do Yahoo (cache em memória),
 indicadores de `AssetIndicator` (24h) e resultados trimestrais e informe de FII da CVM de
 `asset_snapshots`. A renovação é preguiçosa; em produção o catálogo também é aquecido ao subir a API.
@@ -150,6 +150,8 @@ Duas regras que não podem se perder:
   de requisição sem limite de tempo, ou o Node para de atender todo mundo.
 - `buscarProventosOuNulo` distingue "o Yahoo falhou" (null) de "o ativo não pagou nada" (lista vazia).
   O Dividend Yield depende dessa diferença: falha preserva o DY gravado, nunca vira 0%.
+
+ETFs: sem banco de indicadores. Preço, histórico e proventos vêm do Yahoo; o patrimônio, do cadastro de classes da CVM (`registro_classe.csv`, em cache de memória por 24h, um arquivo para todos). **Não há taxa de administração nem cotistas**: nenhuma fonte aberta confiável os traz para ETF, e a ficha manda conferir o regulamento. Não coloque número de taxa na mão sem fonte. A explicação "O que é" de cada ativo fica em `ativos.descricoes.ts` (um teste exige uma por ticker e proíbe palavras de recomendação).
 
 O feed do Google Notícias **não** é usado: o próprio XML o restringe a leitor de feeds pessoal, de uso
 não comercial. As notícias de cada ficha vêm de feeds RSS públicos de vários portais (Money Times, Suno, InfoMoney, Valor Investe, Seu Dinheiro, Exame, Bora Investir; `FONTES_PARA_ATIVOS` em `news/rss.ts`), guardadas por 14 dias em `news_items` (`news/news.historico.ts`) e filtradas pelo ticker. A aba Notícias da carteira continua só com Money Times e Suno, sem banco.

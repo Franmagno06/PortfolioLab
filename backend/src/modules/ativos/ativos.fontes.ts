@@ -69,7 +69,7 @@ export const fontes = {
   cotacao: (ticker: string) => cotacoes.obter(ticker, () => buscarCotacao(ticker)),
 
   /** Fechamento de cada mês, "AAAA-MM" → preço. Vazio se o Yahoo falhou. */
-  historicoMensal: (ticker: string) => historicos.obter(ticker, () => buscarHistoricoMensal(ticker, 12)),
+  historicoMensal: (ticker: string) => historicos.obter(ticker, () => buscarHistoricoMensal(ticker, 13)),
 
   /** Proventos dos últimos 12 meses do próprio ativo. Null se o Yahoo falhou; lista vazia se não pagou. */
   proventos12Meses: (ticker: string) =>

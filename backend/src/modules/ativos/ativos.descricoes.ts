@@ -27,7 +27,7 @@ export const DESCRICOES: Record<string, string> = {
   AXIA3:
     "A Axia Energia é a antiga Eletrobras. Gera e transmite energia elétrica, com usinas hidrelétricas e linhas de transmissão espalhadas pelo país, e vende essa energia a distribuidoras e a grandes consumidores.",
   RENT3:
-    "A Localiza aluga carros para pessoas e empresas, inclusive por assinatura, e depois vende os carros usados. Também opera a Unidas, que comprou, e aluga frotas para empresas.",
+    "A Localiza aluga carros para pessoas e empresas, inclusive por assinatura, e depois vende os carros usados. Também aluga frotas para empresas.",
   CMIG4:
     "A Cemig é a companhia de energia de Minas Gerais, controlada pelo governo do estado. Gera energia elétrica, a transmite e a distribui para boa parte do estado. As tarifas de distribuição são reguladas pelo governo federal.",
   RADL3:
@@ -45,7 +45,7 @@ export const DESCRICOES: Record<string, string> = {
   KNRI11:
     "Fundo de tijolo com lajes corporativas (prédios de escritórios) e galpões logísticos. O rendimento vem do aluguel pago pelas empresas que ocupam esses imóveis.",
   KNCR11:
-    "Fundo de papel que aplica em CRI com rendimento ligado ao CDI, a taxa de juros básica. O rendimento vem dos juros desses títulos e tende a acompanhar os juros da economia.",
+    "Fundo de papel que aplica em CRI com rendimento ligado ao CDI, taxa que acompanha a Selic, a taxa básica de juros. O rendimento vem dos juros desses títulos e tende a acompanhar os juros da economia.",
   KNIP11:
     "Fundo de papel que aplica em CRI com rendimento ligado à inflação (IPCA) mais uma taxa fixa. O rendimento vem dos juros desses títulos e da correção pela inflação.",
   BTLG11:
@@ -79,11 +79,11 @@ export const DESCRICOES: Record<string, string> = {
   DIVO11:
     "ETF que copia o IDIV, índice formado pelas ações da bolsa brasileira que mais pagaram dividendos e juros sobre capital próprio. Ao comprar uma cota, você fica exposto a várias dessas empresas de uma vez.",
   B5P211:
-    "ETF de renda fixa que copia um índice de títulos públicos do Tesouro atrelados à inflação (IPCA) com vencimento acima de cinco anos. O valor da cota oscila com os juros e com a inflação.",
+    "ETF de renda fixa que copia um índice de títulos públicos do Tesouro atrelados à inflação (IPCA) com vencimento de até cinco anos. O valor da cota oscila com os juros e com a inflação.",
   IMAB11:
     "ETF de renda fixa que copia o IMA-B, índice de títulos públicos do Tesouro atrelados à inflação (IPCA) de vários vencimentos. O valor da cota oscila com os juros e com a inflação.",
   FIXA11:
-    "ETF de renda fixa que acompanha um índice de títulos públicos com taxa de juros prefixada. O valor da cota oscila conforme os juros de mercado sobem ou descem.",
+    "ETF de renda fixa que acompanha um índice de contratos futuros de juros (DI) com prazo de cerca de três anos. O valor da cota sobe quando os juros prefixados caem e cai quando eles sobem.",
   NASD11:
     "ETF que copia o Nasdaq-100, índice das 100 maiores empresas não financeiras listadas na bolsa Nasdaq, nos Estados Unidos, muitas delas de tecnologia. É negociado em reais, mas acompanha as ações americanas e o dólar.",
   GOLD11:

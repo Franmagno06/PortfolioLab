@@ -8,6 +8,7 @@
 
 export type EspecieAcao = "ON" | "PN" | "Unit";
 export type TipoFii = "Tijolo" | "Papel" | "Híbrido" | "FoF";
+export type CategoriaDeEtf = "Ações do Brasil" | "Ações do exterior" | "Renda fixa" | "Ouro" | "Criptoativos";
 
 export type EstadoDoBloco = "ok" | "desatualizado" | "indisponivel";
 
@@ -79,6 +80,8 @@ export type FiiResumo = {
 };
 
 type Cabecalho = {
+  /** "O que é este ativo": duas ou três frases. */
+  descricao: string;
   preco: number | null;
   variacaoDia: number | null;
   /** Último pregão em que o ativo negociou (AAAA-MM-DD). */
@@ -113,6 +116,33 @@ export type FiiFicha = FiiResumo &
     /** De onde vêm os campos da CVM: o mês do informe e quando foi lido. */
     informe: { estado: EstadoDoBloco; atualizadoEm: string | null; competencia: string | null };
     composicao: Bloco<ComposicaoDoFundo>;
+    historico: Bloco<PontoDePreco[]>;
+    proventos: Bloco<ProventoDoAtivo[]>;
+    noticias: Bloco<NoticiaDoAtivo[]>;
+  };
+
+export type EtfResumo = {
+  ticker: string;
+  nome: string;
+  categoria: CategoriaDeEtf;
+  indice: string;
+  preco: number | null;
+  variacaoDia: number | null;
+  /** Variação do preço da cota em 12 meses, em %. Não inclui proventos. */
+  retorno12m: number | null;
+  dy12m: number | null;
+};
+
+export type PatrimonioDoEtf = {
+  /** Em reais. */
+  patrimonioLiquido: number;
+  /** AAAA-MM-DD */
+  dataReferencia: string;
+};
+
+export type EtfFicha = EtfResumo &
+  Cabecalho & {
+    patrimonio: Bloco<PatrimonioDoEtf>;
     historico: Bloco<PontoDePreco[]>;
     proventos: Bloco<ProventoDoAtivo[]>;
     noticias: Bloco<NoticiaDoAtivo[]>;

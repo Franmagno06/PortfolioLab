@@ -488,12 +488,17 @@ export function patrimonioDasClasses(csv: string, cnpjs: string[]): Map<string, 
   const iCnpj = cabecalho.indexOf("CNPJ_Classe");
   const iPl = cabecalho.indexOf("Patrimonio_Liquido");
   const iData = cabecalho.indexOf("Data_Patrimonio_Liquido");
-  if (iCnpj < 0 || iPl < 0 || iData < 0) return saida;
+  if (iCnpj < 0 || iPl < 0 || iData < 0) {
+    console.error("[CVM] o cadastro de classes mudou de formato: faltam colunas esperadas");
+    return saida;
+  }
 
   for (let i = 1; i < linhas.length; i++) {
     const linha = linhas[i];
     if (!linha) continue;
     const campos = linha.split(";");
+    // um nome com ";" deslocaria as colunas em silêncio: a linha torta é descartada
+    if (campos.length !== cabecalho.length) continue;
     const cnpj = campos[iCnpj] ?? "";
     if (!queremos.has(cnpj)) continue;
     const patrimonio = Number(campos[iPl]);
@@ -512,7 +517,10 @@ export async function buscarPatrimonioDeClasses(cnpjs: string[]): Promise<Map<st
   try {
     const csvs = lerCsvsDoZip(zip, ["registro_classe.csv"]);
     const csv = csvs.get("registro_classe.csv");
-    return csv ? patrimonioDasClasses(csv, cnpjs) : null;
+    if (!csv) return null;
+    const achados = patrimonioDasClasses(csv, cnpjs);
+    // nenhum CNPJ achado quase sempre é arquivo em formato novo, e não fundos que sumiram: falha, e não dado de 24h
+    return achados.size > 0 ? achados : null;
   } catch (err) {
     console.error("[CVM] falha ao ler o cadastro de classes:", err instanceof Error ? err.message : err);
     return null;

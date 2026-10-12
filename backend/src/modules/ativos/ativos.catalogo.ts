@@ -132,7 +132,7 @@ export const ETFS: readonly EtfDoCatalogo[] = [
   { ticker: "FIXA11", nome: "BB ETF Renda Fixa Pré", categoria: "Renda fixa", indice: "S&P/B3 Índice Futuro de Taxas de Juros", cnpj: "26845780000164" },
   { ticker: "NASD11", nome: "Trend ETF Nasdaq 100", categoria: "Ações do exterior", indice: "Nasdaq-100", cnpj: "35578672000163" },
   { ticker: "GOLD11", nome: "Trend ETF Ouro", categoria: "Ouro", indice: "Preço do ouro (LBMA)", cnpj: "37985763000149" },
-  { ticker: "HASH11", nome: "Hashdex Nasdaq Crypto", categoria: "Criptoativos", indice: "Nasdaq Crypto Index (NCI)", cnpj: "38314708000190" },
+  { ticker: "HASH11", nome: "Hashdex Nasdaq Crypto", categoria: "Criptoativos", indice: "Nasdaq CME Crypto Index (NCI)", cnpj: "38314708000190" },
 ];
 
 export function acharEtf(ticker: string): EtfDoCatalogo | undefined {

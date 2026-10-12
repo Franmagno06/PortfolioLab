@@ -8,6 +8,7 @@ import {
   NotaDaFonte,
   ProventosDoAtivo,
   RelatoriosDoAtivo,
+  SobreOAtivo,
   ResultadosTrimestrais,
 } from "@/components/ativos/blocos-da-ficha";
 import { GraficoDePreco } from "@/components/ativos/grafico-de-preco";
@@ -89,6 +90,8 @@ export default async function FichaDaAcao({ params }: Props) {
         variacaoDia={ficha.variacaoDia}
         fechamentoEm={ficha.fechamentoEm}
       />
+
+      <SobreOAtivo ticker={ficha.ticker} texto={ficha.descricao} />
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:grid-rows-[auto_1fr] lg:items-start">
         <div className="lg:col-start-2 lg:row-start-1">

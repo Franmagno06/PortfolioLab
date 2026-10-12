@@ -1,5 +1,5 @@
 import { ApiError } from "./api";
-import type { AcaoFicha, AcaoResumo, FiiFicha, FiiResumo } from "./ativos-tipos";
+import type { AcaoFicha, AcaoResumo, EtfFicha, EtfResumo, FiiFicha, FiiResumo } from "./ativos-tipos";
 
 /**
  * A leitura das páginas de ativos, feita no servidor do Next (as páginas são Server Components).
@@ -37,6 +37,8 @@ async function lerLista<T>(caminho: string): Promise<T[]> {
 
 export const listarAcoes = () => lerLista<AcaoResumo>("/ativos/acoes");
 export const listarFiis = () => lerLista<FiiResumo>("/ativos/fiis");
+export const listarEtfs = () => lerLista<EtfResumo>("/ativos/etfs");
 
 export const buscarAcao = (ticker: string) => ler<AcaoFicha>(`/ativos/acoes/${encodeURIComponent(ticker)}`);
+export const buscarEtf = (ticker: string) => ler<EtfFicha>(`/ativos/etfs/${encodeURIComponent(ticker)}`);
 export const buscarFii = (ticker: string) => ler<FiiFicha>(`/ativos/fiis/${encodeURIComponent(ticker)}`);

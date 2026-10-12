@@ -5,12 +5,14 @@ import {
   leituraDivida,
   leituraDy,
   leituraDyMensal,
+  leituraDyEtf,
   leituraGestao,
   leituraMargem,
   leituraPl,
   leituraPvpAcao,
   leituraPvpFii,
   leituraRoa,
+  leituraRetorno12m,
   leituraRoe,
 } from "./indicadores-explicados";
 
@@ -52,6 +54,16 @@ describe("leituras dos indicadores", () => {
     expect(normalizar(leituraPvpFii(1.01))).toBe("Você paga R$ 1,01 para cada R$ 1,00 do patrimônio do fundo.");
     expect(leituraGestao("Ativa")).toContain("escolhem e trocam");
     expect(leituraGestao("Passiva")).toContain("índice");
+  });
+
+  it("ETF: variação em 12 meses e dividend yield, com sinal, zero e ausência", () => {
+    expect(normalizar(leituraRetorno12m(12.5))).toBe("Em 12 meses, o preço da cota subiu R$ 12,50 a cada R$ 100 que valia no começo.");
+    expect(normalizar(leituraRetorno12m(-8))).toContain("caiu R$ 8,00");
+    expect(leituraRetorno12m(0)).toContain("mesmo lugar");
+    expect(leituraRetorno12m(null)).toContain("não está disponível");
+    expect(leituraDyEtf(0)).toContain("Nenhum provento");
+    expect(normalizar(leituraDyEtf(4))).toBe("Nos últimos 12 meses, pagou R$ 4,00 de proventos para cada R$ 100 do preço de hoje.");
+    expect(leituraDyEtf(null)).toContain("não está disponível");
   });
 
   it("FII sem rendimento mensal ou sem tipo de gestão informado diz que o dado não está disponível", () => {

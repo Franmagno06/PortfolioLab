@@ -12,7 +12,8 @@ export type IdDaDica =
   | "pl" | "pvp" | "dy12m" | "roe" | "margemLiquida" | "roa" | "dividaEbitda"
   | "especie"
   | "tipoFii" | "dyMensal" | "pvpFii" | "dyFii" | "patrimonioLiquido" | "cotistas"
-  | "taxaAdministracao" | "gestao";
+  | "taxaAdministracao" | "gestao"
+  | "categoriaEtf" | "indiceEtf" | "retorno12m" | "dyEtf";
 
 /** Cada dica tem o nome do indicador (para o leitor de tela) e uma explicação de uma frase ou duas. */
 export const DICAS: Record<IdDaDica, { rotulo: string; texto: string }> = {
@@ -77,7 +78,7 @@ export const DICAS: Record<IdDaDica, { rotulo: string; texto: string }> = {
   },
   patrimonioLiquido: {
     rotulo: "Patrimônio líquido",
-    texto: "Patrimônio líquido = tudo o que o fundo possui (imóveis, títulos, caixa) menos o que ele deve.",
+    texto: "Patrimônio líquido = tudo o que o fundo possui (imóveis, títulos, ações, caixa) menos o que ele deve.",
   },
   cotistas: {
     rotulo: "Número de cotistas",
@@ -86,6 +87,22 @@ export const DICAS: Record<IdDaDica, { rotulo: string; texto: string }> = {
   taxaAdministracao: {
     rotulo: "Taxa de administração",
     texto: "Taxa de administração = o que o fundo cobra por ano, sobre o patrimônio, para ser administrado e gerido.",
+  },
+  categoriaEtf: {
+    rotulo: "Categoria do ETF",
+    texto: "Categoria = o tipo de ativo que o ETF compra: ações do Brasil, ações do exterior, renda fixa, ouro ou criptoativos.",
+  },
+  indiceEtf: {
+    rotulo: "Índice acompanhado",
+    texto: "Índice = a lista que o ETF copia. Se o índice sobe 1%, a cota tende a subir perto de 1%, menos as taxas do fundo.",
+  },
+  retorno12m: {
+    rotulo: "Variação em 12 meses",
+    texto: "Variação 12m = quanto o preço da cota mudou em 12 meses. Não inclui proventos e não mostra o que vai acontecer daqui para a frente.",
+  },
+  dyEtf: {
+    rotulo: "DY 12m",
+    texto: "DY 12m = proventos pagos nos últimos 12 meses ÷ preço da cota. A maioria dos ETFs não paga proventos: o resultado está na variação da cota.",
   },
   gestao: {
     rotulo: "Tipo de gestão",
@@ -99,6 +116,7 @@ export const ARMADILHAS = {
   pl: "Lucro pontual (venda de um ativo, por exemplo) pode distorcer o P/L.",
   dyAcao: "DY alto pode ser o preço caindo, não o provento subindo.",
   dyFii: "DY muito acima da média do segmento pode indicar risco: confira de onde vem o rendimento.",
+  retornoEtf: "Um ano forte não costuma se repetir por obrigação: o ETF que mais subiu em 12 meses também pode cair no ano seguinte.",
   pvpFii: "P/VP abaixo de 1 com DY muito alto exige cuidado: o mercado pode estar enxergando algum problema.",
 } as const;
 
@@ -161,8 +179,21 @@ export function leituraPvpFii(pvp: number | null): string {
   return `Você paga ${brl(pvp)} para cada R$ 1,00 do patrimônio do fundo.`;
 }
 
+export function leituraRetorno12m(v: number | null): string {
+  if (v === null) return SEM_DADO;
+  if (v === 0) return "Em 12 meses, o preço da cota ficou praticamente no mesmo lugar.";
+  const sinal = v > 0 ? "subiu" : "caiu";
+  return `Em 12 meses, o preço da cota ${sinal} ${brl(Math.abs(v))} a cada R$ 100 que valia no começo.`;
+}
+
+export function leituraDyEtf(v: number | null): string {
+  if (v === null) return SEM_DADO;
+  if (v === 0) return "Nenhum provento registrado nos últimos 12 meses: o ganho, se houver, está na variação do preço.";
+  return `Nos últimos 12 meses, pagou ${brl(v)} de proventos para cada R$ 100 do preço de hoje.`;
+}
+
 export function leituraPatrimonioLiquido(): string {
-  return "Tudo o que o fundo possui (imóveis, títulos, caixa) menos o que deve.";
+  return "Tudo o que o fundo possui menos o que deve.";
 }
 
 export function leituraCotistas(): string {

@@ -51,6 +51,7 @@ export function CabecalhoDoAtivo({
   variacaoDia,
   fechamentoEm,
   tipoFii,
+  etf,
 }: {
   ticker: string;
   nome: string;
@@ -61,11 +62,13 @@ export function CabecalhoDoAtivo({
   fechamentoEm: string | null;
   /** Só no FII: escolhe o ícone do avatar. Ação usa o logo da empresa. */
   tipoFii?: TipoFii;
+  /** Só no ETF: o avatar vira o ícone de ETF. */
+  etf?: boolean;
 }) {
   return (
     <header className="rounded-md border border-line bg-card px-6 py-5 md:flex md:items-center md:justify-between md:gap-8">
       <div className="flex items-center gap-4 md:gap-5">
-        <Avatar ticker={ticker} tamanho="ficha" tipoFii={tipoFii} />
+        <Avatar ticker={ticker} tamanho="ficha" tipoFii={tipoFii} etf={etf} />
         <div className="min-w-0">
           <h1 className="font-leitura text-[34px] leading-[40px] font-semibold tracking-[-0.01em] text-balance text-ink md:text-4xl md:leading-[44px]">
             {ticker}
@@ -95,6 +98,19 @@ export function CabecalhoDoAtivo({
         </p>
       </div>
     </header>
+  );
+}
+
+/** "O que é este ativo": a explicação breve que abre a ficha, logo abaixo do preço. */
+export function SobreOAtivo({ ticker, texto }: { ticker: string; texto: string }) {
+  if (!texto) return null;
+  return (
+    <section aria-labelledby="sobre-titulo" className="mt-4 rounded-md border border-line bg-card px-6 py-5">
+      <h2 id="sobre-titulo" className="font-leitura text-xl leading-7 font-semibold">
+        O que é {ticker}
+      </h2>
+      <p className="mt-2 max-w-[75ch] text-base leading-[26px] text-ink-2">{texto}</p>
+    </section>
   );
 }
 

@@ -110,9 +110,9 @@ describe("fiação do limitador das páginas públicas de ativos", () => {
     expect(pilha[0]?.route).toBeUndefined();
   });
 
-  it("as quatro rotas públicas estão no roteador, depois do limitador", () => {
+  it("as seis rotas públicas estão no roteador, depois do limitador", () => {
     const rotas = pilha.filter((c) => c.route).map((c) => c.route?.path);
 
-    expect(rotas).toEqual(["/acoes", "/acoes/:ticker", "/fiis", "/fiis/:ticker"]);
+    expect(rotas).toEqual(["/acoes", "/acoes/:ticker", "/fiis", "/fiis/:ticker", "/etfs", "/etfs/:ticker"]);
   });
 });

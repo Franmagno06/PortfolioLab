@@ -36,10 +36,10 @@ vi.mock("../news/news.historico.js", () => ({ atualizarHistorico: vi.fn(), notic
 const cotacao = (ticker: string, preco: number, anterior: number): Cotacao =>
   ({ ticker, preco, fechamentoAnterior: anterior, negociadoEm: new Date("2026-10-09T20:00:00.000Z") }) as Cotacao;
 
-/** 13 fechamentos mensais, de 2025-10 a 2026-10, com o primeiro valendo `inicial`. */
+/** 14 fechamentos mensais, de 2025-09 a 2026-10, com o primeiro valendo `inicial`. */
 function treze(inicial: number, ultimo: number): Map<string, number> {
-  const meses = ["2025-10", "2025-11", "2025-12", "2026-01", "2026-02", "2026-03", "2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09", "2026-10"];
-  return new Map(meses.map((m, i) => [m, i === 0 ? inicial : i === 12 ? ultimo : inicial + i]));
+  const meses = ["2025-09", "2025-10", "2025-11", "2025-12", "2026-01", "2026-02", "2026-03", "2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09", "2026-10"];
+  return new Map(meses.map((m, i) => [m, i === 0 ? inicial : i === 13 ? ultimo : inicial + i]));
 }
 
 const CNPJ_DO_BOVA11 = "10406511000161";
@@ -123,7 +123,7 @@ describe("ativosService.fichaDoEtf", () => {
     expect(ficha.proventos.dados).toBeNull();
   });
 
-  it("histórico com menos de 13 meses: não inventa retorno de 12 meses", async () => {
+  it("histórico com menos de 14 fechamentos: não inventa retorno de 12 meses", async () => {
     vi.mocked(buscarCotacao).mockResolvedValue(cotacao("HASH11", 10, 10));
     vi.mocked(buscarHistoricoMensal).mockResolvedValue(new Map([["2026-09", 9], ["2026-10", 10]]));
 
