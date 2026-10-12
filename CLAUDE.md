@@ -99,6 +99,23 @@ Use a skill `frontend-design`e `web-design-guidelines` sempre que a tarefa envol
 nova, redesign de página existente, padronização das interfaces existentes, ou qualquer pedido de deixar a interface mais moderna ou
 mais fácil de entender. Carregue a skill antes de escrever o JSX, não depois.
 
+## Backend
+
+Use a skill `novo-modulo-backend` ao criar um módulo novo em `src/modules/` — ela gera os cinco
+arquivos no padrão de `auth` e já inclui teste. Use `prisma-client-api` como referência ao
+escrever queries (filtros, operadores, `$transaction`).
+
+Para revisão e correção, use antes de fechar a mudança:
+- `auditar-calculo-financeiro` — confere as invariantes de dinheiro (Decimal, taxa nos dois
+  sentidos, fonte única de preço, divisão protegida) em qualquer diff que toque
+  portfolio/rebalance/transactions/dividends/goals/quotes.
+- `security-and-hardening` — checklist de hardening (injeção, auth, upload, CORS, SSRF, segredos)
+  para módulos novos ou que mexem em autenticação, upload ou integração externa.
+- `security-review` — revisão de segurança do **diff atual** de uma branch/PR (precisa de commits
+  para comparar contra `origin/main`; não serve para auditar o repositório inteiro de uma vez).
+- `supabase-postgres-best-practices` — RLS, índices, tipos de coluna, migrations e connection
+  pooling, ao mexer no `schema.prisma`, em migrations, ou na configuração do Supabase de produção.
+
 ## Integrações externas
 
 | Serviço | Onde | Comportamento na falha |
