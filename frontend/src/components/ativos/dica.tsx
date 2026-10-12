@@ -75,7 +75,6 @@ export function Dica({ id, rotulo }: { id: IdDaDica; rotulo?: string }) {
         type="button"
         aria-label={`O que é ${nome}?`}
         aria-describedby={idDoTexto}
-        aria-expanded={aberto}
         onClick={() => setModo((m) => (m === "fixo" ? "fechado" : "fixo"))}
         className="group -m-3 grid h-11 w-11 touch-manipulation place-items-center rounded-full focus-visible:outline-none"
       >

@@ -85,7 +85,7 @@ test.describe("listagem de ações", () => {
     await expect(page.getByRole("tooltip")).toHaveCount(0);
 
     await dica(page, "DY 12m").click();
-    await expect(page.getByRole("tooltip")).toContainText("DY 7% = R$ 7 de proventos a cada R$ 100 investidos");
+    await expect(page.getByRole("tooltip")).toContainText("DY 7% quer dizer R$ 7 pagos, no passado");
   });
 
   test("sem rolagem lateral em 1440, 768 e 375 px, e a tabela vira cards no celular", async ({ page }) => {
@@ -418,7 +418,6 @@ test.describe("tooltip: teclado", () => {
     await botao.focus();
     await page.keyboard.press("Enter");
     await expect(page.getByRole("tooltip")).toContainText("P/L = preço ÷ lucro por ação");
-    await expect(botao).toHaveAttribute("aria-expanded", "true");
 
     await page.keyboard.press("Escape");
     await expect(page.getByRole("tooltip")).toHaveCount(0);
@@ -462,7 +461,7 @@ test.describe("tooltip: toque", () => {
     const botao = dica(page, "DY 12m").first();
 
     await botao.tap();
-    await expect(page.getByRole("tooltip")).toContainText("DY 7% = R$ 7 de proventos");
+    await expect(page.getByRole("tooltip")).toContainText("DY 7% quer dizer R$ 7 pagos");
 
     await botao.tap();
     await expect(page.getByRole("tooltip")).toHaveCount(0);

@@ -439,6 +439,62 @@ describe("ativosService.fichaDaAcao", () => {
     expect(ficha?.resultados.atualizadoEm).toBe(AGORA.toISOString());
   });
 
+  const documentosDe = (existentes: string[]) => async (_cnpj: string, p: { ano: number; trimestre: number }) => {
+    const docs: Record<string, DadosAcao> = {
+      "2026-2": documento("ITR", "2026-06-30", 7_000_000_000, 200_000_000_000),
+      "2026-1": documento("ITR", "2026-03-31", 6_500_000_000, 195_000_000_000),
+      "2025-4": documento("DFP", "2025-12-31", 30_000_000_000, 190_000_000_000),
+      "2025-3": documento("ITR", "2025-09-30", 8_000_000_000, 185_000_000_000),
+      "2025-2": documento("ITR", "2025-06-30", 7_000_000_000, 180_000_000_000),
+      "2025-1": documento("ITR", "2025-03-31", 6_000_000_000, 175_000_000_000),
+    };
+    const chave = `${p.ano}-${p.trimestre}`;
+    return existentes.includes(chave) ? (docs[chave] ?? null) : null;
+  };
+
+  it("resultados com buraco no meio (um trimestre falhou): indisponível, e nunca uma série furada gravada como boa", async () => {
+    vi.mocked(buscarCotacao).mockResolvedValue(cotacao("VALE3", 62.48));
+    // sem a DFP de 2025: o 4T25 não sai, e a série ficaria 2T26, 1T26, 3T25, 2T25
+    vi.mocked(buscarDadosAcao).mockImplementation(documentosDe(["2026-2", "2026-1", "2025-3", "2025-2", "2025-1"]) as never);
+
+    const ficha = await ativosService.fichaDaAcao("VALE3");
+
+    expect(ficha.resultados.estado).toBe("indisponivel");
+    expect(fotografias.has("id-VALE3:CVM_RESULTS")).toBe(false);
+  });
+
+  it("resultados velhos (o zip do ano corrente falhou): indisponível, e não uma série de 2025 apresentada como a mais recente", async () => {
+    vi.mocked(buscarCotacao).mockResolvedValue(cotacao("VALE3", 62.48));
+    vi.mocked(buscarDadosAcao).mockImplementation(documentosDe(["2025-4", "2025-3", "2025-2", "2025-1"]) as never);
+
+    const ficha = await ativosService.fichaDaAcao("VALE3");
+
+    expect(ficha.resultados.estado).toBe("indisponivel");
+  });
+
+  it("falha da CVM não apaga o resultado bom que já estava guardado: sai como desatualizado", async () => {
+    vi.mocked(buscarCotacao).mockResolvedValue(cotacao("VALE3", 62.48));
+    vi.mocked(ativosRepository.findAssetWithIndicator).mockResolvedValue(asset("VALE3", { indicator: indicador("id-VALE3") }));
+    fotografias.set("id-VALE3:CVM_RESULTS", { dados: [{ periodo: "2T26" }], atualizadoEm: HORAS(60) });
+    vi.mocked(buscarDadosAcao).mockImplementation(documentosDe(["2025-4", "2025-3"]) as never);
+
+    const ficha = await ativosService.fichaDaAcao("VALE3");
+
+    expect(ficha.resultados).toMatchObject({ estado: "desatualizado", dados: [{ periodo: "2T26" }] });
+  });
+
+  it("o 3T ainda não publicado é normal: a série começa no 2T26 e vale", async () => {
+    vi.mocked(buscarCotacao).mockResolvedValue(cotacao("VALE3", 62.48));
+    vi.mocked(buscarDadosAcao).mockImplementation(
+      documentosDe(["2026-2", "2026-1", "2025-4", "2025-3", "2025-2", "2025-1"]) as never,
+    );
+
+    const ficha = await ativosService.fichaDaAcao("VALE3");
+
+    expect(ficha.resultados.estado).toBe("ok");
+    expect(ficha.resultados.dados?.map((r) => r.periodo)).toEqual(["3T25", "4T25", "1T26", "2T26"]);
+  });
+
   it("resultados já guardados e dentro de 24h: a CVM não é consultada de novo", async () => {
     vi.mocked(buscarCotacao).mockResolvedValue(cotacao("VALE3", 62.48));
     vi.mocked(ativosRepository.findAssetWithIndicator).mockResolvedValue(asset("VALE3", { indicator: indicador("id-VALE3") }));
@@ -666,6 +722,22 @@ describe("ativosService.listarFiis", () => {
     expect(lista).toHaveLength(15);
     expect(lista.map((f) => f.ticker)).toContain("KFOF11");
     expect(lista.map((f) => f.ticker)).not.toContain("BCFF11"); // deslistado, saiu do catálogo
+  });
+
+  it("informe guardado e vencido (mais de 6h): a listagem agenda a renovação, e o P/VP antigo segue aparecendo", async () => {
+    vi.mocked(buscarCotacao).mockImplementation(async (t) => (t === "MXRF11" ? cotacao("MXRF11", 9.45) : null));
+    vi.mocked(ativosRepository.findAssetsWithIndicator).mockResolvedValue([asset("MXRF11", { type: "FII" })]);
+    vi.mocked(ativosRepository.findAssetWithIndicator).mockResolvedValue(asset("MXRF11", { type: "FII" }));
+    fotografias.set("id-MXRF11:CVM_FUND_REPORT", { dados: { valorPatrimonialCota: 9 }, atualizadoEm: HORAS(10) });
+    vi.mocked(ativosRepository.findSnapshotsByType).mockResolvedValue([
+      { assetId: "id-MXRF11", type: "CVM_FUND_REPORT", data: { valorPatrimonialCota: 9 }, updatedAt: HORAS(10) } as never,
+    ]);
+
+    const lista = await ativosService.listarFiis();
+    await ativosService.aguardarFila();
+
+    expect(lista.find((f) => f.ticker === "MXRF11")?.pvp).toBe(1.05);
+    expect(buscarDadosFii).toHaveBeenCalled();
   });
 
   it("o P/VP vem do valor patrimonial já guardado do informe, sem consultar a CVM na hora", async () => {

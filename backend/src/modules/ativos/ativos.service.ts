@@ -22,7 +22,7 @@ import { taxaAdministracaoAnual } from "./ativos.composicao.js";
 import { fontes } from "./ativos.fontes.js";
 import { buscarNoticiasDoAtivo } from "./ativos.noticias.js";
 import { ativosRepository } from "./ativos.repository.js";
-import { obterFotografia, type EstadoDoBloco, type Fotografia } from "./ativos.snapshots.js";
+import { obterFotografia, VALIDADE_DO_SNAPSHOT_MS, type EstadoDoBloco, type Fotografia } from "./ativos.snapshots.js";
 import type {
   AcaoFichaDto,
   AcaoResumoDto,
@@ -333,7 +333,12 @@ export const ativosService = {
       assets.map((a) => a.id),
       "CVM_FUND_REPORT",
     );
-    const informePorAsset = new Map(informes.map((s) => [s.assetId, s.data as { valorPatrimonialCota?: number | null }]));
+    const informePorAsset = new Map(
+      informes.map((s) => [
+        s.assetId,
+        { valorPatrimonialCota: (s.data as { valorPatrimonialCota?: number | null }).valorPatrimonialCota ?? null, atualizadoEm: s.updatedAt },
+      ]),
+    );
 
     const [cotacoes, proventos] = await Promise.all([
       Promise.all(FIIS.map((f) => comLimiteDeTempo(fontes.cotacao(f.ticker), ESPERA_DA_FICHA_MS, null))),
@@ -343,7 +348,10 @@ export const ativosService = {
     return FIIS.map((item, i) => {
       const asset = porTicker.get(item.ticker) ?? null;
       const informe = asset ? informePorAsset.get(asset.id) : undefined;
-      if (!asset || !informe) agendarFii(item);
+      // renova também o informe vencido: só olhar "se existe" deixaria o P/VP da listagem velho
+      // para sempre, se ninguém abrisse a ficha
+      const vencido = informe && Date.now() - informe.atualizadoEm.getTime() > VALIDADE_DO_SNAPSHOT_MS.CVM_FUND_REPORT;
+      if (!asset || !informe || vencido) agendarFii(item);
       return resumoDoFii(item, cotacoes[i] ?? null, asset, proventos[i] ?? null, informe?.valorPatrimonialCota ?? null);
     });
   },

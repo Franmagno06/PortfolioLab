@@ -24,12 +24,18 @@ Nunca rode sem confirmar o banco de destino:
 - `npx prisma db push`
 
 **Todo teste que importa `src/database/prisma.js` escreve no banco apontado pela `DATABASE_URL`**
-— hoje são onze arquivos, entre eles todos os `*.api.test.ts`, `auth.test.ts`, `news.test.ts` e
+— hoje são dezoito arquivos, entre eles todos os `*.api.test.ts`, `auth.test.ts`, `news.test.ts` e
 `src/database/integridade.test.ts`. Confira com:
 
 ```bash
 grep -rl "database/prisma" backend/src --include=*.test.ts
 ```
+
+**Ordem do deploy quando há migration.** O Render publica a API no push para a `main`, mas a migration do
+Supabase de produção é manual (`npm run supabase:migrate`). Rode a migration **antes** do push que a
+contém: código novo contra um banco sem a coluna dá P2022 em toda leitura que passa pelo model alterado
+(a coluna `divida_ebitda`, por exemplo, quebraria `/indicators` e a carteira). Só rode contra a produção
+com o pedido explícito de quem é dono do banco.
 
 Use a skill `rodar-testes-seguro` antes de `npm test`. Testes de regra pura (`calcularPosicao`,
 `calcularAporte`, a cota de relatórios) não tocam o banco e não dependem disso.

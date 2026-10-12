@@ -46,9 +46,18 @@ export function calcularDividendYield(
 // lembrar de rodar o job manual.
 const VALIDADE_MS = 24 * 60 * 60 * 1000;
 
-/** Vencido (mais de 24h) ou nunca calculado. As páginas de Ativos usam a mesma regra para decidir quando renovar. */
+/**
+ * Indicador gravado antes desta data tem o Dividend Yield do cálculo antigo (soma dos proventos que
+ * algum usuário importou, que dava 0,00% para ativo que ninguém sincronizou). Ele seria servido como
+ * "ok" por até 24h depois do deploy. Tratá-lo como vencido força a renovação na primeira leitura, sem
+ * mexer em dado nenhum no banco: a regra se aposenta sozinha, quando todos já foram renovados.
+ */
+export const DY_CALCULADO_PELO_ATIVO_DESDE = new Date("2026-10-12T00:00:00.000Z");
+
+/** Vencido (mais de 24h), do cálculo antigo do DY, ou nunca calculado. As páginas de Ativos usam a mesma regra. */
 export function estaDesatualizado(indicator: Pick<AssetIndicator, "updatedAt"> | null): boolean {
   if (!indicator) return true; // job nunca rodou para este ativo
+  if (indicator.updatedAt < DY_CALCULADO_PELO_ATIVO_DESDE) return true;
   return Date.now() - indicator.updatedAt.getTime() > VALIDADE_MS;
 }
 

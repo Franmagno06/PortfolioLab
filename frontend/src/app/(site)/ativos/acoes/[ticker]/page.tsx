@@ -103,13 +103,13 @@ export default async function FichaDaAcao({ params }: Props) {
             subtitulo="Agrupados pelo que respondem. Toque no “?” para uma explicação de uma frase. Dados de exemplo; na versão final, calculados pelo PortfolioLab a partir do Yahoo Finance e da CVM."
           >
             <div className="space-y-6">
-              <GrupoDeIndicadores titulo="Valuation" pergunta="está caro ou barato?">
+              <GrupoDeIndicadores titulo="Valuation" pergunta="quanto se paga pelo lucro e pelo patrimônio?">
                 <Indicador rotulo="Preço/lucro (P/L)" dica="pl" valor={umaCasa(ficha.pl)} leitura={leituraPl(ficha.pl)} />
                 <Armadilha>{ARMADILHAS.pl}</Armadilha>
                 <Indicador rotulo="Preço/valor patrimonial (P/VP)" dica="pvp" valor={umaCasa(ficha.pvp)} leitura={leituraPvpAcao(ficha.pvp)} />
               </GrupoDeIndicadores>
 
-              <GrupoDeIndicadores titulo="Dividendos" pergunta="quanto volta para o bolso?">
+              <GrupoDeIndicadores titulo="Dividendos" pergunta="quanto a empresa distribuiu?">
                 <Indicador rotulo="Dividend Yield (12 meses)" dica="dy12m" valor={pctOuTraco(ficha.dy12m)} leitura={leituraDy(ficha.dy12m)} />
                 <Armadilha>{ARMADILHAS.dyAcao}</Armadilha>
               </GrupoDeIndicadores>

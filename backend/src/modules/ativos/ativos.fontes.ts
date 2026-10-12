@@ -80,9 +80,11 @@ export const fontes = {
       return promessa;
     };
 
-    const resultados: ResultadoTrimestral[] = [];
-    for (const periodo of trimestresConcluidos(hoje, TRIMESTRES_CANDIDATOS)) {
-      if (resultados.length === 4) break;
+    // guarda a posição de cada trimestre achado na lista de candidatos (0 = o último concluído)
+    const achados: { posicao: number; resultado: ResultadoTrimestral }[] = [];
+    const candidatos = trimestresConcluidos(hoje, TRIMESTRES_CANDIDATOS);
+    for (const [posicao, periodo] of candidatos.entries()) {
+      if (achados.length === 4) break;
 
       await liberarOLaco();
       const d = await documento(periodo.ano, periodo.trimestre);
@@ -98,10 +100,20 @@ export const fontes = {
         itrs = doAno;
       }
       const resultado = resultadoDoTrimestre(periodo, d, itrs);
-      if (resultado) resultados.push(resultado);
+      if (resultado) achados.push({ posicao, resultado });
     }
 
-    return resultados.length > 0 ? resultados.reverse() : null;
+    // buscarDadosAcao devolve null tanto para "a CVM ainda não publicou" quanto para "o download
+    // falhou". Só a primeira é normal, e só para o trimestre mais novo (o ITR sai até 45 dias depois
+    // do fim). Se o mais novo achado é anterior ao penúltimo concluído, ou se há buraco no meio, uma
+    // busca falhou: devolve null, o que mantém o dado guardado antes (como desatualizado) em vez de
+    // gravar por 24h uma série velha ou furada como se estivesse certa.
+    const [maisNovo] = achados;
+    if (!maisNovo || maisNovo.posicao > 1) return null;
+    const consecutivos = achados.every((a, i) => i === 0 || a.posicao === (achados[i - 1]?.posicao ?? -2) + 1);
+    if (!consecutivos) return null;
+
+    return achados.map((a) => a.resultado).reverse();
   },
 
   /** O informe mensal mais recente publicado pela CVM para o fundo. Null se não achou nenhum. */

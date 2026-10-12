@@ -1,9 +1,11 @@
 import { Prisma } from "@prisma/client";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buscarIndicadoresFundamentalistas, buscarProventosOuNulo } from "../quotes/quotes.provider.js";
 import { indicatorsRepository } from "./indicators.repository.js";
 import {
   calcularDividendYield,
+  DY_CALCULADO_PELO_ATIVO_DESDE,
+  estaDesatualizado,
   indicatorsService,
   industriaEhBanco,
   somarProventos,
@@ -311,6 +313,44 @@ describe("indicatorsService.getIndicadoresDaCarteira — refresh preguiçoso", (
 
     expect(resultado).toHaveLength(1);
     expect(resultado[0]?.pl).toBeNull(); // upsert nunca concluiu: fica no null anterior
+  });
+});
+
+describe("estaDesatualizado", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("indicador gravado antes do cálculo novo do DY vale como vencido, mesmo com menos de 24h", () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-12T01:00:00.000Z"));
+
+    // duas horas atrás, ainda dentro das 24h, mas gravado pelo cálculo antigo (que dava 0,00%)
+    const gravadoAntes = { updatedAt: new Date("2026-10-11T23:00:00.000Z") };
+
+    expect(estaDesatualizado(gravadoAntes)).toBe(true);
+  });
+
+  it("gravado depois do corte e dentro de 24h: em dia", () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-12T01:00:00.000Z"));
+
+    expect(estaDesatualizado({ updatedAt: new Date("2026-10-12T00:30:00.000Z") })).toBe(false);
+  });
+
+  it("gravado depois do corte mas há mais de 24h: vencido", () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-14T01:00:00.000Z"));
+
+    expect(estaDesatualizado({ updatedAt: new Date("2026-10-12T00:30:00.000Z") })).toBe(true);
+  });
+
+  it("nunca calculado: vencido", () => {
+    expect(estaDesatualizado(null)).toBe(true);
+  });
+
+  it("o corte é a data do deploy desta mudança", () => {
+    expect(DY_CALCULADO_PELO_ATIVO_DESDE.toISOString()).toBe("2026-10-12T00:00:00.000Z");
   });
 });
 

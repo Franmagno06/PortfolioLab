@@ -29,7 +29,7 @@ describe("leituras dos indicadores", () => {
 
   it("P/VP, DY, ROE, margem e ROA falam em reais por R$ 100 ou R$ 1", () => {
     expect(normalizar(leituraPvpAcao(1.3))).toBe("Você paga R$ 1,30 para cada R$ 1,00 de patrimônio contábil da empresa.");
-    expect(normalizar(leituraDy(8.4))).toBe("R$ 8,40 de proventos a cada R$ 100 investidos nos últimos 12 meses.");
+    expect(normalizar(leituraDy(8.4))).toBe("Nos últimos 12 meses, pagou R$ 8,40 de proventos para cada R$ 100 do preço de hoje.");
     expect(normalizar(leituraRoe(18.2))).toBe("De cada R$ 100 do patrimônio, a empresa gerou R$ 18,20 de lucro em um ano.");
     expect(normalizar(leituraMargem(21.5))).toBe("De cada R$ 100 vendidos, R$ 21,50 viram lucro depois de tudo.");
     expect(normalizar(leituraRoa(1.7))).toBe("De cada R$ 100 em ativos, o banco gerou R$ 1,70 de lucro em um ano.");

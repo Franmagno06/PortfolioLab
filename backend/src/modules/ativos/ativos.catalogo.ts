@@ -2,7 +2,7 @@
  * O catálogo curado das páginas de Ativos: 15 ações e 15 FIIs.
  *
  * É a fronteira de segurança das rotas públicas de /ativos: só ticker daqui
- * chega a Yahoo, CVM ou Google. Qualquer outro vira 404 antes de qualquer
+ * chega a Yahoo, CVM ou aos feeds de notícia. Qualquer outro vira 404 antes de qualquer
  * chamada externa, então ninguém consegue usar a API para consultar ativo
  * arbitrário nem para esgotar a cota dessas fontes.
  *

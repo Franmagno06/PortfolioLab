@@ -29,7 +29,7 @@ export const DICAS: Record<IdDaDica, { rotulo: string; texto: string }> = {
   dy12m: {
     rotulo: "DY 12m",
     texto:
-      "DY 12m = proventos pagos nos últimos 12 meses ÷ preço de hoje. DY 7% = R$ 7 de proventos a cada R$ 100 investidos.",
+      "DY 12m = proventos pagos nos últimos 12 meses ÷ preço de hoje. DY 7% quer dizer R$ 7 pagos, no passado, para cada R$ 100 do preço de hoje; nada garante que se repita.",
   },
   roe: {
     rotulo: "ROE",
@@ -73,7 +73,7 @@ export const DICAS: Record<IdDaDica, { rotulo: string; texto: string }> = {
   dyFii: {
     rotulo: "DY 12m",
     texto:
-      "DY 12m = rendimentos pagos nos últimos 12 meses ÷ preço da cota hoje. DY 12% = R$ 12 de rendimentos a cada R$ 100 investidos.",
+      "DY 12m = rendimentos pagos nos últimos 12 meses ÷ preço da cota hoje. DY 12% quer dizer R$ 12 pagos, no passado, para cada R$ 100 do preço da cota; nada garante que se repita.",
   },
   patrimonioLiquido: {
     rotulo: "Patrimônio líquido",
@@ -123,7 +123,7 @@ export function leituraPvpAcao(pvp: number | null): string {
 
 export function leituraDy(dy: number | null): string {
   if (dy === null) return SEM_DADO;
-  return `${brl(dy)} de proventos a cada R$ 100 investidos nos últimos 12 meses.`;
+  return `Nos últimos 12 meses, pagou ${brl(dy)} de proventos para cada R$ 100 do preço de hoje.`;
 }
 
 export function leituraRoe(roe: number | null): string {
