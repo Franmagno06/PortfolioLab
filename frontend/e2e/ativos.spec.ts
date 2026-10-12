@@ -1,9 +1,10 @@
 import { expect, test, type Page } from "@playwright/test";
 
-// Páginas de ativos: listagens e fichas de ações e FIIs. Os dados são de
-// exemplo (lib/ativos-catalogo.ts), então os números são os mesmos sempre; o
-// que se confere aqui é o comportamento: navegar, explicar (os "?"), avisar
-// (as armadilhas) e não quebrar em tela de celular.
+// Páginas de ativos: listagens e fichas de ações e FIIs. Rodam contra uma API de mentira
+// (e2e/ativos/stub-api.mjs, ver playwright.ativos.config.ts), então os números são os mesmos
+// sempre e o teste não depende de backend, Yahoo ou CVM. O que se confere aqui é o comportamento:
+// navegar, explicar (os "?"), avisar (as armadilhas), mostrar de onde vem cada dado, o que a tela
+// faz quando uma fonte não responde, e não quebrar em tela de celular.
 
 test.describe.configure({ timeout: 60_000 });
 
@@ -135,7 +136,7 @@ test.describe("listagem de FIIs", () => {
     await expect(icones).toHaveCount(5);
     // MXRF11, HGLG11, KNRI11, KNCR11, KNIP11
     await expect(icones).toHaveText(["", "", "", "", ""]);
-    expect(await icones.evaluateAll((els) => els.map((el) => el.getAttribute("data-icone-de-fii")))).toEqual(["Papel", "Tijolo", "Híbrido", "Papel", "Papel"]);
+    expect(await icones.evaluateAll((els) => els.map((el) => el.getAttribute("data-icone-de-fii")))).toEqual(["Papel", "Tijolo", "Tijolo", "Papel", "Papel"]);
   });
 
   test("a coluna Tipo explica tijolo, papel, híbrido e FoF", async ({ page }) => {
@@ -300,7 +301,7 @@ test.describe("ficha do FII", () => {
     await page.goto("/ativos/fiis/MXRF11");
     const bloco = page.getByRole("region", { name: "Composição da carteira do fundo" });
 
-    await expect(bloco.getByText("78%")).toBeVisible();
+    await expect(bloco.getByText("78,0%")).toBeVisible();
     await expect(bloco.getByText("Este é um fundo de “papel”")).toBeVisible();
   });
 });
@@ -312,6 +313,13 @@ test.describe("ativo que não existe", () => {
     await expect(page.getByRole("heading", { level: 1, name: "Não encontramos esse ativo" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Ver as ações" })).toHaveAttribute("href", "/ativos/acoes");
     await expect(page.getByRole("link", { name: "Ver os fundos imobiliários" })).toHaveAttribute("href", "/ativos/fiis");
+  });
+
+  test("ticker em formato inválido também é não encontrado, e não a tela de erro", async ({ page }) => {
+    for (const ticker of ["abc", "PETR4.SA"]) {
+      await page.goto(`/ativos/acoes/${ticker}`);
+      await expect(page.getByRole("heading", { level: 1, name: "Não encontramos esse ativo" }), ticker).toBeVisible();
+    }
   });
 
   test("um FII no endereço de ações (e o inverso) também é não encontrado", async ({ page }) => {

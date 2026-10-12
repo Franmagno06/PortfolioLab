@@ -20,8 +20,7 @@ type Props = {
 /**
  * O card de cada bloco da ficha. Com `estado="pronto"` mostra o conteúdo; nos
  * outros três, mostra o que a pessoa precisa ver quando o dado não está lá.
- * Enquanto os dados são de exemplo, quase tudo chega "pronto" — mas o
- * esqueleto, o erro e o vazio já existem para quando vierem da API.
+ * O erro e o vazio aparecem quando a fonte do bloco não respondeu ou não tem o que mostrar.
  */
 export function Secao({
   id,

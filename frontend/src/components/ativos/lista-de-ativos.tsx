@@ -4,8 +4,9 @@ import Link from "next/link";
 import { useState } from "react";
 import { Avatar } from "@/components/ativos/pecas";
 import { Dica } from "@/components/ativos/dica";
-import { QUANTIDADE_INICIAL, type AcaoResumo, type FiiResumo, type TipoFii } from "@/lib/ativos-catalogo";
-import { brl, numero, percentual } from "@/lib/format";
+import { QUANTIDADE_INICIAL } from "@/lib/ativos-catalogo";
+import type { AcaoResumo, FiiResumo, TipoFii } from "@/lib/ativos-tipos";
+import { brlOuTraco, numero, percentual } from "@/lib/format";
 import type { IdDaDica } from "@/lib/indicadores-explicados";
 import { ROTAS } from "@/lib/navegacao";
 
@@ -35,7 +36,7 @@ const pctOuTraco = (v: number | null) => (v === null ? "—" : percentual(v));
 
 const COLUNAS_ACOES: Coluna<AcaoResumo>[] = [
   { id: "setor", rotulo: "Setor", papel: "texto", valor: (a) => a.setor, largura: "w-[20%]" },
-  { id: "preco", rotulo: "Preço", papel: "preco", valor: (a) => brl(a.preco) },
+  { id: "preco", rotulo: "Preço", papel: "preco", valor: (a) => brlOuTraco(a.preco) },
   { id: "pl", rotulo: "P/L", papel: "indicador", dica: "pl", valor: (a) => umaCasa(a.pl) },
   { id: "pvp", rotulo: "P/VP", papel: "indicador", dica: "pvp", valor: (a) => umaCasa(a.pvp) },
   { id: "dy12m", rotulo: "DY 12m", papel: "indicador", dica: "dy12m", valor: (a) => pctOuTraco(a.dy12m) },
@@ -45,7 +46,7 @@ const COLUNAS_ACOES: Coluna<AcaoResumo>[] = [
 const COLUNAS_FIIS: Coluna<FiiResumo>[] = [
   { id: "tipo", rotulo: "Tipo", papel: "chip", dica: "tipoFii", valor: (f) => f.tipo, largura: "w-[12%]" },
   { id: "segmento", rotulo: "Segmento", papel: "texto", valor: (f) => f.segmento, largura: "w-[22%]" },
-  { id: "preco", rotulo: "Preço", papel: "preco", valor: (f) => brl(f.preco) },
+  { id: "preco", rotulo: "Preço", papel: "preco", valor: (f) => brlOuTraco(f.preco) },
   { id: "dy12m", rotulo: "DY 12m", papel: "indicador", dica: "dyFii", valor: (f) => pctOuTraco(f.dy12m) },
   { id: "pvp", rotulo: "P/VP", papel: "indicador", dica: "pvpFii", valor: (f) => duasCasas(f.pvp) },
 ];
@@ -111,7 +112,7 @@ function Listagem<T extends Ativo>({ itens, colunas, hrefBase, plural, rotuloDoA
                         className="block min-w-0 rounded after:absolute after:inset-0 focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-ink"
                       >
                         <span className="block font-leitura text-base leading-6 font-semibold text-ink">{item.ticker}</span>
-                        <span className="block truncate text-[13px] leading-5 text-ink-2">{item.nome}</span>
+                        <span className="block text-[13px] leading-5 text-ink-2">{item.nome}</span>
                       </Link>
                     </div>
                   </td>

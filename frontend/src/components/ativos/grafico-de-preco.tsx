@@ -1,7 +1,7 @@
 "use client";
 
 import { Area, AreaChart, CartesianGrid, ReferenceDot, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import type { PontoDePreco } from "@/lib/ativos-fichas";
+import type { PontoDePreco } from "@/lib/ativos-tipos";
 import { escalaDoEixo } from "@/lib/escala-do-grafico";
 import { brl, mesAno, mesCurto } from "@/lib/format";
 

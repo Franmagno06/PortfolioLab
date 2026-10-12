@@ -4,6 +4,11 @@ export function brl(valor: number): string {
   return valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
+/** Valor em reais, ou "—" quando a fonte não informou. */
+export function brlOuTraco(valor: number | null): string {
+  return valor === null ? "—" : brl(valor);
+}
+
 export function pct(valor: number): string {
   return `${valor >= 0 ? "+" : ""}${valor.toFixed(1).replace(".", ",")}%`;
 }
@@ -71,6 +76,11 @@ export function pctIndicadorOuTraco(valor: number | null): string {
 export function dataCurta(iso: string): string {
   const [ano, mes, dia] = iso.slice(0, 10).split("-");
   return `${dia}/${mes}/${ano}`;
+}
+
+/** Instante ISO (com hora) em dd/mm/aaaa no fuso de Brasília: às 22h o dia não vira o seguinte, como viraria em UTC. */
+export function dataDeLeitura(iso: string): string {
+  return new Date(iso).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
 }
 
 const MESES_CURTOS = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];

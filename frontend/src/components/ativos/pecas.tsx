@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
-import { inicialDoAtivo, type TipoFii } from "@/lib/ativos-catalogo";
+import { inicialDoAtivo } from "@/lib/ativos-catalogo";
+import type { TipoFii } from "@/lib/ativos-tipos";
 import { caminhoDoLogo } from "@/lib/ativos-logos";
 import { pct } from "@/lib/format";
 
@@ -163,7 +164,8 @@ export function Avatar({
 }
 
 /** Variação do dia: sinal e seta, além da cor, para quem não distingue verde de vermelho. */
-export function VariacaoDoDia({ valor, sufixo = "" }: { valor: number; sufixo?: string }) {
+export function VariacaoDoDia({ valor, sufixo = "" }: { valor: number | null; sufixo?: string }) {
+  if (valor === null) return <span className="text-mute">variação indisponível</span>;
   if (valor === 0) {
     return <span className="tnum text-mute">{pct(valor)}{sufixo}</span>;
   }

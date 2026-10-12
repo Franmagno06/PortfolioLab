@@ -1,16 +1,47 @@
 import Link from "next/link";
 import { Dica } from "@/components/ativos/dica";
 import { Anotacao, Avatar, VariacaoDoDia } from "@/components/ativos/pecas";
-import { Secao } from "@/components/ativos/secao";
-import type { TipoFii } from "@/lib/ativos-catalogo";
-import type { FaixaDaCarteira, NoticiaDoAtivo, Provento, ResultadoTrimestral } from "@/lib/ativos-fichas";
-import { brl, dataCurta, numero } from "@/lib/format";
+import { Secao, type EstadoDaSecao } from "@/components/ativos/secao";
+import type { Bloco, ComposicaoDoFundo as Composicao, FiiFicha, ResultadoTrimestral, TipoFii } from "@/lib/ativos-tipos";
+import { brl, brlOuTraco, dataCurta, dataDeLeitura, mesAno, numero } from "@/lib/format";
 import type { IdDaDica } from "@/lib/indicadores-explicados";
 import { ROTAS } from "@/lib/navegacao";
 
 /** Os blocos da ficha que não dependem da classe do ativo: a ação e o FII usam os mesmos. */
 
 const chip = "inline-flex items-center gap-1 rounded-full bg-marca-texto px-2.5 py-1 text-[13px] font-medium text-anotacao";
+
+/**
+ * Como a seção se apresenta para o que a fonte devolveu: sem dado nenhum é erro (a fonte estava fora
+ * do ar e nunca foi lida), lista vazia é "vazio" (a fonte respondeu e não há nada), o resto é pronto.
+ */
+export function estadoDoBloco<T>(bloco: Bloco<T>, estaVazio: (dados: T) => boolean): EstadoDaSecao {
+  if (bloco.dados === null) return "erro";
+  return estaVazio(bloco.dados) ? "vazio" : "pronto";
+}
+
+const listaVazia = (d: unknown[]) => d.length === 0;
+
+/** De onde vêm os números e de quando são; se a última leitura falhou, avisa que podem estar defasados. */
+export function NotaDaFonte({
+  fonte,
+  estado,
+  atualizadoEm,
+  className = "mt-4",
+}: {
+  fonte: string;
+  estado: Bloco<unknown>["estado"];
+  atualizadoEm: string | null;
+  className?: string;
+}) {
+  return (
+    <p className={`${className} text-xs leading-[18px] text-mute`}>
+      Fonte: {fonte}
+      {atualizadoEm && `, lido em ${dataDeLeitura(atualizadoEm)}`}.
+      {estado === "desatualizado" && " A fonte não respondeu na última tentativa, então estes dados podem estar defasados."}
+    </p>
+  );
+}
 
 export function CabecalhoDoAtivo({
   ticker,
@@ -25,9 +56,9 @@ export function CabecalhoDoAtivo({
   nome: string;
   /** Setor e espécie, ou tipo e segmento: cada um é um chip, e o "?" vai dentro do chip. */
   chips: { rotulo: string; dica?: IdDaDica }[];
-  preco: number;
-  variacaoDia: number;
-  fechamentoEm: string;
+  preco: number | null;
+  variacaoDia: number | null;
+  fechamentoEm: string | null;
   /** Só no FII: escolhe o ícone do avatar. Ação usa o logo da empresa. */
   tipoFii?: TipoFii;
 }) {
@@ -51,9 +82,16 @@ export function CabecalhoDoAtivo({
         </div>
       </div>
       <div className="mt-4 md:mt-0 md:text-right">
-        <p className="tnum text-[32px] leading-10 font-semibold tracking-[-0.01em] text-ink">{brl(preco)}</p>
+        <p className="tnum text-[32px] leading-10 font-semibold tracking-[-0.01em] text-ink">{brlOuTraco(preco)}</p>
         <p className="mt-1 text-sm text-mute">
-          <VariacaoDoDia valor={variacaoDia} /> hoje · fechamento de {dataCurta(fechamentoEm)}
+          {preco === null ? (
+            "O Yahoo Finance não informou o preço agora."
+          ) : (
+            <>
+              <VariacaoDoDia valor={variacaoDia} />
+              {fechamentoEm ? ` · fechamento de ${dataCurta(fechamentoEm)}` : " · último preço conhecido, sem data de fechamento"}
+            </>
+          )}
         </p>
       </div>
     </header>
@@ -71,13 +109,18 @@ export function BotaoRegistrarCompra() {
   );
 }
 
-export function ResultadosTrimestrais({ linhas }: { linhas: ResultadoTrimestral[] }) {
+/** A CVM publica em reais; a tabela mostra em bilhões, com duas casas, que cabe até nas empresas menores. */
+const bilhoes = (reais: number) => numero(reais / 1_000_000_000, 2);
+
+export function ResultadosTrimestrais({ bloco }: { bloco: Bloco<ResultadoTrimestral[]> }) {
+  const linhas = bloco.dados ?? [];
+
   return (
     <Secao
       id="resultados"
       titulo="Resultados trimestrais"
-      subtitulo="Lucro e patrimônio de cada trimestre, em R$ bilhões. Dados de exemplo no formato da CVM (ITR)."
-      estado={linhas.length === 0 ? "vazio" : "pronto"}
+      subtitulo="Lucro e patrimônio de cada trimestre, em R$ bilhões, como a empresa informou à CVM (ITR e DFP)."
+      estado={estadoDoBloco(bloco, listaVazia)}
       vazio={<p className="text-sm text-ink-2">A CVM ainda não publicou resultados para este ativo.</p>}
     >
       <table className="w-full text-sm">
@@ -93,43 +136,65 @@ export function ResultadosTrimestrais({ linhas }: { linhas: ResultadoTrimestral[
           {linhas.map((l) => (
             <tr key={l.periodo} className="border-t border-line">
               <th scope="row" className="py-3 text-left text-[15px] font-normal text-ink">{l.periodo}</th>
-              <td className="tnum py-3 text-right text-[15px] text-ink">{numero(l.lucroLiquido, 1)}</td>
-              <td className="tnum py-3 text-right text-[15px] text-ink">{numero(l.patrimonioLiquido, 1)}</td>
+              <td className="tnum py-3 text-right text-[15px] text-ink">{bilhoes(l.lucroLiquido)}</td>
+              <td className="tnum py-3 text-right text-[15px] text-ink">{bilhoes(l.patrimonioLiquido)}</td>
             </tr>
           ))}
         </tbody>
       </table>
       <Anotacao className="mt-4">Olhe a tendência ao longo dos trimestres, não um trimestre isolado.</Anotacao>
+      <NotaDaFonte fonte="CVM (dados abertos)" estado={bloco.estado} atualizadoEm={bloco.atualizadoEm} />
     </Secao>
   );
 }
 
-export function ComposicaoDoFundo({ faixas, leitura }: { faixas: FaixaDaCarteira[]; leitura: string }) {
-  // Cada tipo de ativo do fundo tem a cor da sua classe no resto do site.
-  const corDa = (rotulo: string) =>
-    rotulo.startsWith("CRI") ? "var(--color-fii)" : rotulo.startsWith("Cotas") ? "var(--color-etf)" : rotulo.startsWith("Renda") ? "var(--color-rf)" : "var(--color-acao)";
-  const ordenadas = [...faixas].sort((a, b) => b.pct - a.pct);
+/** As cinco partes do informe mensal, na cor da classe de ativo que representam no resto do site. */
+const FAIXAS: { chave: keyof Composicao; rotulo: string; cor: string }[] = [
+  { chave: "imoveis", rotulo: "Imóveis", cor: "var(--color-acao)" },
+  { chave: "papel", rotulo: "CRI e outros títulos de dívida (papel)", cor: "var(--color-fii)" },
+  { chave: "cotasDeFii", rotulo: "Cotas de outros FIIs", cor: "var(--color-etf)" },
+  { chave: "liquidez", rotulo: "Renda fixa e caixa (liquidez)", cor: "var(--color-rf)" },
+  { chave: "outros", rotulo: "Outros", cor: "var(--color-mute)" },
+];
+
+export function ComposicaoDoFundo({
+  bloco,
+  informe,
+  leitura,
+}: {
+  bloco: Bloco<Composicao>;
+  informe: FiiFicha["informe"];
+  leitura: string;
+}) {
+  const faixas = bloco.dados
+    ? FAIXAS.map((f) => ({ ...f, pct: bloco.dados?.[f.chave] ?? 0 }))
+        .filter((f) => f.pct > 0)
+        .sort((a, b) => b.pct - a.pct)
+    : [];
 
   return (
     <Secao
       id="composicao"
       titulo="Composição da carteira do fundo"
-      subtitulo="Em % do patrimônio. Dados de exemplo no formato do informe mensal da CVM."
+      subtitulo={`Em % do ativo total do fundo${informe.competencia ? `, no informe mensal de ${mesAno(informe.competencia)}` : ""}.`}
+      estado={estadoDoBloco(bloco, () => faixas.length === 0)}
+      vazio={<p className="text-sm text-ink-2">O informe mensal da CVM não trouxe a composição deste fundo.</p>}
     >
       <ul className="space-y-4">
-        {ordenadas.map((f) => (
-          <li key={f.rotulo}>
+        {faixas.map((f) => (
+          <li key={f.chave}>
             <div className="flex items-baseline justify-between gap-4 text-[15px]">
               <span className="text-ink">{f.rotulo}</span>
-              <span className="tnum font-semibold text-ink">{numero(f.pct)}%</span>
+              <span className="tnum font-semibold text-ink">{numero(f.pct, 1)}%</span>
             </div>
             <div aria-hidden className="mt-1.5 h-2.5 overflow-hidden rounded-full bg-line">
-              <div className="h-full rounded-full" style={{ width: `${f.pct}%`, background: corDa(f.rotulo) }} />
+              <div className="h-full rounded-full" style={{ width: `${Math.min(f.pct, 100)}%`, background: f.cor }} />
             </div>
           </li>
         ))}
       </ul>
       <Anotacao className="mt-5">{leitura}</Anotacao>
+      <NotaDaFonte fonte="informe mensal de FII da CVM" estado={bloco.estado} atualizadoEm={bloco.atualizadoEm} />
     </Secao>
   );
 }
@@ -137,18 +202,20 @@ export function ComposicaoDoFundo({ faixas, leitura }: { faixas: FaixaDaCarteira
 export function ProventosDoAtivo({
   titulo,
   subtitulo,
-  proventos,
+  bloco,
 }: {
   titulo: string;
   subtitulo: string;
-  proventos: Provento[];
+  bloco: Bloco<{ dataEx: string; valor: number }[]>;
 }) {
+  const proventos = bloco.dados ?? [];
+
   return (
     <Secao
       id="proventos"
       titulo={titulo}
       subtitulo={subtitulo}
-      estado={proventos.length === 0 ? "vazio" : "pronto"}
+      estado={estadoDoBloco(bloco, listaVazia)}
       vazio={<p className="text-sm text-ink-2">Nenhum provento nos últimos 12 meses.</p>}
     >
       <ul>
@@ -156,45 +223,45 @@ export function ProventosDoAtivo({
           <li key={p.dataEx} className="flex items-center justify-between gap-4 border-t border-line py-3 first:border-t-0 first:pt-0">
             <div>
               <p className="tnum text-[15px] text-ink">{dataCurta(p.dataEx)}</p>
-              <p className="text-xs text-mute">
-                data-ex · {p.tipo}
-              </p>
+              <p className="text-xs text-mute">data-ex</p>
             </div>
             <p className="tnum text-[15px] font-semibold text-ink">{brl(p.valor)}</p>
           </li>
         ))}
       </ul>
+      <NotaDaFonte fonte="Yahoo Finance" estado={bloco.estado} atualizadoEm={bloco.atualizadoEm} />
     </Secao>
   );
 }
 
-export function NoticiasDoAtivo({ ticker, noticias }: { ticker: string; noticias: NoticiaDoAtivo[] }) {
+export function NoticiasDoAtivo({
+  ticker,
+  bloco,
+}: {
+  ticker: string;
+  bloco: Bloco<{ titulo: string; fonte: string; publicadaEm: string; url: string }[]>;
+}) {
+  const noticias = bloco.dados ?? [];
+
   return (
     <Secao
       id="noticias"
       titulo={`Notícias sobre ${ticker}`}
-      subtitulo="Manchetes de exemplo. As reais virão do feed de notícias do site."
-      estado={noticias.length === 0 ? "vazio" : "pronto"}
+      subtitulo="Manchetes dos últimos dias que citam o ativo, nos feeds públicos de portais de economia. O link abre o site de quem publicou."
+      estado={estadoDoBloco(bloco, listaVazia)}
       vazio={<p className="text-sm text-ink-2">Nenhuma notícia recente cita {ticker}.</p>}
     >
       <ul>
-        {noticias.map((n) => {
-          const titulo = <span className="text-[15px] leading-[22px] font-medium text-ink">{n.titulo}</span>;
-          return (
-            <li key={n.titulo} className="border-t border-line py-3 first:border-t-0 first:pt-0 last:pb-0">
-              {n.url ? (
-                <a href={n.url} target="_blank" rel="noopener noreferrer" className="rounded underline-offset-4 hover:underline">
-                  {titulo}
-                </a>
-              ) : (
-                titulo
-              )}
-              <p className="mt-1 text-xs text-mute">
-                {n.fonte} · {dataCurta(n.publicadaEm)}
-              </p>
-            </li>
-          );
-        })}
+        {noticias.map((n) => (
+          <li key={n.url} className="border-t border-line py-3 first:border-t-0 first:pt-0 last:pb-0">
+            <a href={n.url} target="_blank" rel="noopener noreferrer" className="rounded underline-offset-4 hover:underline">
+              <span className="text-[15px] leading-[22px] font-medium text-ink">{n.titulo}</span>
+            </a>
+            <p className="mt-1 text-xs text-mute">
+              {n.fonte} · {dataDeLeitura(n.publicadaEm)}
+            </p>
+          </li>
+        ))}
       </ul>
     </Secao>
   );

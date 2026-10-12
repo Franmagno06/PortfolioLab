@@ -4,7 +4,12 @@ import type { NextConfig } from "next";
 // ambiente da plataforma (ex: https://portfoliolab-api.onrender.com).
 const API_URL = process.env.API_URL ?? "http://localhost:3333";
 
+// Só o E2E das páginas de ativos define estas variáveis (playwright.ativos.config.ts): sobe um segundo
+// `next dev` ao lado do que a pessoa já usa, e os dois não podem dividir a pasta .next nem o tsconfig.
+const DIST_DIR_DO_E2E = process.env.NEXT_DIST_DIR;
+
 const nextConfig: NextConfig = {
+  ...(DIST_DIR_DO_E2E && { distDir: DIST_DIR_DO_E2E, typescript: { tsconfigPath: "tsconfig.e2e.json" } }),
   experimental: {
     // O proxy dos rewrites corta a requisição em 30s por padrão e devolve
     // "socket hang up". A análise de relatório passa disso: a IA sozinha tem

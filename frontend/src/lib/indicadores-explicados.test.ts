@@ -53,6 +53,12 @@ describe("leituras dos indicadores", () => {
     expect(leituraGestao("Ativa")).toContain("escolhem e trocam");
     expect(leituraGestao("Passiva")).toContain("índice");
   });
+
+  it("FII sem rendimento mensal ou sem tipo de gestão informado diz que o dado não está disponível", () => {
+    expect(leituraDyMensal(null)).toContain("não está disponível");
+    expect(leituraGestao(null)).toContain("não está disponível");
+    expect(leituraGestao("Outra")).toContain("não está disponível");
+  });
 });
 
 describe("dicas e armadilhas", () => {

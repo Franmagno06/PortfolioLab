@@ -151,7 +151,8 @@ export function leituraDivida(x: number | null): string {
   return `Em cerca de ${numero(x, 1)} anos de geração de caixa, a empresa quitaria a dívida líquida.`;
 }
 
-export function leituraDyMensal(dyMensal: number): string {
+export function leituraDyMensal(dyMensal: number | null): string {
+  if (dyMensal === null) return SEM_DADO;
   return `Em um mês, o fundo pagou ${brl(dyMensal)} de rendimento a cada R$ 100 de cota.`;
 }
 
@@ -186,8 +187,8 @@ export function leituraComposicao(tipo: "Tijolo" | "Papel" | "Híbrido" | "FoF")
   }
 }
 
-export function leituraGestao(gestao: "Ativa" | "Passiva"): string {
-  return gestao === "Ativa"
-    ? "Os gestores escolhem e trocam os ativos, em vez de seguir um índice."
-    : "O fundo segue uma lista pronta, como um índice, sem escolhas do gestor.";
+export function leituraGestao(gestao: string | null): string {
+  if (gestao === "Ativa") return "Os gestores escolhem e trocam os ativos, em vez de seguir um índice.";
+  if (gestao === "Passiva") return "O fundo segue uma lista pronta, como um índice, sem escolhas do gestor.";
+  return SEM_DADO;
 }

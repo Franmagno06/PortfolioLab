@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  brlOuTraco,
   brl,
   brlSemCentavos,
   contagemCompacta,
@@ -31,6 +32,13 @@ describe("brl", () => {
 
   it("formata negativo", () => {
     expect(semEspacosEspeciais(brl(-42))).toBe("-R$ 42,00");
+  });
+});
+
+describe("brlOuTraco", () => {
+  it("mostra o valor em reais, ou traço quando a fonte não informou", () => {
+    expect(brlOuTraco(null)).toBe("—");
+    expect(brlOuTraco(1234.5)).toBe(brl(1234.5));
   });
 });
 

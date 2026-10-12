@@ -152,7 +152,9 @@ Duas regras que não podem se perder:
   O Dividend Yield depende dessa diferença: falha preserva o DY gravado, nunca vira 0%.
 
 O feed do Google Notícias **não** é usado: o próprio XML o restringe a leitor de feeds pessoal, de uso
-não comercial. As notícias de cada ficha vêm dos feeds do site (Money Times e Suno), filtradas pelo ticker.
+não comercial. As notícias de cada ficha vêm de feeds RSS públicos de vários portais (Money Times, Suno, InfoMoney, Valor Investe, Seu Dinheiro, Exame, Bora Investir; `FONTES_PARA_ATIVOS` em `news/rss.ts`), guardadas por 14 dias em `news_items` (`news/news.historico.ts`) e filtradas pelo ticker. A aba Notícias da carteira continua só com Money Times e Suno, sem banco.
+
+O front lê essa API no servidor (`frontend/src/lib/ativos-api.ts`, direto em `API_URL`, e não por `/api`), com as páginas em `revalidate = 0` e a resposta guardada 2 min pelo Next. `ativos-catalogo.ts` do front é uma cópia só de tickers e nomes, e um teste confere que não diverge do backend. O E2E das páginas (`npm run test:e2e:ativos`) é isolado: lê uma API de mentira (`e2e/ativos/stub-api.mjs`) em portas próprias, sem backend, Docker, Yahoo nem CVM. Mudou um campo do DTO de `/ativos`? Atualize `ativos-tipos.ts` e o stub.
 
 ## Qual modelo usar em cada tarefa
 
