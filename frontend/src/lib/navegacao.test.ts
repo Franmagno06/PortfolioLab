@@ -56,10 +56,26 @@ describe("navegação do site", () => {
     expect(NAVEGACAO.map((i) => i.rotulo)).toEqual(["Aprender", "Ativos", "Planejar", "Notícias"]);
   });
 
-  it("item em breve não tem link; o resto tem", () => {
-    const glossario = NAVEGACAO[0]?.colunas?.[1]?.itens[0];
-    expect(glossario?.rotulo).toBe("Glossário");
-    expect(glossario?.href).toBeUndefined();
+  it("o menu Aprender só tem links de verdade: artigos, glossário, indicadores e como o site calcula", () => {
+    const aprender = NAVEGACAO.find((i) => i.id === "aprender");
+    const itens = (aprender?.colunas ?? []).flatMap((c) => c.itens);
+    expect(Object.fromEntries(itens.map((i) => [i.rotulo, i.href]))).toEqual({
+      Artigos: ROTAS.aprender,
+      Glossário: ROTAS.glossario,
+      "Indicadores explicados": ROTAS.indicadoresExplicados,
+      "Como o site calcula": ROTAS.comoCalculamos,
+    });
+  });
+
+  it("nada no menu Aprender fala em trilha, aula ou curso: são artigos", () => {
+    const aprender = NAVEGACAO.find((i) => i.id === "aprender");
+    const textos = (aprender?.colunas ?? []).flatMap((c) => [c.titulo ?? "", ...c.itens.flatMap((i) => [i.rotulo, i.descricao ?? ""])]);
+    for (const t of textos) expect(t.toLowerCase()).not.toMatch(/trilha|aula|curso/);
+  });
+
+  it("os destinos que ainda não têm página seguem sem link", () => {
+    const itens = NAVEGACAO.flatMap((i) => i.colunas ?? []).flatMap((c) => c.itens);
+    expect(itens.filter((i) => !i.href).map((i) => i.rotulo)).toContain("Agenda de proventos");
   });
 
   it("Buscar ações e Buscar FIIs são links de verdade; ações por setor, agenda e ETFs seguem em breve", () => {

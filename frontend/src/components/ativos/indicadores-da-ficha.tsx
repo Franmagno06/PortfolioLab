@@ -1,4 +1,6 @@
+import Link from "next/link";
 import { Dica } from "@/components/ativos/dica";
+import { ANCORA_DA_DICA } from "@/content/aprender/indicadores";
 import type { IdDaDica } from "@/lib/indicadores-explicados";
 
 /*
@@ -37,6 +39,8 @@ export function Indicador({
   valor: string;
   leitura: string;
 }) {
+  // O indicador que tem cartão em /aprender/indicadores ganha o link para ele (#pl, #dy...).
+  const ancora = ANCORA_DA_DICA[dica];
   return (
     <li className="grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-2 border-b border-line py-3.5 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1.15fr)] sm:gap-x-5">
       <span className="inline-flex items-center gap-1.5 text-[15px] text-ink-2">
@@ -46,6 +50,14 @@ export function Indicador({
       <strong className="tnum text-right text-[19px] font-semibold whitespace-nowrap text-ink">{valor}</strong>
       <p className="col-span-2 border-l-[1.5px] border-anotacao-margem pl-3.5 text-sm leading-[21px] font-medium text-anotacao sm:col-span-1">
         {leitura}
+        {ancora && (
+          <Link
+            href={`/aprender/indicadores#${ancora}`}
+            className="-my-1.5 mt-0 flex min-h-11 w-fit items-center rounded text-[13px] leading-[19px] font-semibold underline decoration-1 underline-offset-4"
+          >
+            Saiba mais<span className="sr-only"> sobre {rotulo}</span>
+          </Link>
+        )}
       </p>
     </li>
   );

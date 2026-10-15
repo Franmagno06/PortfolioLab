@@ -4,7 +4,11 @@
  * passarem a vir ao vivo (BCB e Yahoo), é aqui que a troca acontece.
  */
 
-/** Fechamento de 2/10/2026. Selic e IPCA: Banco Central (SGS 432 e 13522). Índices: B3, via Yahoo. */
+/**
+ * Fechamento de 2/10/2026 para Selic e índices. Selic e IPCA: Banco Central (SGS 432 e 13522). Índices: B3, via
+ * Yahoo. O IPCA é o último que o IBGE divulgou (o de setembro saiu em 9/10), conferido em 15/10/2026: por isso o mês
+ * de referência dele aparece à parte na página.
+ */
 export const NUMEROS_DO_MES = {
   rotulo: "outubro de 2026",
   mes: "outubro",
@@ -12,7 +16,8 @@ export const NUMEROS_DO_MES = {
   fechamento: "2 de outubro",
   fechamentoCurto: "2/10",
   selic: 13.75, // % ao ano, meta do Copom
-  ipca12m: 4.22, // % nos últimos 12 meses
+  ipca12m: 4.58, // % nos 12 meses até setembro de 2026
+  ipcaReferencia: "setembro",
   ibovespa: { pontos: 192115, variacaoNoMes: 3.1 }, // % desde o fechamento de 30/09
   ifix: { pontos: 3772 },
 } as const;

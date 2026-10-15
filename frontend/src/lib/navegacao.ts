@@ -1,7 +1,6 @@
 import { ACOES_INICIAIS, ETFS_INICIAIS, FIIS_INICIAIS } from "./ativos-catalogo";
 import { APORTE_DO_DESAFIO } from "./carteira-exemplo";
 import { brlSemCentavos } from "./format";
-import { TRILHAS } from "./site-dados";
 
 /**
  * Navegação do site público: uma fonte só para o cabeçalho, a gaveta do
@@ -9,7 +8,7 @@ import { TRILHAS } from "./site-dados";
  *
  * Destino sem `href` é "em breve": aparece apagado, não vira link e não recebe
  * foco. Quando a página existir, basta pôr o `href` — e, se for pública, liberar
- * a rota no src/proxy.ts (`/` e `/ativos/*` são as públicas hoje).
+ * a rota no src/proxy.ts (`/`, `/ativos/*` e `/aprender/*` são as públicas hoje).
  */
 
 /** Os caminhos que existem hoje. navegacao.test.ts confere cada um contra src/app. */
@@ -22,6 +21,10 @@ export const ROTAS = {
   relatorios: "/relatorios",
   indicadores: "/indicadores",
   noticias: "/noticias",
+  aprender: "/aprender",
+  glossario: "/aprender/glossario",
+  indicadoresExplicados: "/aprender/indicadores",
+  comoCalculamos: "/aprender/como-calculamos",
   acoes: "/ativos/acoes",
   fiis: "/ativos/fiis",
   etfs: "/ativos/etfs",
@@ -69,27 +72,28 @@ export const NAVEGACAO: Intencao[] = [
     rotulo: "Aprender",
     colunas: [
       {
-        titulo: "Trilhas, na ordem",
-        largura: "larga",
-        itens: TRILHAS.map((t) => ({
-          rotulo: t.titulo,
-          numero: t.numero,
-          descricao: `${t.aulas} aulas`,
-        })),
+        titulo: "Ler",
+        itens: [
+          {
+            rotulo: "Artigos",
+            descricao: "Textos curtos, sem jargão, com as contas feitas em reais.",
+            href: ROTAS.aprender,
+          },
+        ],
       },
       {
         titulo: "Consultar",
-        largura: "estreita",
         itens: [
-          { rotulo: "Glossário", descricao: "Os termos do mercado, em português claro." },
+          { rotulo: "Glossário", descricao: "Os termos do mercado, em português claro.", href: ROTAS.glossario },
           {
             rotulo: "Indicadores explicados",
             descricao: "P/L, P/VP, dividend yield e os outros, um por um.",
-            href: ROTAS.comoLerUmAtivo,
+            href: ROTAS.indicadoresExplicados,
           },
           {
             rotulo: "Como o site calcula",
             descricao: "Preço médio, proventos e aporte, com as contas abertas.",
+            href: ROTAS.comoCalculamos,
           },
         ],
       },
@@ -223,8 +227,11 @@ export const RODAPE: { titulo: string; links: { rotulo: string; href: string }[]
   {
     titulo: "Aprender",
     links: [
+      { rotulo: "Artigos", href: ROTAS.aprender },
+      { rotulo: "Glossário", href: ROTAS.glossario },
+      { rotulo: "Indicadores explicados", href: ROTAS.indicadoresExplicados },
+      { rotulo: "Como o site calcula", href: ROTAS.comoCalculamos },
       { rotulo: "Desafio do aporte", href: ROTAS.desafio },
-      { rotulo: "Indicadores explicados", href: ROTAS.comoLerUmAtivo },
     ],
   },
   {

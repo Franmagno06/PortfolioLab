@@ -104,6 +104,11 @@ async sozinho — controllers **não** levam try/catch. O `errorHandler` (`share
 memorizou. Antes de escrever código de framework, consulte `node_modules/next/dist/docs/`.
 Em particular, a proteção de rota vive em `src/proxy.ts` (ex-`middleware.ts`).
 
+**Aba Aprender** (`/aprender`, artigos, glossário, indicadores, como-calculamos; pública, sem backend). O conteúdo é
+`.mdx` e `.ts` em `frontend/src/content/aprender/`, e as regras de escrita estão em `docs/aprender-conteudo.md`:
+nada de recomendação, número que muda sempre com fonte oficial e data, e todo exemplo numérico conferido em
+`lib/aprender/exemplos.test.ts`. Texto com lei, imposto ou dado de mercado é tarefa de Opus, com busca na web.
+
 Todo acesso à API passa por `src/lib/api.ts` (`api()` e `apiUpload()`), que lança `ApiError`
 com a mensagem vinda do backend. Formatação de número/moeda só em `src/lib/format.ts`.
 

@@ -1,3 +1,4 @@
+import createMDX from "@next/mdx";
 import type { NextConfig } from "next";
 
 // Endereço do backend. Em produção, defina API_URL nas variáveis de
@@ -67,4 +68,11 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+// Os artigos de /aprender são .mdx em src/content/aprender/artigos e entram por import dinâmico,
+// não como rotas. O frontmatter YAML é lido à parte (lib/aprender/artigos.ts); o plugin só o
+// descarta do HTML; o remark-gfm traz as tabelas. Plugins por NOME (string), porque o Turbopack não aceita função aqui.
+const withMDX = createMDX({
+  options: { remarkPlugins: ["remark-frontmatter", "remark-gfm"] },
+});
+
+export default withMDX(nextConfig);

@@ -202,3 +202,76 @@ html {
     scroll-behavior: auto !important;
   }
 }
+
+/*
+  Escala tipográfica de /aprender (artigos, glossário e páginas de consulta).
+  Os nomes são os estilos do Figma ("Artigo/Titulo" etc.). Em @layer components
+  para qualquer utilitário do Tailwind continuar podendo sobrescrever. Literata
+  no que se lê; Public Sans no que se consulta. No celular a escala desce um
+  degrau, para o título não ocupar a tela inteira.
+*/
+@layer components {
+  .artigo-titulo {
+    font-family: var(--font-leitura);
+    font-weight: 700;
+    font-size: 2rem;
+    line-height: 2.5rem;
+    text-wrap: balance;
+  }
+  .artigo-subtitulo {
+    font-family: var(--font-leitura);
+    font-size: 1.1875rem;
+    line-height: 1.875rem;
+  }
+  .artigo-corpo {
+    font-family: var(--font-leitura);
+    font-size: 1.125rem;
+    line-height: 1.875rem;
+  }
+  .artigo-secao {
+    font-family: var(--font-leitura);
+    font-weight: 600;
+    font-size: 1.5rem;
+    line-height: 2rem;
+    text-wrap: balance;
+  }
+  .artigo-citacao {
+    font-family: var(--font-leitura);
+    font-weight: 500;
+    font-size: 1.25rem;
+    line-height: 1.875rem;
+  }
+  .artigo-meta {
+    font-weight: 500;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+  }
+  .pagina-titulo {
+    font-family: var(--font-leitura);
+    font-weight: 700;
+    font-size: 2rem;
+    line-height: 2.5rem;
+  }
+  @media (min-width: 768px) {
+    .artigo-titulo {
+      font-size: 2.75rem;
+      line-height: 3.25rem;
+    }
+    .artigo-subtitulo {
+      font-size: 1.3125rem;
+      line-height: 2rem;
+    }
+    .artigo-secao {
+      font-size: 1.75rem;
+      line-height: 2.25rem;
+    }
+    .artigo-citacao {
+      font-size: 1.5rem;
+      line-height: 2.125rem;
+    }
+    .pagina-titulo {
+      font-size: 2.25rem;
+      line-height: 2.75rem;
+    }
+  }
+}

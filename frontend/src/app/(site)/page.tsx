@@ -60,7 +60,7 @@ const FERRAMENTAS = [
 ];
 
 export default function SitePage() {
-  const { selic, ipca12m, ibovespa, ifix, rotulo, fechamento, mesAnterior } = NUMEROS_DO_MES;
+  const { selic, ipca12m, ipcaReferencia, ibovespa, ifix, rotulo, fechamento, mesAnterior } = NUMEROS_DO_MES;
   const variacaoIbovespa = ibovespa.variacaoNoMes;
 
   return (
@@ -123,7 +123,7 @@ export default function SitePage() {
                 Os números de {rotulo}
               </h2>
               <p className="mt-1.5 text-[13px] leading-[19px] text-mute">
-                Fechamento de {fechamento}. Fontes: Banco Central e B3.
+                Fechamento de {fechamento}; IPCA em 12 meses até {ipcaReferencia}. Fontes: Banco Central, IBGE e B3.
               </p>
             </div>
 
