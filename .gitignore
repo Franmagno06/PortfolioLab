@@ -6,12 +6,9 @@ relatorios-para-teste/*.pdf
 # A configuração compartilhada fica em .claude/settings.json, essa vai versionada.
 .claude/settings.local.json
 
-# Skills de terceiros (pacote caveman e superpowers), instaladas por gerenciador.
 # São reinstaláveis a partir do skills-lock.json, que esse sim vai versionado —
 # versionar a cópia local é o que o lock existe para evitar. As três skills do
 # próprio projeto ficam em .claude/skills/ e continuam rastreadas.
-.claude/skills/caveman*/
-.claude/skills/cavecrew/
 .claude/skills/find-skills
 .claude/skills/security-and-hardening
 .claude/skills/supabase-postgres-best-practices

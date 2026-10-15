@@ -37,6 +37,12 @@ contém: código novo contra um banco sem a coluna dá P2022 em toda leitura que
 (a coluna `divida_ebitda`, por exemplo, quebraria `/indicators` e a carteira). Só rode contra a produção
 com o pedido explícito de quem é dono do banco.
 
+**`backend/.env.supabase` não pode ser commitado** (tem a URL do banco de produção, `JWT_SECRET` e
+`GEMINI_API_KEY`). Confira com `git ls-files | grep "\.env"`: só `.env.example` deve aparecer.
+
+Use a skill `deploy-producao` antes de qualquer `git push` para a `main`, de `supabase:migrate`, ou quando
+a branch tiver migration: ela confere segredos no commit, a ordem migration → push e o deploy no Render.
+
 Use a skill `rodar-testes-seguro` antes de `npm test`. Testes de regra pura (`calcularPosicao`,
 `calcularAporte`, a cota de relatórios) não tocam o banco e não dependem disso.
 
@@ -119,6 +125,9 @@ Para revisão e correção, use antes de fechar a mudança:
   para módulos novos ou que mexem em autenticação, upload ou integração externa.
 - `security-review` — revisão de segurança do **diff atual** de uma branch/PR (precisa de commits
   para comparar contra `origin/main`; não serve para auditar o repositório inteiro de uma vez).
+- `catalogo-de-ativos` — ao incluir, trocar ou remover ticker no catálogo das páginas `/ativos`: lista as
+  cópias (catálogo do back e do front, descrições, logo, stub do E2E, tabela CNPJ, testes de contagem)
+  para nenhuma ficar para trás.
 - `supabase-postgres-best-practices` — RLS, índices, tipos de coluna, migrations e connection
   pooling, ao mexer no `schema.prisma`, em migrations, ou na configuração do Supabase de produção.
 
@@ -210,5 +219,6 @@ Toda nova funcionalidade segue este processo:
 
 5. **Merge para main**:
    - Quando pronto, fazer merge da branch para `main`.
+   - Antes do push, invocar a skill `deploy-producao` (segredos, migration antes do push).
    - Depois, push com commit explicativo.
    - A branch pode ser deletada após merge bem-sucedido.
