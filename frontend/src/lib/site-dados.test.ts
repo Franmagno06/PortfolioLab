@@ -15,6 +15,10 @@ describe("juroReal", () => {
     expect(juroReal(5, 5)).toBeCloseTo(0, 10);
   });
 
+  it("com o IPCA de setembro de 2026 (4,58%) o juro real fica em 8,77%", () => {
+    expect(juroReal(13.75, 4.58).toFixed(2)).toBe("8.77");
+  });
+
   it("o 'perto de 9%' da página sai do arredondamento dos números do mês", () => {
     expect(Math.round(juroReal(NUMEROS_DO_MES.selic, NUMEROS_DO_MES.ipca12m))).toBe(9);
   });
