@@ -1,0 +1,78 @@
+---
+titulo: "Imposto na renda fixa: quanto fica para você"
+tituloCurto: "Imposto na renda fixa"
+subtitulo: "A tabela regressiva premia quem espera: de 22,5% a 15% do rendimento, conforme o prazo."
+categoria: renda-fixa
+slug: imposto-na-renda-fixa
+tempoLeitura: 2
+atualizadoEm: 2026-10-15
+resumo:
+  - "CDB e Tesouro Direto pagam imposto de renda só sobre o rendimento, nunca sobre o valor aplicado."
+  - "A alíquota cai com o tempo: 22,5% até 180 dias, 20% até 360, 17,5% até 720 e 15% depois disso."
+  - "R$ 136,50 de rendimento em um ano deixam R$ 112,61 líquidos; o banco já desconta o imposto no resgate."
+fontes:
+  - rotulo: "Lei 11.033/2004, art. 1º (tabela regressiva do IR sobre a renda fixa)"
+    url: "https://www.planalto.gov.br/ccivil_03/_ato2004-2006/2004/lei/l11033.htm"
+  - rotulo: "Receita Federal, Meu Imposto de Renda"
+    url: "https://www.gov.br/receitafederal/pt-br/assuntos/meu-imposto-de-renda"
+  - rotulo: "Banco Central, CDI anualizado (série SGS 4389), dado de 14/10/2026"
+    url: "https://api.bcb.gov.br/dados/serie/bcdata.sgs.4389/dados/ultimos/1?formato=json"
+relacionados:
+  - selic-cdi-sem-misterio
+  - cdb-lci-lca-e-fgc
+  - tesouro-direto
+---
+
+O rendimento anunciado de um CDB ou de um título do Tesouro é bruto. Uma parte dele vai para o imposto de renda, e o tamanho dessa parte depende de quanto tempo o dinheiro ficou aplicado.
+
+## A tabela regressiva
+
+O imposto incide só sobre o que o dinheiro rendeu, e a alíquota diminui com o prazo de cada aplicação:
+
+| Prazo da aplicação | Alíquota sobre o rendimento |
+|---|---|
+| Até 180 dias | 22,5% |
+| De 181 a 360 dias | 20% |
+| De 361 a 720 dias | 17,5% |
+| Acima de 720 dias | 15% |
+
+O prazo conta separado para cada aplicação: um depósito feito hoje começa a contar hoje, mesmo que você já tenha dinheiro no mesmo CDB há dois anos.
+
+## A conta em reais
+
+Volte ao exemplo do CDI: R$ 1.000 a 100% do CDI rendem R$ 136,50 brutos em um ano. Um ano tem 365 dias, então a alíquota é de 17,5%.
+
+<Trecho nota="Quem faz a conta e recolhe o imposto é o banco ou a corretora, no resgate. Você recebe o valor já líquido.">
+
+<Conta rotulo="Imposto sobre R$ 136,50 de rendimento em 365 dias">
+  <Parcela rotulo="Rendimento bruto">R$ 136,50</Parcela>
+  <Sinal>−</Sinal>
+  <Parcela rotulo="IR de 17,5%">R$ 23,89</Parcela>
+  <Sinal>=</Sinal>
+  <Parcela rotulo="Rendimento líquido" resultado>R$ 112,61</Parcela>
+</Conta>
+
+</Trecho>
+
+Se o mesmo rendimento fosse resgatado antes de 180 dias, a alíquota seria de 22,5% e sobrariam R$ 105,79. Depois de 720 dias, com 15%, sobrariam R$ 116,02.
+
+> Na renda fixa, paciência vira dinheiro: a mesma aplicação deixa mais para você quanto mais tempo fica parada.
+
+## IOF e isenções
+
+Resgates com menos de 30 dias também pagam IOF sobre o rendimento, numa tabela que começa alta e chega a zero no 30º dia. Depois disso, só resta o imposto de renda.
+
+<Trecho nota="Isento não quer dizer melhor: compare sempre o rendimento líquido dos dois.">
+
+<Armadilha>LCI, LCA e poupança são isentas de IR para pessoa física. Comparar o percentual do CDI de um produto isento com o de um tributado, sem ajustar pelo imposto, leva a escolha errada.</Armadilha>
+
+</Trecho>
+
+<Armadilha>Regras de imposto mudam por lei. Antes de decidir por causa de uma alíquota, confira a regra vigente na Receita Federal.</Armadilha>
+
+<VejaNoSite>
+
+- [CDB, LCI, LCA e o FGC: como comparar →](/aprender/cdb-lci-lca-e-fgc)
+- [Selic, CDI e “100% do CDI” sem mistério →](/aprender/selic-cdi-sem-misterio)
+
+</VejaNoSite>

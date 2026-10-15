@@ -1,0 +1,73 @@
+---
+titulo: "Tesouro Direto: Selic, Prefixado e IPCA+"
+tituloCurto: "Tesouro Direto"
+subtitulo: "Três jeitos de emprestar dinheiro para o governo, e o risco que cada um esconde antes do vencimento."
+categoria: renda-fixa
+slug: tesouro-direto
+tempoLeitura: 2
+atualizadoEm: 2026-10-15
+resumo:
+  - "No Tesouro Direto você empresta dinheiro ao governo federal e recebe juros por isso."
+  - "O Tesouro Selic acompanha a Selic; o Prefixado tem a taxa fixada na compra; o IPCA+ paga a inflação mais um juro."
+  - "Prefixado e IPCA+ mudam de preço todo dia: vender antes do vencimento pode dar um resultado diferente do contratado."
+fontes:
+  - rotulo: "Tesouro Direto, tipos de título"
+    url: "https://www.tesourodireto.com.br/titulos/tipos-de-tesouro.htm"
+  - rotulo: "IBGE, IPCA de 12 meses até setembro de 2026 (série SGS 13522)"
+    url: "https://api.bcb.gov.br/dados/serie/bcdata.sgs.13522/dados/ultimos/1?formato=json"
+relacionados:
+  - selic-cdi-sem-misterio
+  - reserva-de-emergencia
+  - imposto-na-renda-fixa
+---
+
+O Tesouro Direto é o programa que permite a qualquer pessoa comprar títulos públicos pela internet, a partir de valores baixos. Comprar um título é emprestar dinheiro ao governo federal, que devolve com juros no vencimento.
+
+## Os três tipos
+
+| Título | Rende | Para quê |
+|---|---|---|
+| Tesouro Selic | A Selic do período | Reserva e dinheiro de curto prazo |
+| Tesouro Prefixado | Uma taxa fixa, combinada na compra | Saber quanto terá no vencimento |
+| Tesouro IPCA+ | A inflação mais um juro fixo | Proteger o poder de compra no longo prazo |
+
+O Tesouro Selic é o mais simples: rende a Selic, dá para resgatar em qualquer dia útil e o preço quase não oscila. Por isso é o título mais usado para a reserva de emergência.
+
+## A conta do IPCA+
+
+O IPCA+ promete a inflação do período mais um juro combinado. Os dois não se somam, se multiplicam, do mesmo jeito que no juro real.
+
+<Trecho nota="O juro de 6% é um exemplo. As taxas do dia ficam no site do Tesouro Direto e mudam todos os dias.">
+
+<Conta rotulo="IPCA de 4,58% mais um juro de 6% ao ano">
+  <Parcela rotulo="1 + IPCA">1,0458</Parcela>
+  <Sinal>×</Sinal>
+  <Parcela rotulo="1 + juro">1,06</Parcela>
+  <Sinal>=</Sinal>
+  <Parcela rotulo="Rendimento no ano" resultado>10,85%</Parcela>
+</Conta>
+
+</Trecho>
+
+Se a inflação subir, o rendimento sobe junto, e o juro de 6% continua sendo ganho real. É essa proteção que o título vende.
+
+## Marcação a mercado
+
+Prefixado e IPCA+ têm um preço que muda todo dia, chamado marcação a mercado. Quando os juros do mercado sobem, os títulos que pagam uma taxa já fixada valem menos, porque os novos pagam mais. Quando os juros caem, eles valem mais.
+
+<Trecho nota="Quem fica com o título até o vencimento recebe a taxa combinada, qualquer que seja o caminho do preço.">
+
+> No vencimento, você recebe o que contratou. Antes dele, recebe o preço do dia.
+
+</Trecho>
+
+<Armadilha>Vender um Prefixado ou um IPCA+ antes do vencimento, num dia de juros em alta, pode dar rendimento menor que o contratado, e até prejuízo.</Armadilha>
+
+<Armadilha>O Tesouro não tem a garantia do FGC: a garantia é do próprio Tesouro Nacional. Há uma taxa de custódia da B3; confira o valor vigente no site do Tesouro Direto.</Armadilha>
+
+<VejaNoSite>
+
+- [Reserva de emergência: quanto guardar e onde →](/aprender/reserva-de-emergencia)
+- [Imposto na renda fixa: quanto fica para você →](/aprender/imposto-na-renda-fixa)
+
+</VejaNoSite>

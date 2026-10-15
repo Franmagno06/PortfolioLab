@@ -1,0 +1,71 @@
+---
+titulo: "Rebalancear a carteira só com aportes"
+tituloCurto: "Rebalancear com aportes"
+subtitulo: "Sem vender nada: como cada aporte leva a carteira de volta às metas."
+categoria: rebalancear
+slug: rebalancear-com-aportes
+tempoLeitura: 2
+atualizadoEm: 2026-10-15
+resumo:
+  - "Com o tempo, o que sobe passa a pesar mais que a meta e o que cai, menos: a carteira sai do lugar."
+  - "Dá para corrigir sem vender: cada aporte vai para o que está mais abaixo da meta."
+  - "O PortfolioLab compra só cotas inteiras e não gasta a sobra comprando além do que falta."
+fontes:
+  - rotulo: "PortfolioLab, algoritmo de rebalanceamento por aporte (docs/algoritmo-rebalanceamento.md)"
+relacionados:
+  - preco-medio
+  - etfs-uma-cota-varios-ativos
+  - fiis-tijolo-ou-papel
+---
+
+Você define metas: tanto em renda fixa, tanto em ações, tanto em fundos imobiliários. Depois de alguns meses, a carteira já não está nas metas, mesmo sem você mexer em nada.
+
+## Por que a carteira sai da meta
+
+Imagine R$ 2.000 divididos em partes iguais: R$ 1.000 em ações e R$ 1.000 em renda fixa, 50% cada. As ações sobem 30% e viram R$ 1.300. A carteira passa a ter R$ 2.300, e as ações já são 56,5% dela.
+
+<Trecho nota="Ninguém decidiu ter mais ações: o mercado decidiu por você. É isso que o rebalanceamento corrige.">
+
+<Conta rotulo="Peso das ações depois da alta">
+  <Parcela rotulo="Ações">R$ 1.300</Parcela>
+  <Sinal>÷</Sinal>
+  <Parcela rotulo="Carteira">R$ 2.300</Parcela>
+  <Sinal>=</Sinal>
+  <Parcela rotulo="Peso das ações" resultado>56,5%</Parcela>
+</Conta>
+
+</Trecho>
+
+Há dois jeitos de voltar à meta. Vender o excesso, que pode gerar imposto e custos de corretagem. Ou aportar no que ficou para trás: com R$ 300 a mais na renda fixa, ela vai a R$ 1.300 e a carteira volta a 50% cada.
+
+## O aporte faz o trabalho
+
+A cada aporte, o dinheiro novo vai primeiro para o ativo mais abaixo da meta. A conta do PortfolioLab segue quatro passos: soma o aporte ao patrimônio, calcula quanto falta em cada ativo para chegar à meta, ordena do maior déficit para o menor e compra cotas inteiras, sem passar do que falta.
+
+Um exemplo com R$ 200 numa carteira vazia, com metas de 60% em MXRF11 e 40% em BOVA11:
+
+| Ativo | Meta | Falta | Preço | Compra | Custo |
+|---|---|---|---|---|---|
+| MXRF11 | 60% | R$ 120,00 | R$ 10,85 | 11 cotas | R$ 119,35 |
+| BOVA11 | 40% | R$ 80,00 | R$ 110,00 | 0 | — |
+
+<Trecho nota="Sobraram R$ 80,65. Comprar uma cota de BOVA11 custaria R$ 110,00, mais que os R$ 80,00 que faltavam nele.">
+
+> O site não compra só para gastar a sobra. Ela fica para o próximo aporte.
+
+</Trecho>
+
+## Limites do método
+
+- Aportes pequenos ajustam devagar; se a carteira estiver muito fora da meta, vai levar vários meses.
+- Ativo acima da meta não recebe nada até os outros o alcançarem.
+- Ativo sem meta conta no patrimônio, mas não recebe aporte.
+
+<Armadilha>No PortfolioLab as metas são por ativo, e não por classe. Duas ações do mesmo setor somam o mesmo risco, mesmo com metas separadas.</Armadilha>
+
+<VejaNoSite>
+
+- [Simular o aporte do mês na sua carteira →](/simulacao)
+- [A conta do aporte, passo a passo →](/aprender/como-calculamos#aporte)
+
+</VejaNoSite>

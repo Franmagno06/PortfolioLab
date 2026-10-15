@@ -63,7 +63,13 @@ export function proxy(request: NextRequest) {
   //
   // Não entram em `rotasPublicas`: essa lista manda quem já está logado para o
   // dashboard, e quem tem conta também precisa conseguir ler a ficha de um ativo.
-  const ehSite = pathname === "/" || pathname === "/ativos" || pathname.startsWith("/ativos/");
+  // /aprender entra pelo mesmo motivo de /ativos: artigo e glossário são para qualquer visitante.
+  const ehSite =
+    pathname === "/" ||
+    pathname === "/ativos" ||
+    pathname.startsWith("/ativos/") ||
+    pathname === "/aprender" ||
+    pathname.startsWith("/aprender/");
 
   // Saída de emergência. Este proxy só sabe se o cookie EXISTE — validar a
   // assinatura exigiria o segredo do JWT no frontend, que não deve estar lá.

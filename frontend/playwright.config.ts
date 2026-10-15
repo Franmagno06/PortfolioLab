@@ -10,9 +10,9 @@ const DATABASE_URL_LOCAL = "postgresql://portfoliolab:portfoliolab@localhost:543
 
 export default defineConfig({
   testDir: "./e2e",
-  // As páginas de ativos têm config própria (playwright.ativos.config.ts): leem uma API de mentira,
+  // As páginas de ativos e de aprender têm config própria (playwright.ativos.config.ts): leem uma API de mentira,
   // e por isso não dependem do backend, do Docker nem de Yahoo e CVM estarem no ar.
-  testIgnore: "**/ativos*.spec.ts",
+  testIgnore: "**/{ativos,aprender}*.spec.ts",
   fullyParallel: false,
   retries: 0,
   timeout: 30_000,
