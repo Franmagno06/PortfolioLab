@@ -113,10 +113,18 @@ describe("navegação do site", () => {
     for (const t of titulos) expect(t.toLowerCase()).not.toContain("principa");
   });
 
-  it("o rodapé aponta para as duas listagens", () => {
+  it("o rodapé aponta para as listagens de ações, FIIs e índices", () => {
     const hrefs = RODAPE.flatMap((c) => c.links.map((l) => l.href));
     expect(hrefs).toContain(ROTAS.acoes);
     expect(hrefs).toContain(ROTAS.fiis);
+    expect(hrefs).toContain(ROTAS.indices);
+  });
+
+  it("o menu Ativos tem uma coluna Índices que leva à listagem de índices, sem atalhos", () => {
+    const ativos = NAVEGACAO.find((i) => i.id === "ativos");
+    const coluna = ativos?.colunas?.find((c) => c.titulo === "Índices");
+    expect(coluna?.itens.map((i) => i.href)).toEqual([ROTAS.indices]);
+    expect(coluna?.itens.every((i) => !i.atalhos)).toBe(true);
   });
 
   it("não há mais 'Ações por setor' no menu", () => {

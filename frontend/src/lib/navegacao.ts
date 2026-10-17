@@ -28,6 +28,7 @@ export const ROTAS = {
   acoes: "/ativos/acoes",
   fiis: "/ativos/fiis",
   etfs: "/ativos/etfs",
+  indices: "/ativos/indices",
   dashboard: "/dashboard",
   login: "/login",
   registro: "/registro",
@@ -165,6 +166,16 @@ export const NAVEGACAO: Intencao[] = [
           },
         ],
       },
+      {
+        titulo: "Índices",
+        itens: [
+          {
+            rotulo: "Ver os índices",
+            descricao: "Selic, IPCA, CDI, Ibovespa, IFIX e outros três, com gráfico.",
+            href: ROTAS.indices,
+          },
+        ],
+      },
     ],
     destaque: {
       tipo: "indices",
@@ -239,6 +250,7 @@ export const RODAPE: { titulo: string; links: { rotulo: string; href: string }[]
     links: [
       { rotulo: "Ações", href: ROTAS.acoes },
       { rotulo: "Fundos imobiliários", href: ROTAS.fiis },
+      { rotulo: "Índices", href: ROTAS.indices },
     ],
   },
   {
