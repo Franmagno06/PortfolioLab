@@ -60,7 +60,8 @@ function TabelaDaTaxa({ tabela }: { tabela: TabelaDoIndice }) {
         {tabela.titulo}
       </h2>
       <p className="mt-1 text-[13px] leading-[19px] text-mute">{tabela.subtitulo}</p>
-      <div className="mt-4 overflow-x-auto rounded-md border border-pauta">
+      {/* relative: os textos sr-only das células são absolute e, sem isto, escapariam da rolagem e alargariam a página */}
+      <div className="relative mt-4 overflow-x-auto rounded-md border border-pauta">
         <table className="w-full min-w-[480px] text-left text-[13px] leading-[19px]">
           <thead className="bg-paper text-xs leading-4 text-ink">
             <tr>

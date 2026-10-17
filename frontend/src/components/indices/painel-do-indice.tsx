@@ -67,6 +67,11 @@ export function PainelDoIndice({ indice, serie, hoje, linhaFixa, notaDoUltimo, l
   const dataDoEixo = (d: string) => formatarData(d, indice.granularidade);
   const comData = (p: PontoSerie) => `${ehTaxa ? percentual(p.valor, 2) : valorCurto(p.valor)} (${dataDoEixo(p.data)})`;
 
+  // A tabela de um período longo de pregões teria milhares de linhas: acima de um ano, fica o último
+  // pregão de cada mês (no máximo 180 linhas, em 15 anos).
+  const tabelaMensal = indice.granularidade === "diaria" && recorte.length > 300;
+  const linhasDaTabela = tabelaMensal ? [...new Map(recorte.map((p) => [p.data.slice(0, 7), p])).values()] : recorte;
+
   const frase = ROTULO_DO_PERIODO[periodo].frase;
   const subtitulo =
     !ehTaxa && resumo?.variacao != null
@@ -125,11 +130,13 @@ export function PainelDoIndice({ indice, serie, hoje, linhaFixa, notaDoUltimo, l
 
         <div className="mt-2">
           <TabelaDosDados
-            titulo={`${indice.grafico.titulo}, ${frase}`}
-            serie={recorte}
+            titulo={`${indice.grafico.titulo}, ${frase}${tabelaMensal ? ", no último pregão de cada mês" : ""}`}
+            serie={linhasDaTabela}
             valor={valor}
             data={data}
-            rotuloDaData={indice.granularidade === "anual" ? "Ano" : indice.granularidade === "mensal" ? "Mês" : "Dia"}
+            rotuloDaData={
+              indice.granularidade === "anual" ? "Ano" : indice.granularidade === "mensal" ? "Mês" : tabelaMensal ? "Último pregão do mês" : "Dia"
+            }
           />
         </div>
       </section>
