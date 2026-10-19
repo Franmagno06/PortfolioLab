@@ -187,7 +187,20 @@ describe("destinoDepoisDoLogin", () => {
     ["/loginx", "/dashboard"],
     ["/registro/qualquer", "/dashboard"],
     ["/" + "a".repeat(3000), "/dashboard"],
-    // o que é legítimo passa intacto
+    // segmentos de ponto que, resolvidos, deixam "//evil.com" (protocolo-relativo)
+    ["/..//evil.com", "/dashboard"],
+    ["/a/..//evil.com", "/dashboard"],
+    ["/%2e%2e//evil.com", "/dashboard"],
+    ["/.//evil.com", "/dashboard"],
+    ["/a/../../..//evil.com", "/dashboard"],
+    ["/%2e//evil.com", "/dashboard"],
+    ["/..\\/evil.com", "/dashboard"],
+    // o que é legítimo passa intacto, ou só normalizado
+    ["/a/../simulacao", "/simulacao"],
+    ["/simulacao", "/simulacao"],
+    ["/carteira?aba=2", "/carteira?aba=2"],
+    ["/dashboard?x=1", "/dashboard?x=1"],
+    ["/dashboard#frag", "/dashboard#frag"],
     ["/dashboard?x=1#frag", "/dashboard?x=1#frag"],
     ["/ativos/acoes/PETR4", "/ativos/acoes/PETR4"],
     ["/carteira?busca=a%20b", "/carteira?busca=a%20b"],
@@ -207,6 +220,9 @@ describe("comNext", () => {
     ["/registro", "//evil.com", "/registro"],
     ["/registro", "https://evil.com", "/registro"],
     ["/login", "/", "/login"],
+    // leva adiante a forma normalizada, não o texto cru
+    ["/registro", "/a/../simulacao", "/registro?next=%2Fsimulacao"],
+    ["/registro", "/..//evil.com", "/registro"],
   ])("comNext(%s, %j) → %s", (rota, next, esperado) => expect(comNext(rota, next)).toBe(esperado));
 
   it("o next que ele monta volta inteiro pelo validador", () => {

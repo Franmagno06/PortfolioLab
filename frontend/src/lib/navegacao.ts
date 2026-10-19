@@ -297,62 +297,86 @@ function ehCaminhoDaOrigem(texto: string): boolean {
  * então é entrada hostil: sem esta regra, o login vira um redirecionador aberto
  * para phishing ("entre no PortfolioLab" e cair em outro site).
  *
- * Aceita só caminho da mesma origem, e devolve o texto original intacto:
+ * Aceita só caminho da mesma origem, e devolve a forma NORMALIZADA pelo `URL`
+ * (`pathname + search + hash`), nunca o texto cru:
  *  1. até 2048 caracteres;
  *  2. `ehCaminhoDaOrigem` no texto cru e em cada camada de decodificação de
  *     porcentagem (até três): "/%2f/evil.com" e "/%09/evil.com" caem aqui,
  *     caso algum salto entre o navegador e o app decodifique antes. Porcentagem
  *     malformada também é recusada;
- *  3. resolvido contra uma origem fictícia, o `URL` não pode mudar de origem;
+ *  3. resolvido contra uma origem fictícia, o `URL` não pode mudar de origem, e
+ *     o caminho JÁ NORMALIZADO passa de novo por `ehCaminhoDaOrigem`. É isto que
+ *     barra "/..//evil.com", "/a/..//evil.com" e "/%2e%2e//evil.com": o texto cru
+ *     começa com uma barra só, mas os segmentos de ponto se resolvem e sobra
+ *     "//evil.com". Devolver o cru seria perigoso: o router do Next normaliza do
+ *     mesmo jeito e, na navegação de página inteira, faz `location.assign` desse
+ *     "//evil.com", que o navegador lê como endereço de outro host. Vale para o
+ *     cru e para a última camada decodificada;
  *  4. o caminho normalizado ("/./login", "/a/../login", "/%6cogin") não pode
  *     começar por /login nem /registro (voltar para a tela de entrada só
  *     confunde), nem ser "/" (a página inicial é pública; quem entra quer a carteira).
+ *
+ * Para entrada legítima a normalização não muda nada ("/carteira?aba=2",
+ * "/dashboard?x=1#frag", "%20" ficam iguais byte a byte); só resolve "." e ".."
+ * e codifica o que o próprio navegador codificaria (espaço cru vira "%20").
  *
  * Qualquer outra coisa — esquema (`https:`, `javascript:`), `//`, `/\`,
  * caminho relativo, vazio, null — vira /dashboard.
  */
 export function destinoDepoisDoLogin(next: string | null): string {
-  if (!next || next.length > TAMANHO_MAXIMO_DO_NEXT) return DESTINO_PADRAO;
+  return destinoValido(next) ?? DESTINO_PADRAO;
+}
+
+/** O destino normalizado, ou null se `next` não passar na regra de `destinoDepoisDoLogin`. */
+function destinoValido(next: string | null): string | null {
+  if (!next || next.length > TAMANHO_MAXIMO_DO_NEXT) return null;
 
   let camada = next;
   for (let i = 0; ; i++) {
-    if (!ehCaminhoDaOrigem(camada)) return DESTINO_PADRAO;
+    if (!ehCaminhoDaOrigem(camada)) return null;
     let decodificado: string;
     try {
       decodificado = decodeURIComponent(camada);
     } catch {
-      return DESTINO_PADRAO;
+      return null;
     }
     if (decodificado === camada) break;
     // codificado em mais de três camadas não é navegação, é tentativa de despiste
-    if (i === 3) return DESTINO_PADRAO;
+    if (i === 3) return null;
     camada = decodificado;
   }
 
-  let caminho: string;
+  let cru: URL;
+  let decodificado: URL;
   try {
-    const url = new URL(camada, ORIGEM_DE_TESTE);
-    if (url.origin !== ORIGEM_DE_TESTE) return DESTINO_PADRAO;
-    caminho = url.pathname;
+    cru = new URL(next, ORIGEM_DE_TESTE);
+    decodificado = new URL(camada, ORIGEM_DE_TESTE);
   } catch {
-    return DESTINO_PADRAO;
+    return null;
   }
 
-  if (caminho === "/" || caminho.startsWith(ROTAS.login) || caminho.startsWith(ROTAS.registro)) {
-    return DESTINO_PADRAO;
+  for (const url of [cru, decodificado]) {
+    if (url.origin !== ORIGEM_DE_TESTE) return null;
+    const caminho = url.pathname;
+    // ehCaminhoDaOrigem também recusa "/" (nada depois da barra) e "//..."
+    if (!ehCaminhoDaOrigem(caminho)) return null;
+    if (caminho.startsWith(ROTAS.login) || caminho.startsWith(ROTAS.registro)) return null;
   }
-  return next;
+
+  return cru.pathname + cru.search + cru.hash;
 }
 
 /**
- * Acrescenta o `next` a um endereço de login ou cadastro, só se ele passar em
- * `destinoDepoisDoLogin`; senão devolve a rota como veio. Serve aos links entre
- * login e cadastro e à queda de sessão em lib/api.ts:
+ * Acrescenta o `next` a um endereço de login ou cadastro, já normalizado, só se
+ * ele passar em `destinoDepoisDoLogin`; senão devolve a rota como veio. Serve
+ * aos links entre login e cadastro e à queda de sessão em lib/api.ts:
  *   comNext("/registro", "/simulacao")          → "/registro?next=%2Fsimulacao"
  *   comNext("/login?expirada=1", "/carteira")   → "/login?expirada=1&next=%2Fcarteira"
+ *   comNext("/registro", "/a/../simulacao")     → "/registro?next=%2Fsimulacao"
  *   comNext("/registro", "//evil.com")          → "/registro"
  */
 export function comNext(rota: string, next: string | null): string {
-  if (next === null || destinoDepoisDoLogin(next) !== next) return rota;
-  return `${rota}${rota.includes("?") ? "&" : "?"}next=${encodeURIComponent(next)}`;
+  const destino = destinoValido(next);
+  if (destino === null) return rota;
+  return `${rota}${rota.includes("?") ? "&" : "?"}next=${encodeURIComponent(destino)}`;
 }
