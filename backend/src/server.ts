@@ -17,7 +17,7 @@ const servidor = app.listen(env.PORT, () => {
 if (env.NODE_ENV === "production") {
   ativosService.aquecerCatalogo();
   // Séries de índices: o primeiro visitante depois do deploy não paga o SGS lento (cada série tem janelas de 5 anos).
-  indicesService.aquecer();
+  void indicesService.aquecer();
 }
 
 // Achado 24: o Render manda SIGTERM e espera antes de matar o processo. Sem

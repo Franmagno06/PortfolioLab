@@ -138,10 +138,14 @@ describe("indicesService.montarDados", () => {
     expect(buscarSerieSgs).toHaveBeenCalledTimes(8);
   });
 
-  it("série lenta do SGS estoura o orçamento: vai vazia agora, e a próxima chamada já traz o dado", async () => {
+  const comTimers = () => {
     vi.useRealTimers();
     vi.useFakeTimers({ toFake: ["Date", "setTimeout", "clearTimeout"] });
     vi.setSystemTime(new Date(`${HOJE}T15:00:00Z`));
+  };
+
+  it("série lenta do SGS estoura o prazo: vai vazia agora, e a próxima chamada já traz o dado", async () => {
+    comTimers();
     let liberar: (v: { data: string; valor: number }[]) => void = () => undefined;
     const lenta = new Promise<{ data: string; valor: number }[]>((r) => (liberar = r));
     vi.mocked(buscarSerieSgs).mockImplementation(async (codigo) => {
@@ -150,21 +154,85 @@ describe("indicesService.montarDados", () => {
     });
 
     const pendente = indicesService.montarDados();
-    await vi.advanceTimersByTimeAsync(12_001);
+    await vi.advanceTimersByTimeAsync(15_001);
     const d1 = await pendente;
     expect(d1.ipcaMensal).toEqual([]);
-    expect(d1.cdiMensal).toEqual([{ data: "2026-10", valor: 1 }]);
     expect(d1.selicMensal.length).toBeGreaterThan(0);
 
     liberar([{ data: "2026-09-01", valor: 0.5 }]);
     await vi.advanceTimersByTimeAsync(0);
     const d2 = await indicesService.montarDados();
     expect(d2.ipcaMensal).toEqual([{ data: "2026-09", valor: 0.5 }]);
+    expect(d2.cdiMensal).toEqual([{ data: "2026-10", valor: 1 }]);
     expect(buscarSerieSgs).toHaveBeenCalledTimes(4);
   });
 
-  it("aquecer() não rejeita nem espera, e enche o cache", async () => {
+  it("as quatro séries lentas: a resposta espera uns 15 s no total, não 4 x, e vem com tudo vazio", async () => {
+    comTimers();
+    vi.mocked(buscarSerieSgs).mockImplementation(() => new Promise(() => undefined));
+
+    let terminou = false;
+    const pendente = indicesService.montarDados().then((d) => {
+      terminou = true;
+      return d;
+    });
+    await vi.advanceTimersByTimeAsync(14_900);
+    expect(terminou).toBe(false);
+    await vi.advanceTimersByTimeAsync(200);
+    const d = await pendente;
+
+    expect(terminou).toBe(true);
+    expect([d.selicMensal, d.ipcaMensal, d.cdiMensal, d.cdiTaxaMensal]).toEqual([[], [], [], []]);
+    expect(d.pontos.ibovespa.length).toBeGreaterThan(0);
+  });
+
+  it("nunca duas chamadas ao BCB ao mesmo tempo, nem depois de a resposta desistir da série lenta", async () => {
+    comTimers();
+    let emVoo = 0;
+    let maximo = 0;
+    const liberacoes: (() => void)[] = [];
+    vi.mocked(buscarSerieSgs).mockImplementation(async (codigo) => {
+      emVoo++;
+      maximo = Math.max(maximo, emVoo);
+      await new Promise<void>((r) => liberacoes.push(r));
+      emVoo--;
+      return [{ data: `2026-10-0${codigo === 432 ? 1 : 2}`, valor: 1 }];
+    });
+
+    const pendente = indicesService.montarDados();
+    await vi.advanceTimersByTimeAsync(15_001);
+    const d1 = await pendente;
+    expect(d1.selicMensal).toEqual([]);
+    expect(buscarSerieSgs).toHaveBeenCalledTimes(1); // a primeira ainda ocupa a fila: as outras esperam
+
+    for (let i = 0; i < 4; i++) {
+      liberacoes.shift()?.();
+      await vi.advanceTimersByTimeAsync(0);
+    }
+
+    expect(buscarSerieSgs).toHaveBeenCalledTimes(4);
+    expect(maximo).toBe(1);
+    const d2 = await indicesService.montarDados();
+    expect(d2.selicMensal.length).toBeGreaterThan(0);
+    expect(d2.ipcaMensal.length).toBeGreaterThan(0);
+    expect(buscarSerieSgs).toHaveBeenCalledTimes(4);
+  });
+
+  it("aquecer() espera as fontes e deixa o cache cheio: o montarDados seguinte não chama fonte nenhuma", async () => {
+    await indicesService.aquecer();
+    const chamadas = [buscarSerieSgs, buscarSerieDiariaYahoo, buscarUltimoValorYahoo].map((f) => vi.mocked(f).mock.calls.length);
+    expect(chamadas).toEqual([4, 2, 3]);
+
+    const d = await indicesService.montarDados();
+
+    expect(d.selicMensal.length).toBeGreaterThan(0);
+    expect([buscarSerieSgs, buscarSerieDiariaYahoo, buscarUltimoValorYahoo].map((f) => vi.mocked(f).mock.calls.length)).toEqual(chamadas);
+  });
+
+  it("aquecer() não rejeita mesmo com as fontes explodindo", async () => {
     vi.mocked(buscarSerieSgs).mockRejectedValue(new Error("x"));
-    expect(() => indicesService.aquecer()).not.toThrow();
+    vi.mocked(buscarSerieDiariaYahoo).mockRejectedValue(new Error("x"));
+    vi.mocked(buscarUltimoValorYahoo).mockRejectedValue(new Error("x"));
+    await expect(indicesService.aquecer()).resolves.toBeUndefined();
   });
 });

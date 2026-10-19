@@ -1,4 +1,4 @@
-import { comLimiteDeTempo, criarCacheEmMemoria } from "../ativos/ativos.cache.js";
+import { comLimiteDeTempo, criarCacheEmMemoria, criarFila } from "../ativos/ativos.cache.js";
 import { buscarSerieDiariaYahoo, buscarUltimoValorYahoo } from "../quotes/quotes.provider.js";
 import { ateHoje, diaEmSaoPaulo, fimDeCadaMes, paraMensal, type PontoSerie } from "./indices.calculos.js";
 import { buscarSerieSgs } from "./indices.fontes.js";
@@ -17,9 +17,14 @@ export type DadosDosIndicesDto = {
 const SEIS_HORAS = 6 * 60 * 60 * 1000;
 const QUINZE_MINUTOS = 15 * 60 * 1000;
 const DOIS_MINUTOS = 2 * 60 * 1000;
-// Quanto a rota espera por UMA série do SGS. Estourou: a série vai vazia nesta resposta, mas a busca
-// continua e preenche o cache para a próxima (o [] do orçamento nunca é guardado).
-const ORCAMENTO_SGS_MS = 12_000;
+// Quanto a rota espera, no total, pelas séries do SGS. Passou do prazo: o que não ficou pronto vai vazio
+// nesta resposta, mas a busca continua na fila e preenche o cache para a próxima (o [] do prazo nunca é
+// guardado). Abaixo dos 20 s de espera do front.
+const PRAZO_DA_RESPOSTA_MS = 15_000;
+
+// Uma fila só para todo o SGS: nunca duas chamadas ao Banco Central ao mesmo tempo, mesmo que a rota
+// tenha desistido de esperar uma série lenta. Rajada é o que faz o SGS falhar.
+let filaSgs = criarFila();
 
 // Falha (null) fica guardada 2 min: sem isso, cada visita refaria a consulta a uma fonte fora do ar.
 const cacheSgs = criarCacheEmMemoria<PontoSerie[] | null>(SEIS_HORAS, (v) => v === null, DOIS_MINUTOS);
@@ -37,11 +42,21 @@ export function limparCacheDosIndices(): void {
   cacheSgs.limpar();
   cacheSerieYahoo.limpar();
   cacheUltimo.limpar();
+  filaSgs = criarFila(); // uma busca travada de um teste não pode segurar a fila do próximo
 }
 
-function sgs(codigo: number, desde: Date, ate: Date): Promise<PontoSerie[]> {
-  const busca = cacheSgs.obter(String(codigo), () => buscarSerieSgs(codigo, desde, ate).catch(() => null));
-  return comLimiteDeTempo(busca, ORCAMENTO_SGS_MS, null).then((serie) => serie ?? []);
+function sgs(codigo: number, desde: Date, ate: Date, limite: number): Promise<PontoSerie[]> {
+  const busca = cacheSgs.obter(
+    String(codigo),
+    () =>
+      new Promise<PontoSerie[] | null>((resolve) => {
+        const enfileirou = filaSgs.adicionar(String(codigo), async () => {
+          resolve(await buscarSerieSgs(codigo, desde, ate).catch(() => null));
+        });
+        if (!enfileirou) resolve(null);
+      }),
+  );
+  return comLimiteDeTempo(busca, Math.max(0, limite - Date.now()), null).then((serie) => serie ?? []);
 }
 
 function serieYahoo(simbolo: string): Promise<PontoSerie[]> {
@@ -66,27 +81,23 @@ async function serieGravada(slug: SlugGravado): Promise<PontoSerie[]> {
 }
 
 export const indicesService = {
-  /** Esquenta os caches ao subir a API, sem esperar e sem nunca rejeitar. */
-  aquecer(): void {
-    void indicesService.montarDados().catch(() => undefined);
+  /** Esquenta os caches ao subir a API. Nunca rejeita; quem não quer esperar usa `void`. */
+  async aquecer(): Promise<void> {
+    await indicesService.montarDados().catch(() => undefined);
   },
 
   async montarDados(): Promise<DadosDosIndicesDto> {
     const agora = new Date();
     const hoje = diaEmSaoPaulo(agora);
 
-    // O SGS falha de vez em quando sob rajada: as quatro séries saem uma depois da outra (e ficam 6 h
-    // em cache), enquanto o Yahoo e o banco seguem em paralelo.
-    const sgsEmSequencia = async () => {
-      const selic = await sgs(432, DESDE_2011, agora);
-      const ipca = await sgs(433, DESDE_2010, agora);
-      const cdi = await sgs(4391, DESDE_2011, agora);
-      const cdiTaxa = await sgs(4389, DESDE_2011, agora);
-      return { selic, ipca, cdi, cdiTaxa };
-    };
+    // Prazo único da resposta. As quatro séries do SGS entram na fila serial e a fila as busca uma de cada vez.
+    const limite = Date.now() + PRAZO_DA_RESPOSTA_MS;
 
-    const [{ selic, ipca, cdi, cdiTaxa }, ibovespa, sp500, ifix, smll, idiv] = await Promise.all([
-      sgsEmSequencia(),
+    const [selic, ipca, cdi, cdiTaxa, ibovespa, sp500, ifix, smll, idiv] = await Promise.all([
+      sgs(432, DESDE_2011, agora, limite),
+      sgs(433, DESDE_2010, agora, limite),
+      sgs(4391, DESDE_2011, agora, limite),
+      sgs(4389, DESDE_2011, agora, limite),
       serieYahoo(SIMBOLOS_COM_HISTORICO.ibovespa),
       serieYahoo(SIMBOLOS_COM_HISTORICO.sp500),
       serieGravada("ifix"),
