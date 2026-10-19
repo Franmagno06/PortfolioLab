@@ -2,8 +2,9 @@ import { expect, test, type Page } from "@playwright/test";
 import { numero, percentual } from "../src/lib/format";
 import { CATEGORIAS, formatarData, INDICES, type Indice } from "../src/lib/indices";
 import { destaqueDoIndice, ordenarEFiltrar, provedorDeIndices } from "../src/lib/indices-dados";
+import { DADOS_DE_EXEMPLO } from "../src/lib/indices-exemplo";
 
-// Páginas de índices (/ativos/indices). Os dados são de exemplo e locais (lib/indices-series.ts):
+// Páginas de índices (/ativos/indices). Os dados são de exemplo e locais (lib/indices-exemplo.ts):
 // não há API nem stub. Os valores esperados saem da própria lib, e não de números escritos no teste,
 // para o teste conferir que a tela mostra o que a fonte de dados diz.
 
@@ -23,7 +24,7 @@ test.describe("listagem", () => {
     const ipca = cards(page).filter({ has: page.getByRole("link", { name: "IPCA", exact: true }) });
     await expect(ipca).toContainText("4,58%");
     await expect(ipca).toContainText("0,82%");
-    await expect(cards(page).filter({ hasText: "Ibovespa" }).first()).toContainText(destaqueDoIndice(indice("ibovespa")).valorFormatado);
+    await expect(cards(page).filter({ hasText: "Ibovespa" }).first()).toContainText(destaqueDoIndice(indice("ibovespa"), DADOS_DE_EXEMPLO).valorFormatado);
   });
 
   test("filtro por categoria e ordenação ficam na URL e sobrevivem ao recarregar", async ({ page }) => {
@@ -38,7 +39,7 @@ test.describe("listagem", () => {
     await page.getByLabel("Ordenar por").selectOption("az");
     await expect(page).toHaveURL(/categoria=bolsa-brasil/);
     await expect(page).toHaveURL(/ordem=az/);
-    const esperado = ordenarEFiltrar(INDICES, "az", "bolsa-brasil").map((i) => i.nome);
+    const esperado = ordenarEFiltrar(INDICES, "az", "bolsa-brasil", DADOS_DE_EXEMPLO).map((i) => i.nome);
     await expect(titulosDosCards(page)).toHaveText(esperado);
 
     await page.reload();
@@ -52,7 +53,7 @@ test.describe("listagem", () => {
 
   test("maior variação em 12 meses põe o índice que mais subiu primeiro", async ({ page }) => {
     await page.goto("/ativos/indices?ordem=variacao");
-    const esperado = ordenarEFiltrar(INDICES, "variacao", null).map((i) => i.nome);
+    const esperado = ordenarEFiltrar(INDICES, "variacao", null, DADOS_DE_EXEMPLO).map((i) => i.nome);
     await expect(titulosDosCards(page)).toHaveText(esperado);
   });
 

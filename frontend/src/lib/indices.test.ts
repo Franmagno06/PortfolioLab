@@ -7,6 +7,7 @@ import {
   acumular,
   anosDoCdi,
   CATEGORIAS,
+  cdiEm12Meses,
   cdiPorAno,
   INDICES,
   ipcaEm12Meses,
@@ -20,17 +21,22 @@ import {
   recortar,
   reduzirParaGrafico,
   resumir,
+  serieDoGrafico,
   SLUGS,
+  ultimoMesCompleto,
   type Indice,
   type PontoSerie,
   type Slug,
 } from "./indices";
 import { destaqueDoIndice, ordenarEFiltrar, paragrafoDeHoje, provedorDeIndices, variacaoEmMeses } from "./indices-dados";
-import { CDI_MENSAL, IPCA_MENSAL, SELIC_MENSAL, SERIES_DE_PONTOS } from "./indices-series";
+import { DADOS_DE_EXEMPLO } from "./indices-exemplo";
+
+const { selicMensal: SELIC_MENSAL, ipcaMensal: IPCA_MENSAL, cdiMensal: CDI_MENSAL, cdiTaxaMensal: CDI_TAXA, pontos: SERIES_DE_PONTOS } =
+  DADOS_DE_EXEMPLO;
 
 const indice = (slug: Slug) => INDICES.find((i) => i.slug === slug) as Indice;
 const arred = (v: number, casas = 1) => Math.round(v * 10 ** casas) / 10 ** casas;
-const textoDe = (slug: Slug) => paragrafoDeHoje(indice(slug)).map((t) => (typeof t === "string" ? t : t.forte)).join("");
+const textoDe = (slug: Slug) => paragrafoDeHoje(indice(slug), DADOS_DE_EXEMPLO).map((t) => (typeof t === "string" ? t : t.forte)).join("");
 
 describe("catálogo de índices", () => {
   it("tem os oito slugs pedidos, um índice por slug, em três categorias", () => {
@@ -76,10 +82,10 @@ describe("catálogo de índices", () => {
 describe("séries de exemplo", () => {
   it("são determinísticas: carregar o módulo de novo gera os mesmos números", async () => {
     vi.resetModules();
-    const outra = await import("./indices-series");
-    expect(outra.SERIES_DE_PONTOS).not.toBe(SERIES_DE_PONTOS); // é outra geração, não o mesmo objeto
-    expect(outra.SERIES_DE_PONTOS.ibovespa).toEqual(SERIES_DE_PONTOS.ibovespa);
-    expect(outra.IPCA_MENSAL).toEqual(IPCA_MENSAL);
+    const outra = await import("./indices-exemplo");
+    expect(outra.DADOS_DE_EXEMPLO.pontos).not.toBe(SERIES_DE_PONTOS); // é outra geração, não o mesmo objeto
+    expect(outra.DADOS_DE_EXEMPLO.pontos.ibovespa).toEqual(SERIES_DE_PONTOS.ibovespa);
+    expect(outra.DADOS_DE_EXEMPLO.ipcaMensal).toEqual(IPCA_MENSAL);
   });
 
   it("os índices de pontos cobrem pelo menos 15 anos de pregões, em ordem, sem fim de semana", () => {
@@ -104,15 +110,15 @@ describe("séries de exemplo", () => {
       idiv: [14120, 18.9, 92.3],
     };
     for (const [slug, [hoje, v12, v60]] of Object.entries(esperado)) {
-      const d = destaqueDoIndice(indice(slug as Slug));
+      const d = destaqueDoIndice(indice(slug as Slug), DADOS_DE_EXEMPLO);
       expect(d.valor, slug).toBe(hoje);
       expect(arred(d.variacao12m), slug).toBe(v12);
-      expect(arred(variacaoEmMeses(slug as Slug, 60) ?? 0), slug).toBe(v60);
+      expect(arred(variacaoEmMeses(slug as Slug, 60, DADOS_DE_EXEMPLO) ?? 0), slug).toBe(v60);
     }
   });
 
   it("Selic: 13,75% hoje, −1,25 p.p. em 12 meses, pico de 15,00% em 06/2025 e mínima de 2,00% em 08/2020", () => {
-    const d = destaqueDoIndice(indice("selic"));
+    const d = destaqueDoIndice(indice("selic"), DADOS_DE_EXEMPLO);
     expect(d.valorFormatado).toBe("13,75% a.a.");
     expect(d.secundario.texto).toBe("−1,25 p.p.");
     const r = resumir(SELIC_MENSAL);
@@ -121,7 +127,7 @@ describe("séries de exemplo", () => {
   });
 
   it("IPCA: 4,58% em 12 meses e 0,82% em setembro, no card e na tabela da ficha", () => {
-    const d = destaqueDoIndice(indice("ipca"));
+    const d = destaqueDoIndice(indice("ipca"), DADOS_DE_EXEMPLO);
     expect(d.valorFormatado).toBe("4,58%");
     expect(d.secundario.texto).toBe("0,82%");
     const [setembro] = mesesDoIpca(IPCA_MENSAL);
@@ -139,9 +145,9 @@ describe("séries de exemplo", () => {
   });
 
   it("CDI: 13,65% hoje (Selic menos 0,10) e o card mostra o mesmo acumulado da ficha", () => {
-    const d = destaqueDoIndice(indice("cdi"));
+    const d = destaqueDoIndice(indice("cdi"), DADOS_DE_EXEMPLO);
     expect(d.valorFormatado).toBe("13,65% a.a.");
-    expect(CDI_MENSAL.at(-1)?.valor).toBe(13.65);
+    expect(CDI_TAXA.at(-1)?.valor).toBe(13.65);
     const porAno = cdiPorAno(CDI_MENSAL, "2026-09");
     expect(porAno.at(-1)?.data).toBe("2026");
     expect(anosDoCdi(porAno)[0]?.ano).toBe("2026");
@@ -157,6 +163,40 @@ describe("contas", () => {
   it("IPCA em 12 meses de 12 meses de 1% dá 12,68%", () => {
     const mensal = Array.from({ length: 12 }, (_, i) => ({ data: `2020-${String(i + 1).padStart(2, "0")}`, valor: 1 }));
     expect(ipcaEm12Meses(mensal)).toEqual([{ data: "2020-12", valor: 12.68 }]);
+  });
+
+  it("ultimoMesCompleto ignora o mês corrente parcial", () => {
+    const cdi = [{ data: "2026-09", valor: 1.08 }, { data: "2026-10", valor: 0.56 }];
+    expect(ultimoMesCompleto(cdi, "2026-10-19")).toBe("2026-09");
+    expect(ultimoMesCompleto(cdi.slice(0, 1), "2026-10-01")).toBe("2026-09");
+  });
+
+  it("ultimoMesCompleto vira o ano em janeiro e devolve vazio sem série", () => {
+    const cdi = [{ data: "2026-12", valor: 1.1 }, { data: "2027-01", valor: 0.3 }];
+    expect(ultimoMesCompleto(cdi, "2027-01-05")).toBe("2026-12");
+    expect(ultimoMesCompleto([], "2027-01-05")).toBe("");
+  });
+
+  it("cdiPorAno compõe o % de cada mês", () => {
+    const m = [{ data: "2025-11", valor: 1 }, { data: "2025-12", valor: 1 }, { data: "2026-01", valor: 1 }, { data: "2026-02", valor: 0.5 }];
+    expect(cdiPorAno(m, "2026-01")).toEqual([{ data: "2025", valor: 2.01 }, { data: "2026", valor: 1 }]);
+  });
+
+  it("cdiEm12Meses compõe os 12 últimos meses fechados e deixa o parcial de fora", () => {
+    const meses12 = Array.from({ length: 12 }, (_, i) => ({ data: `2025-${String(i + 1).padStart(2, "0")}`, valor: 1 }));
+    const comParcial = [{ data: "2024-12", valor: 5 }, ...meses12, { data: "2026-01", valor: 9 }];
+    expect(cdiEm12Meses(comParcial, "2025-12")).toBe(12.68);
+    // com menos de 12 meses fechados, ou um buraco no meio, não há "12 meses" para mostrar
+    expect(cdiEm12Meses(meses12.slice(1), "2025-12")).toBeNull();
+    expect(cdiEm12Meses([meses12[0]!, ...meses12.slice(2), { data: "2026-01", valor: 1 }], "2026-01")).toBeNull();
+    expect(cdiEm12Meses([], "")).toBeNull();
+  });
+
+  it("serieDoGrafico: Selic mensal, IPCA em 12 meses, CDI por ano e os pontos", () => {
+    expect(serieDoGrafico("selic", DADOS_DE_EXEMPLO)).toBe(SELIC_MENSAL);
+    expect(serieDoGrafico("ipca", DADOS_DE_EXEMPLO)).toEqual(ipcaEm12Meses(IPCA_MENSAL));
+    expect(serieDoGrafico("cdi", DADOS_DE_EXEMPLO)).toEqual(cdiPorAno(CDI_MENSAL, "2026-09"));
+    expect(serieDoGrafico("ifix", DADOS_DE_EXEMPLO)).toBe(SERIES_DE_PONTOS.ifix);
   });
 
   it("mesesAntes não passa do último dia do mês", () => {
@@ -230,14 +270,14 @@ describe("ordem e filtro da listagem", () => {
   });
 
   it("filtra por categoria e ordena", () => {
-    expect(ordenarEFiltrar(INDICES, "buscados", null).map((i) => i.slug)[0]).toBe("ibovespa");
-    expect(ordenarEFiltrar(INDICES, "az", null).map((i) => i.nome)).toEqual(
+    expect(ordenarEFiltrar(INDICES, "buscados", null, DADOS_DE_EXEMPLO).map((i) => i.slug)[0]).toBe("ibovespa");
+    expect(ordenarEFiltrar(INDICES, "az", null, DADOS_DE_EXEMPLO).map((i) => i.nome)).toEqual(
       [...INDICES.map((i) => i.nome)].sort((a, b) => a.localeCompare(b, "pt-BR")),
     );
-    expect(ordenarEFiltrar(INDICES, "buscados", "juros-inflacao")).toHaveLength(3);
-    expect(ordenarEFiltrar(INDICES, "buscados", "bolsa-brasil")).toHaveLength(4);
-    expect(ordenarEFiltrar(INDICES, "buscados", "exterior").map((i) => i.slug)).toEqual(["sp500"]);
-    const porVariacao = ordenarEFiltrar(INDICES, "variacao", null).map((i) => destaqueDoIndice(i).variacao12m);
+    expect(ordenarEFiltrar(INDICES, "buscados", "juros-inflacao", DADOS_DE_EXEMPLO)).toHaveLength(3);
+    expect(ordenarEFiltrar(INDICES, "buscados", "bolsa-brasil", DADOS_DE_EXEMPLO)).toHaveLength(4);
+    expect(ordenarEFiltrar(INDICES, "buscados", "exterior", DADOS_DE_EXEMPLO).map((i) => i.slug)).toEqual(["sp500"]);
+    const porVariacao = ordenarEFiltrar(INDICES, "variacao", null, DADOS_DE_EXEMPLO).map((i) => destaqueDoIndice(i, DADOS_DE_EXEMPLO).variacao12m);
     expect(porVariacao).toEqual([...porVariacao].sort((a, b) => b - a));
   });
 });

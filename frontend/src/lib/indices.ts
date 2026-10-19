@@ -7,16 +7,35 @@ import { ROTAS } from "./navegacao";
  * ficha e as contas sobre as séries.
  *
  * Este arquivo não tem dado nenhum, e por isso os gráficos (componentes de navegador) podem
- * importá-lo sem levar as séries junto. Os dados ficam em indices-dados.ts, que só roda no servidor e
- * é a única porta das páginas para eles (`provedorDeIndices`). As fontes de verdade, quando entrarem:
- *  - Banco Central, SGS: 432 (Selic meta), 13522 (IPCA em 12 meses), 433 (IPCA do mês), 4389 (CDI);
- *  - B3: Ibovespa, IFIX, SMLL e IDIV, e a composição de cada carteira;
- *  - S&P Dow Jones Indices: S&P 500.
- * As contas abaixo recebem séries e não sabem de onde elas vieram, então continuam valendo.
+ * importá-lo sem levar as séries junto. As contas recebem os dados por parâmetro (`DadosDosIndices`,
+ * o JSON de GET /indices/dados) e não sabem de onde eles vieram:
+ *  - Banco Central, SGS: 432 (Selic meta), 433 (IPCA do mês), 4391 (CDI, % no mês), 4389 (CDI, % a.a.);
+ *  - Yahoo: Ibovespa e S&P 500 com histórico; IFIX, SMLL e IDIV com o ponto de cada dia gravado.
  */
 
 /** Um ponto de uma série: "AAAA-MM-DD" (diária), "AAAA-MM" (mensal) ou "AAAA" (anual). */
 export type PontoSerie = { data: string; valor: number };
+
+/**
+ * Tudo o que as páginas de índices leem, no formato de GET /indices/dados (DadosDosIndicesDto do
+ * backend). Qualquer série pode vir vazia: a fonte falhou, e só aquele índice fica sem número.
+ */
+export type DadosDosIndices = {
+  /** ISO 8601 do momento em que a API montou a resposta. */
+  atualizadoEm: string;
+  /** O dia de hoje em São Paulo, "AAAA-MM-DD". */
+  hoje: string;
+  /** SGS 432: a Selic meta ao fim de cada mês, em % a.a. ("AAAA-MM"). */
+  selicMensal: PontoSerie[];
+  /** SGS 433: o IPCA de cada mês, em % no mês. */
+  ipcaMensal: PontoSerie[];
+  /** SGS 4391: o CDI acumulado em cada mês, em % no mês. O último pode ser o mês corrente, ainda parcial. */
+  cdiMensal: PontoSerie[];
+  /** SGS 4389: a taxa do CDI ao fim de cada mês, em % a.a. */
+  cdiTaxaMensal: PontoSerie[];
+  /** Fechamento de cada pregão ("AAAA-MM-DD"). */
+  pontos: Record<"ibovespa" | "ifix" | "smll" | "sp500" | "idiv", PontoSerie[]>;
+};
 
 /** O último dia das séries de exemplo: a data de "atualizado em" de todas as páginas. */
 export const DATA_FINAL = "2026-10-15";
@@ -445,21 +464,50 @@ export function ipcaEm12Meses(mensal: PontoSerie[]): PontoSerie[] {
   }));
 }
 
-/** CDI acumulado em cada ano, somando os rendimentos dos meses completos. O ano corrente vai até o último mês fechado. */
-export function cdiPorAno(mensal: PontoSerie[], ultimoMesCompleto: string): PontoSerie[] {
-  const porAno = new Map<string, number[]>();
-  for (const p of mensal) {
-    if (p.data > ultimoMesCompleto) continue;
-    const ano = p.data.slice(0, 4);
-    porAno.set(ano, [...(porAno.get(ano) ?? []), rendimentoDoMes(p.valor)]);
-  }
-  return [...porAno].map(([ano, rendimentos]) => ({ data: ano, valor: arredondar2(acumular(rendimentos)) }));
+/**
+ * O último mês FECHADO de uma série mensal: o último antes do mês de `hoje`. O SGS 4391 publica o mês
+ * corrente enquanto ele corre (outubro com 0,56% no dia 19), e um mês parcial não pode entrar no
+ * "CDI no ano" nem nos 12 meses como se tivesse fechado. Sem mês fechado na série: "".
+ */
+export function ultimoMesCompleto(mensal: PontoSerie[], hoje: string): string {
+  const mesDeHoje = hoje.slice(0, 7);
+  let achado = "";
+  for (const p of mensal) if (p.data < mesDeHoje && p.data > achado) achado = p.data;
+  return achado;
 }
 
-/** CDI acumulado nos 12 últimos meses completos. */
-export function cdiEm12Meses(mensal: PontoSerie[], ultimoMesCompleto: string): number {
-  const fechados = mensal.filter((p) => p.data <= ultimoMesCompleto).slice(-12);
-  return arredondar2(acumular(fechados.map((p) => rendimentoDoMes(p.valor))));
+/**
+ * CDI acumulado em cada ano, compondo o % de cada mês (SGS 4391). O ano corrente vai até
+ * `ultimoMesCompleto`; o que vier depois dele fica de fora.
+ */
+export function cdiPorAno(mensalPct: PontoSerie[], ultimoMesCompleto: string): PontoSerie[] {
+  const porAno = new Map<string, number[]>();
+  for (const p of mensalPct) {
+    if (p.data > ultimoMesCompleto) continue;
+    const ano = p.data.slice(0, 4);
+    porAno.set(ano, [...(porAno.get(ano) ?? []), p.valor]);
+  }
+  return [...porAno].map(([ano, doMes]) => ({ data: ano, valor: arredondar2(acumular(doMes)) }));
+}
+
+/**
+ * CDI acumulado nos 12 meses fechados que terminam em `ultimoMesCompleto`, compondo o % de cada mês
+ * (SGS 4391). Sem os 12 meses seguidos (série curta ou com buraco), não há "12 meses": null.
+ */
+export function cdiEm12Meses(mensalPct: PontoSerie[], ultimoMesCompleto: string): number | null {
+  if (!ultimoMesCompleto) return null;
+  const fechados = mensalPct.filter((p) => p.data <= ultimoMesCompleto).slice(-12);
+  const esperados = Array.from({ length: 12 }, (_, i) => mesesAntes(`${ultimoMesCompleto}-01`, 11 - i).slice(0, 7));
+  if (fechados.length !== 12 || fechados.some((p, i) => p.data !== esperados[i])) return null;
+  return arredondar2(acumular(fechados.map((p) => p.valor)));
+}
+
+/** A série que o gráfico de cada índice mostra: Selic mensal, IPCA em 12 meses, CDI por ano e os pontos. */
+export function serieDoGrafico(slug: Slug, dados: DadosDosIndices): PontoSerie[] {
+  if (slug === "selic") return dados.selicMensal;
+  if (slug === "ipca") return ipcaEm12Meses(dados.ipcaMensal);
+  if (slug === "cdi") return cdiPorAno(dados.cdiMensal, ultimoMesCompleto(dados.cdiMensal, dados.hoje));
+  return dados.pontos[slug];
 }
 
 function arredondar2(v: number) {
@@ -506,27 +554,17 @@ export function marcasDoEixoX(serie: PontoSerie[], granularidade: Granularidade)
   return janeiros.filter((_, i) => (janeiros.length - 1 - i) % passo === 0);
 }
 
-/** Dias úteis num mês, para transformar a taxa anual em rendimento do mês (base 252). */
-const DIAS_UTEIS_NO_MES = 21;
-
-/** O rendimento de um mês, em %, para uma taxa anual base 252: 12% a.a. → 0,95% no mês. */
-export function rendimentoDoMes(taxaAnualPct: number): number {
-  return ((1 + taxaAnualPct / 100) ** (DIAS_UTEIS_NO_MES / 252) - 1) * 100;
-}
-
 // =============================================================================================
 // O provedor: a única porta pela qual as páginas pegam dados. Assíncrono já agora, para a troca
 // por uma API não mudar nenhuma página.
-
-export type DadosMensais = { ipcaMensal: PontoSerie[]; cdiMensal: PontoSerie[]; selicMensal: PontoSerie[] };
 
 export interface ProvedorDeIndices {
   listarIndices(): Promise<Indice[]>;
   getIndice(slug: string): Promise<Indice | null>;
   /** A série que o gráfico do índice mostra, recortada no período. */
   getSerie(slug: Slug, periodo: Periodo): Promise<PontoSerie[]>;
-  /** As séries mensais de base, que algumas contas precisam além da série do gráfico. */
-  getMensais(): Promise<DadosMensais>;
+  /** Todas as séries, para as contas que precisam de mais que a série do gráfico. */
+  getDados(): Promise<DadosDosIndices>;
 }
 
 export const AVISO_DE_EXEMPLO =
@@ -563,6 +601,8 @@ export type Destaque = {
   variacao12m: number;
   /** Os últimos 12 meses, um valor por mês, para o minigráfico. */
   sparkline: number[];
+  /** A fonte não trouxe nada para este índice: o card mostra "—" e vai para o fim da ordem por variação. */
+  semDados: boolean;
 };
 
 // ---------------------------------------------------------------------------------------------

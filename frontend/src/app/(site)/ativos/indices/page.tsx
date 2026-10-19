@@ -6,6 +6,8 @@ import { OrdenarIndices } from "@/components/indices/ordenar-indices";
 import { NotaDeExemplo } from "@/components/indices/pecas-da-ficha";
 import { AVISO_DE_EXEMPLO, CATEGORIAS, lerCategoria, lerOrdem, type Categoria } from "@/lib/indices";
 import { destaqueDoIndice, ordenarEFiltrar, provedorDeIndices } from "@/lib/indices-dados";
+// Temporário: a próxima tarefa troca o exemplo pelos dados de GET /indices/dados.
+import { DADOS_DE_EXEMPLO } from "@/lib/indices-exemplo";
 import { ROTAS } from "@/lib/navegacao";
 
 export const metadata: Metadata = {
@@ -30,7 +32,7 @@ export default async function IndicesPage({ searchParams }: Props) {
   const ordem = lerOrdem(params.ordem);
   const categoria = lerCategoria(params.categoria);
   const todos = await provedorDeIndices.listarIndices();
-  const visiveis = ordenarEFiltrar(todos, ordem, categoria);
+  const visiveis = ordenarEFiltrar(todos, ordem, categoria, DADOS_DE_EXEMPLO);
 
   const chips = [
     { id: null, rotulo: "Todos", total: todos.length },
@@ -84,7 +86,7 @@ export default async function IndicesPage({ searchParams }: Props) {
       <ul className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-4 lg:gap-6">
         {visiveis.map((indice) => (
           <li key={indice.slug} className="flex">
-            <CardDeIndice indice={indice} destaque={destaqueDoIndice(indice)} />
+            <CardDeIndice indice={indice} destaque={destaqueDoIndice(indice, DADOS_DE_EXEMPLO)} />
           </li>
         ))}
       </ul>

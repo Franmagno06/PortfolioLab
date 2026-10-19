@@ -32,6 +32,8 @@ import {
   variacaoEmMeses,
   type TabelaDoIndice,
 } from "@/lib/indices-dados";
+// Temporário: a próxima tarefa troca o exemplo pelos dados de GET /indices/dados.
+import { DADOS_DE_EXEMPLO } from "@/lib/indices-exemplo";
 import { ROTAS } from "@/lib/navegacao";
 
 // As oito fichas saem prontas do build. Um slug fora da lista cai no notFound() abaixo, que mostra o
@@ -118,10 +120,10 @@ export default async function FichaDoIndice({ params }: Props) {
   const ehTaxa = indice.tipo === "taxa";
   const maiorPeriodo = indice.periodos[indice.periodos.length - 1] ?? "Max";
   const serie = await provedorDeIndices.getSerie(indice.slug, maiorPeriodo);
-  const destaque = destaqueDoIndice(indice);
-  const tabela = tabelaDoIndice(indice);
-  const v12 = variacaoEmMeses(indice.slug, 12);
-  const v60 = variacaoEmMeses(indice.slug, 60);
+  const destaque = destaqueDoIndice(indice, DADOS_DE_EXEMPLO);
+  const tabela = tabelaDoIndice(indice, DADOS_DE_EXEMPLO);
+  const v12 = variacaoEmMeses(indice.slug, 12, DADOS_DE_EXEMPLO);
+  const v60 = variacaoEmMeses(indice.slug, 60, DADOS_DE_EXEMPLO);
 
   return (
     <>
@@ -166,13 +168,13 @@ export default async function FichaDoIndice({ params }: Props) {
           indice={indice}
           serie={serie}
           hoje={ehTaxa ? percentual(destaque.valor, 2) : numero(destaque.valor, indice.slug === "sp500" ? 2 : 0)}
-          linhaFixa={ehTaxa ? linhaFixaDoResumo(indice) : undefined}
-          notaDoUltimo={notaDoUltimoPonto(indice)}
+          linhaFixa={ehTaxa ? linhaFixaDoResumo(indice, DADOS_DE_EXEMPLO) : undefined}
+          notaDoUltimo={notaDoUltimoPonto(indice, DADOS_DE_EXEMPLO)}
           lateral={
             <>
               {ehTaxa && (
                 <CartaoLateral titulo="Como isso afeta o seu bolso">
-                  <p className="text-[15px] leading-[22px] text-ink-2">{efeitoNoBolso(indice)}</p>
+                  <p className="text-[15px] leading-[22px] text-ink-2">{efeitoNoBolso(indice, DADOS_DE_EXEMPLO)}</p>
                 </CartaoLateral>
               )}
               <ArmadilhaDoIndice texto={indice.armadilha} />
@@ -183,7 +185,7 @@ export default async function FichaDoIndice({ params }: Props) {
 
         <div className="flex min-w-0 flex-col gap-5 lg:col-start-1 lg:row-start-3">
           <BlocoDeArtigo titulo={PERGUNTA_DA_FICHA[indice.slug]}>
-            {ehTaxa && <TextoComDestaques trechos={paragrafoDeHoje(indice)} />}
+            {ehTaxa && <TextoComDestaques trechos={paragrafoDeHoje(indice, DADOS_DE_EXEMPLO)} />}
             {indice.explicacao.map((p) => (
               <p key={p}>{p}</p>
             ))}

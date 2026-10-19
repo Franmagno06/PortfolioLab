@@ -5,10 +5,8 @@ import {
   anosAntes,
   cdiEm12Meses,
   cdiPorAno,
-  DATA_FINAL,
   formatarValor,
   INDICES,
-  ipcaEm12Meses,
   mesesAntes,
   mesesDoIpca,
   mudancasDaSelic,
@@ -16,10 +14,13 @@ import {
   pontosPercentuais,
   recortar,
   resumir,
+  serieDoGrafico,
+  ultimoMesCompleto,
   valorEmOuAntes,
   variacaoComSinal,
   variacaoPct,
   type Categoria,
+  type DadosDosIndices,
   type Destaque,
   type Indice,
   type Ordem,
@@ -28,34 +29,17 @@ import {
   type Slug,
   type Trecho,
 } from "./indices";
-import {
-  CDI_MENSAL,
-  IPCA_MENSAL,
-  SELIC_MENSAL,
-  SERIES_DE_PONTOS,
-  ULTIMO_MES_COMPLETO_DO_CDI,
-  ULTIMO_MES_DO_IPCA,
-} from "./indices-series";
+import { DADOS_DE_EXEMPLO } from "./indices-exemplo";
 
 /**
  * Os dados das páginas de índices: o provedor e tudo o que lê as séries (os números do card, os
  * textos com número das fichas). Importe só em componente de servidor: os componentes de navegador
- * recebem os números prontos, e as séries de exemplo nunca vão para o bundle do navegador.
+ * recebem os números prontos.
  *
- * Para trocar o exemplo por dados reais, basta um `ProvedorDeIndices` novo em `provedorDeIndices`
- * e as séries mensais de base vindas da mesma fonte.
+ * Toda conta recebe os dados (`DadosDosIndices`, o JSON de GET /indices/dados) como último parâmetro.
+ * Qualquer série pode vir vazia, quando a fonte falhou: as contas devolvem "—", lista vazia ou null,
+ * nunca um número inventado.
  */
-
-const IPCA_12M = ipcaEm12Meses(IPCA_MENSAL);
-const CDI_ANUAL = cdiPorAno(CDI_MENSAL, ULTIMO_MES_COMPLETO_DO_CDI);
-
-const SERIE_DO_GRAFICO: Record<Slug, PontoSerie[]> = {
-  selic: SELIC_MENSAL,
-  ipca: IPCA_12M,
-  cdi: CDI_ANUAL,
-  ...SERIES_DE_PONTOS,
-};
-
 
 export const provedorDeExemplo: ProvedorDeIndices = {
   async listarIndices() {
@@ -66,16 +50,21 @@ export const provedorDeExemplo: ProvedorDeIndices = {
   },
   async getSerie(slug, periodo) {
     const indice = acharIndice(slug);
-    return indice ? recortar(SERIE_DO_GRAFICO[slug], periodo, indice.granularidade) : [];
+    return indice ? recortar(serieDoGrafico(slug, DADOS_DE_EXEMPLO), periodo, indice.granularidade) : [];
   },
-  async getMensais() {
-    return { ipcaMensal: IPCA_MENSAL, cdiMensal: CDI_MENSAL, selicMensal: SELIC_MENSAL };
+  async getDados() {
+    return DADOS_DE_EXEMPLO;
   },
 };
 
 /** Troque aqui quando os dados forem reais. */
 export const provedorDeIndices: ProvedorDeIndices = provedorDeExemplo;
 
+/** O último mês com IPCA divulgado (o IBGE publica no mês seguinte). Sem série: "". */
+const ultimoMesDoIpca = (dados: DadosDosIndices) => dados.ipcaMensal[dados.ipcaMensal.length - 1]?.data ?? "";
+
+/** O último mês fechado do CDI: o mês corrente, parcial, fica de fora. Sem série: "". */
+const ultimoMesCompletoDoCdi = (dados: DadosDosIndices) => ultimoMesCompleto(dados.cdiMensal, dados.hoje);
 
 function ultimoDeCadaMes(serie: PontoSerie[]): PontoSerie[] {
   const porMes = new Map<string, PontoSerie>();
@@ -83,81 +72,116 @@ function ultimoDeCadaMes(serie: PontoSerie[]): PontoSerie[] {
   return [...porMes.values()];
 }
 
+const SEM_DADO = "—";
+
+function destaqueVazio(rotulo: string): Destaque {
+  return {
+    valor: 0,
+    valorFormatado: SEM_DADO,
+    secundario: { rotulo, texto: SEM_DADO, variacao: null },
+    variacao12m: 0,
+    sparkline: [],
+    semDados: true,
+  };
+}
+
 /** Os números do card da listagem (e do cabeçalho da ficha). */
-export function destaqueDoIndice(indice: Indice): Destaque {
-  const serie = SERIE_DO_GRAFICO[indice.slug];
-  const ultimo = serie[serie.length - 1] ?? { data: DATA_FINAL, valor: 0 };
+export function destaqueDoIndice(indice: Indice, dados: DadosDosIndices): Destaque {
+  const serie = serieDoGrafico(indice.slug, dados);
 
   if (indice.tipo === "pontos") {
+    const ultimo = serie[serie.length - 1];
+    if (!ultimo) return destaqueVazio("Últimos 12 meses");
+    // sem um fechamento de um ano atrás (IFIX gravado há poucos dias), não há variação de 12 meses
     const haUmAno = valorEmOuAntes(serie, anosAntes(ultimo.data, 1));
-    const variacao = haUmAno ? (variacaoPct(haUmAno.valor, ultimo.valor) ?? 0) : 0;
+    const variacao = haUmAno ? variacaoPct(haUmAno.valor, ultimo.valor) : null;
     const desdeUmAno = serie.filter((p) => p.data >= anosAntes(ultimo.data, 1));
     return {
       valor: ultimo.valor,
       valorFormatado: formatarValor(indice, ultimo.valor),
-      secundario: { rotulo: "Últimos 12 meses", texto: variacaoComSinal(variacao), variacao },
-      variacao12m: variacao,
+      secundario: {
+        rotulo: "Últimos 12 meses",
+        texto: variacao === null ? SEM_DADO : variacaoComSinal(variacao),
+        variacao,
+      },
+      variacao12m: variacao ?? 0,
       sparkline: ultimoDeCadaMes(desdeUmAno).map((p) => p.valor),
+      semDados: false,
     };
   }
 
   if (indice.slug === "ipca") {
-    const doMes = IPCA_MENSAL[IPCA_MENSAL.length - 1]?.valor ?? 0;
+    const ultimo = serie[serie.length - 1];
+    if (!ultimo) return destaqueVazio("IPCA do mês");
+    const doMes = dados.ipcaMensal[dados.ipcaMensal.length - 1]?.valor;
     const anoAntes = serie[serie.length - 13]?.valor ?? ultimo.valor;
     return {
       valor: ultimo.valor,
       valorFormatado: formatarValor(indice, ultimo.valor),
-      secundario: { rotulo: "IPCA do mês", texto: percentual(doMes, 2), variacao: null },
+      secundario: { rotulo: "IPCA do mês", texto: doMes === undefined ? SEM_DADO : percentual(doMes, 2), variacao: null },
       variacao12m: ultimo.valor - anoAntes,
       sparkline: serie.slice(-12).map((p) => p.valor),
+      semDados: false,
     };
   }
 
-  // Selic e CDI: a taxa de hoje vem da série mensal (a do CDI no gráfico é por ano)
-  const mensal = indice.slug === "selic" ? SELIC_MENSAL : CDI_MENSAL;
-  const hoje = mensal[mensal.length - 1]?.valor ?? 0;
+  // Selic e CDI: a taxa de hoje vem da série mensal em % a.a. (a do CDI no gráfico é por ano)
+  const mensal = indice.slug === "selic" ? dados.selicMensal : dados.cdiTaxaMensal;
+  const rotulo = indice.slug === "selic" ? "Em 12 meses" : "Rendeu em 12 meses";
+  const ultimo = mensal[mensal.length - 1];
+  if (!ultimo) return destaqueVazio(rotulo);
+  const hoje = ultimo.valor;
   const haUmAno = mensal[mensal.length - 13]?.valor ?? hoje;
   const variacao = hoje - haUmAno;
-  const secundario =
-    indice.slug === "selic"
-      ? { rotulo: "Em 12 meses", texto: pontosPercentuais(variacao), variacao }
-      : { rotulo: "Rendeu em 12 meses", texto: percentual(cdiEm12Meses(CDI_MENSAL, ULTIMO_MES_COMPLETO_DO_CDI), 2), variacao: null };
+  let secundario: Destaque["secundario"];
+  if (indice.slug === "selic") {
+    secundario = { rotulo, texto: pontosPercentuais(variacao), variacao };
+  } else {
+    const rendeu = cdiEm12Meses(dados.cdiMensal, ultimoMesCompletoDoCdi(dados));
+    secundario = { rotulo, texto: rendeu === null ? SEM_DADO : percentual(rendeu, 2), variacao: null };
+  }
   return {
     valor: hoje,
     valorFormatado: formatarValor(indice, hoje),
     secundario,
     variacao12m: variacao,
     sparkline: mensal.slice(-12).map((p) => p.valor),
+    semDados: false,
   };
 }
 
-/** Variação de um índice de pontos em N meses, a partir do último fechamento. */
-export function variacaoEmMeses(slug: Slug, quantos: number): number | null {
-  const serie = SERIE_DO_GRAFICO[slug];
+/** Variação de um índice de pontos em N meses, a partir do último fechamento. Sem o ponto de N meses antes: null. */
+export function variacaoEmMeses(slug: Slug, quantos: number, dados: DadosDosIndices): number | null {
+  const serie = serieDoGrafico(slug, dados);
   const ultimo = serie[serie.length - 1];
   if (!ultimo) return null;
   const antes = valorEmOuAntes(serie, mesesAntes(ultimo.data, quantos));
   return antes ? variacaoPct(antes.valor, ultimo.valor) : null;
 }
 
-
-export function ordenarEFiltrar(indices: Indice[], ordem: Ordem, categoria: Categoria | null): Indice[] {
+export function ordenarEFiltrar(indices: Indice[], ordem: Ordem, categoria: Categoria | null, dados: DadosDosIndices): Indice[] {
   const filtrados = categoria ? indices.filter((i) => i.categoria === categoria) : [...indices];
   if (ordem === "az") return filtrados.sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
   if (ordem === "variacao") {
-    return filtrados.sort((a, b) => destaqueDoIndice(b).variacao12m - destaqueDoIndice(a).variacao12m);
+    const destaques = new Map(filtrados.map((i) => [i.slug, destaqueDoIndice(i, dados)]));
+    return filtrados.sort((a, b) => {
+      const da = destaques.get(a.slug) as Destaque;
+      const db = destaques.get(b.slug) as Destaque;
+      // índice sem dados vai para o fim; entre os outros, quem mais variou primeiro
+      if (da.semDados !== db.semDados) return da.semDados ? 1 : -1;
+      return db.variacao12m - da.variacao12m;
+    });
   }
   return filtrados.sort((a, b) => a.ordemDeBusca - b.ordemDeBusca);
 }
 
-
 // Textos com números das fichas de taxa. Os números saem das séries, nunca escritos à mão.
 
-/** "Qual a Selic hoje?" e afins: um parágrafo com os números em destaque. */
-export function paragrafoDeHoje(indice: Indice): Trecho[] {
+/** "Qual a Selic hoje?" e afins: um parágrafo com os números em destaque. Sem dados: nenhum trecho. */
+export function paragrafoDeHoje(indice: Indice, dados: DadosDosIndices): Trecho[] {
   if (indice.slug === "selic") {
-    const resumo = resumir(SELIC_MENSAL);
-    const { valor, variacao12m } = destaqueDoIndice(indice);
+    const resumo = resumir(dados.selicMensal);
+    const { valor, variacao12m } = destaqueDoIndice(indice, dados);
     if (!resumo) return [];
     const queda = variacao12m < 0;
     return [
@@ -175,41 +199,49 @@ export function paragrafoDeHoje(indice: Indice): Trecho[] {
     ];
   }
   if (indice.slug === "ipca") {
-    const ultimoMes = IPCA_MENSAL[IPCA_MENSAL.length - 1];
-    const ano = ULTIMO_MES_DO_IPCA.slice(0, 4);
+    const destaque = destaqueDoIndice(indice, dados);
+    const ultimoMes = dados.ipcaMensal[dados.ipcaMensal.length - 1];
+    if (destaque.semDados || !ultimoMes) return [];
+    const mes = ultimoMesDoIpca(dados);
+    const ano = mes.slice(0, 4);
     const anoAnterior = String(Number(ano) - 1);
-    const doAno = acumular(IPCA_MENSAL.filter((p) => p.data.startsWith(ano)).map((p) => p.valor));
-    const doAnoAnterior = acumular(IPCA_MENSAL.filter((p) => p.data.startsWith(anoAnterior)).map((p) => p.valor));
+    const doAno = acumular(dados.ipcaMensal.filter((p) => p.data.startsWith(ano)).map((p) => p.valor));
+    const doAnoAnterior = acumular(dados.ipcaMensal.filter((p) => p.data.startsWith(anoAnterior)).map((p) => p.valor));
     return [
       "O IPCA acumulado nos últimos 12 meses é de ",
-      { forte: percentual(destaqueDoIndice(indice).valor, 2) },
-      `. Em ${mesPorExtenso(ULTIMO_MES_DO_IPCA)}, a inflação do mês foi de `,
-      { forte: percentual(ultimoMes?.valor ?? 0, 2) },
-      `. No ano de ${ano}, até ${mesPorExtenso(ULTIMO_MES_DO_IPCA)}, o acumulado é de `,
+      { forte: percentual(destaque.valor, 2) },
+      `. Em ${mesPorExtenso(mes)}, a inflação do mês foi de `,
+      { forte: percentual(ultimoMes.valor, 2) },
+      `. No ano de ${ano}, até ${mesPorExtenso(mes)}, o acumulado é de `,
       { forte: percentual(doAno, 2) },
       `; em ${anoAnterior} inteiro, foi de `,
       { forte: percentual(doAnoAnterior, 2) },
       ".",
     ];
   }
-  const ano = ULTIMO_MES_COMPLETO_DO_CDI.slice(0, 4);
+  const destaque = destaqueDoIndice(indice, dados);
+  const mes = ultimoMesCompletoDoCdi(dados);
+  const porAno = cdiPorAno(dados.cdiMensal, mes);
+  const ano = mes.slice(0, 4);
   const anoAnterior = String(Number(ano) - 1);
-  const doAno = CDI_ANUAL.find((p) => p.data === ano)?.valor ?? 0;
-  const doAnoAnterior = CDI_ANUAL.find((p) => p.data === anoAnterior)?.valor ?? 0;
-  return [
+  const doAno = porAno.find((p) => p.data === ano)?.valor;
+  const doAnoAnterior = porAno.find((p) => p.data === anoAnterior)?.valor;
+  if (destaque.semDados || doAno === undefined) return [];
+  const trechos: Trecho[] = [
     "O CDI hoje é de ",
-    { forte: `${percentual(destaqueDoIndice(indice).valor, 2)} ao ano` },
-    `. Em ${ano}, até ${mesPorExtenso(ULTIMO_MES_COMPLETO_DO_CDI)}, o acumulado é de `,
+    { forte: `${percentual(destaque.valor, 2)} ao ano` },
+    `. Em ${ano}, até ${mesPorExtenso(mes)}, o acumulado é de `,
     { forte: percentual(doAno, 2) },
-    `; em ${anoAnterior} inteiro, foi de `,
-    { forte: percentual(doAnoAnterior, 2) },
-    ".",
   ];
+  if (doAnoAnterior !== undefined) trechos.push(`; em ${anoAnterior} inteiro, foi de `, { forte: percentual(doAnoAnterior, 2) });
+  trechos.push(".");
+  return trechos;
 }
 
-/** "Como isso afeta o seu bolso": a taxa de hoje traduzida em reais. */
-export function efeitoNoBolso(indice: Indice): string {
-  const { valor } = destaqueDoIndice(indice);
+/** "Como isso afeta o seu bolso": a taxa de hoje traduzida em reais. Sem dados: "". */
+export function efeitoNoBolso(indice: Indice, dados: DadosDosIndices): string {
+  const { valor, semDados } = destaqueDoIndice(indice, dados);
+  if (semDados) return "";
   if (indice.slug === "selic") {
     return `Com a Selic em ${percentual(valor, 2)} ao ano, o Tesouro Selic e boa parte dos CDBs rendem perto disso, antes do imposto. Já financiamentos e cartão de crédito ficam mais caros.`;
   }
@@ -222,15 +254,15 @@ export function efeitoNoBolso(indice: Indice): string {
 }
 
 /** A quarta linha do "Resumo do período" das taxas, que não depende do período escolhido. */
-export function linhaFixaDoResumo(indice: Indice): { rotulo: string; texto: string } {
+export function linhaFixaDoResumo(indice: Indice, dados: DadosDosIndices): { rotulo: string; texto: string } {
   if (indice.slug === "ipca") {
-    const ultimo = IPCA_MENSAL[IPCA_MENSAL.length - 1];
-    return { rotulo: `IPCA de ${mesPorExtenso(ULTIMO_MES_DO_IPCA)}`, texto: percentual(ultimo?.valor ?? 0, 2) };
+    const ultimo = dados.ipcaMensal[dados.ipcaMensal.length - 1];
+    if (!ultimo) return { rotulo: "IPCA do mês", texto: SEM_DADO };
+    return { rotulo: `IPCA de ${mesPorExtenso(ultimo.data)}`, texto: percentual(ultimo.valor, 2) };
   }
-  const { secundario } = destaqueDoIndice(indice);
+  const { secundario } = destaqueDoIndice(indice, dados);
   return { rotulo: secundario.rotulo, texto: secundario.texto };
 }
-
 
 // ---------------------------------------------------------------------------------------------
 // As tabelas das fichas de taxa, já formatadas, e a nota do último ponto quando ele não fechou.
@@ -245,13 +277,19 @@ export type TabelaDoIndice = {
 
 const reais = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
-export function tabelaDoIndice(indice: Indice): TabelaDoIndice | null {
+/** A tabela própria de cada taxa. Sem linha nenhuma (a fonte falhou), não há tabela: null. */
+export function tabelaDoIndice(indice: Indice, dados: DadosDosIndices): TabelaDoIndice | null {
+  const tabela = montarTabela(indice, dados);
+  return tabela && tabela.linhas.length > 0 ? tabela : null;
+}
+
+function montarTabela(indice: Indice, dados: DadosDosIndices): TabelaDoIndice | null {
   if (indice.slug === "selic") {
     return {
       titulo: "Últimas mudanças da meta",
       subtitulo: "Cada linha é uma decisão do Copom que mudou a Selic meta. No ano: a diferença para a meta de dezembro.",
       colunas: ["Mês", "Nova meta", "Mudança", "No ano"],
-      linhas: mudancasDaSelic(SELIC_MENSAL).map((l) => ({
+      linhas: mudancasDaSelic(dados.selicMensal).map((l) => ({
         chave: l.mes,
         celulas: [
           { texto: mesNumerico(l.mes) },
@@ -263,12 +301,12 @@ export function tabelaDoIndice(indice: Indice): TabelaDoIndice | null {
     };
   }
   if (indice.slug === "ipca") {
-    const ano = ULTIMO_MES_DO_IPCA.slice(0, 4);
+    const ano = ultimoMesDoIpca(dados).slice(0, 4);
     return {
       titulo: `IPCA mês a mês em ${ano}`,
       subtitulo: "Cada linha é um mês, do mais recente para o mais antigo.",
       colunas: ["Mês", "No mês", `No ano de ${ano}`, "Em 12 meses"],
-      linhas: mesesDoIpca(IPCA_MENSAL).map((l) => ({
+      linhas: mesesDoIpca(dados.ipcaMensal).map((l) => ({
         chave: l.mes,
         celulas: [
           { texto: `${mesPorExtenso(l.mes)} de ${l.mes.slice(0, 4)}` },
@@ -280,11 +318,12 @@ export function tabelaDoIndice(indice: Indice): TabelaDoIndice | null {
     };
   }
   if (indice.slug === "cdi") {
+    const mes = ultimoMesCompletoDoCdi(dados);
     return {
       titulo: "CDI ano a ano",
-      subtitulo: `Cada linha é um ano. ${ULTIMO_MES_COMPLETO_DO_CDI.slice(0, 4)} vai até ${mesPorExtenso(ULTIMO_MES_COMPLETO_DO_CDI)}.`,
+      subtitulo: `Cada linha é um ano. ${mes.slice(0, 4)} vai até ${mesPorExtenso(mes)}.`,
       colunas: ["Ano", "CDI no ano", "Diferença para o ano anterior", "R$ 1.000 viram"],
-      linhas: anosDoCdi(cdiPorAno(CDI_MENSAL, ULTIMO_MES_COMPLETO_DO_CDI)).map((l) => ({
+      linhas: anosDoCdi(cdiPorAno(dados.cdiMensal, mes)).map((l) => ({
         chave: l.ano,
         celulas: [
           { texto: l.ano },
@@ -299,6 +338,8 @@ export function tabelaDoIndice(indice: Indice): TabelaDoIndice | null {
 }
 
 /** O último ponto do gráfico do CDI é o ano corrente, ainda aberto: o tooltip diz até quando vai. */
-export function notaDoUltimoPonto(indice: Indice): string | undefined {
-  return indice.slug === "cdi" ? `até ${mesPorExtenso(ULTIMO_MES_COMPLETO_DO_CDI)}` : undefined;
+export function notaDoUltimoPonto(indice: Indice, dados: DadosDosIndices): string | undefined {
+  if (indice.slug !== "cdi") return undefined;
+  const mes = ultimoMesCompletoDoCdi(dados);
+  return mes ? `até ${mesPorExtenso(mes)}` : undefined;
 }

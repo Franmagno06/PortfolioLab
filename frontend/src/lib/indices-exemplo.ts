@@ -7,11 +7,11 @@
  * carrega. Sem Math.random, o servidor e o navegador produziriam números iguais, e um teste pode
  * conferir o valor exato de um tooltip.
  *
- * Quando os dados vierem de verdade (Banco Central SGS e B3), este arquivo sai inteiro e
- * `provedorDeExemplo` em indices.ts dá lugar a um provedor que busca as séries.
+ * Com os dados reais vindo de GET /indices/dados, este arquivo fica só como fixture: os testes das
+ * contas leem `DADOS_DE_EXEMPLO`, que tem o mesmo formato da resposta da API.
  */
 
-import { DATA_FINAL, type PontoSerie } from "./indices";
+import { DATA_FINAL, type DadosDosIndices, type PontoSerie } from "./indices";
 
 /** mulberry32: pequeno, rápido e com período suficiente para alguns milhares de sorteios. */
 function gerador(semente: number) {
@@ -234,7 +234,7 @@ const IPCA_FIXO: Record<string, number> = {
 };
 
 /** O IPCA sai no mês seguinte: em 15/10/2026 o último divulgado é o de setembro. */
-export const ULTIMO_MES_DO_IPCA = "2026-09";
+const ULTIMO_MES_DO_IPCA = "2026-09";
 
 export const IPCA_MENSAL: PontoSerie[] = (() => {
   const sortear = gerador(606);
@@ -260,12 +260,34 @@ export const IPCA_MENSAL: PontoSerie[] = (() => {
 })();
 
 // ---------------------------------------------------------------------------------------------
-// CDI: anda colado na Selic, um décimo abaixo. Taxa em % ao ano, ao fim de cada mês.
+// CDI: anda colado na Selic, um décimo abaixo. Taxa em % ao ano, ao fim de cada mês (o SGS 4389).
 
-export const CDI_MENSAL: PontoSerie[] = SELIC_MENSAL.map((p) => ({
+const CDI_TAXA_MENSAL: PontoSerie[] = SELIC_MENSAL.map((p) => ({
   data: p.data,
   valor: arredondar(p.valor - 0.1),
 }));
 
-/** O último mês completo do CDI: em 15/10/2026, setembro. */
-export const ULTIMO_MES_COMPLETO_DO_CDI = "2026-09";
+/** Dias úteis num mês, para transformar a taxa anual do exemplo em % no mês (base 252). */
+const DIAS_UTEIS_NO_MES = 21;
+
+/**
+ * O rendimento de um mês, em %, para uma taxa anual base 252: 12% a.a. → 0,95% no mês. Só o exemplo
+ * usa esta aproximação, para fabricar o "% no mês" do SGS 4391; os dados reais já vêm assim.
+ */
+export function rendimentoDoMes(taxaAnualPct: number): number {
+  return ((1 + taxaAnualPct / 100) ** (DIAS_UTEIS_NO_MES / 252) - 1) * 100;
+}
+
+/**
+ * As séries de exemplo no formato de GET /indices/dados. O CDI do mês (SGS 4391) sai da taxa anual
+ * pela aproximação acima, e outubro de 2026 entra como o mês corrente, que as contas deixam de fora.
+ */
+export const DADOS_DE_EXEMPLO: DadosDosIndices = {
+  atualizadoEm: `${DATA_FINAL}T21:00:00.000Z`,
+  hoje: DATA_FINAL,
+  selicMensal: SELIC_MENSAL,
+  ipcaMensal: IPCA_MENSAL,
+  cdiMensal: CDI_TAXA_MENSAL.map((p) => ({ data: p.data, valor: rendimentoDoMes(p.valor) })),
+  cdiTaxaMensal: CDI_TAXA_MENSAL,
+  pontos: SERIES_DE_PONTOS,
+};
