@@ -162,7 +162,7 @@ export function PainelDoIndice({ indice, serie, hoje, linhaFixa, notaDoUltimo, h
         aria-label={`Resumo e leituras sobre ${indice.nome}`}
         className="flex min-w-0 flex-col gap-5 lg:col-start-2 lg:row-span-3 lg:row-start-1"
       >
-        {resumo && (
+        {resumo && !historicoCurto && (
           <section aria-labelledby={`resumo-${indice.slug}`} className="rounded-md border border-pauta bg-card p-5">
             <h2 id={`resumo-${indice.slug}`} className="font-leitura text-base leading-[22px] font-semibold text-ink">
               Resumo do período ({ROTULO_DO_PERIODO[periodo].botao})

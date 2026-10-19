@@ -109,14 +109,14 @@ describe("nota da fonte e histórico curto", () => {
     const ibov = acharIndice("ibovespa")!;
     const ultimo = DADOS_DE_EXEMPLO.pontos.ibovespa.at(-1)!;
     const [ano, mes, dia] = ultimo.data.split("-");
-    expect(notaDaFonte(ibov, DADOS_DE_EXEMPLO)).toBe(`Fonte: B3 (Ibovespa). Dados até ${dia}/${mes}/${ano}.`);
+    expect(notaDaFonte(ibov, DADOS_DE_EXEMPLO)).toBe(`Fonte: B3 (Ibovespa), via Yahoo Finance. Dados até ${dia}/${mes}/${ano}.`);
     expect(notaDaFonte(acharIndice("ipca")!, DADOS_DE_EXEMPLO)).toBe(
       "Fonte: IBGE, via Banco Central (SGS 13522 e 433). Dados até 09/2026.",
     );
   });
 
   it("sem nenhum ponto, só a fonte, sem inventar data", () => {
-    expect(notaDaFonte(acharIndice("ifix")!, VAZIO)).toBe("Fonte: B3 (IFIX).");
+    expect(notaDaFonte(acharIndice("ifix")!, VAZIO)).toBe("Fonte: B3 (IFIX), via Yahoo Finance.");
   });
 
   it("histórico curto: só índice de pontos com um único ponto, com a data desse ponto", () => {

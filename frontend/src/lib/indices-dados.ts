@@ -376,7 +376,9 @@ const dataDoPonto = (data: string) => (data.length > 7 ? dataCurta(data) : mesNu
 
 /** "Fonte: B3 (IFIX). Dados até 19/10/2026." Sem nenhum ponto, só a fonte: a data não se inventa. */
 export function notaDaFonte(indice: Indice, dados: DadosDosIndices): string {
-  const fonte = `Fonte: ${indice.fonte.nome} (${indice.fonte.serie}).`;
+  // os índices de pontos vêm do Yahoo Finance; as taxas, do Banco Central
+  const via = indice.tipo === "pontos" ? ", via Yahoo Finance" : "";
+  const fonte = `Fonte: ${indice.fonte.nome} (${indice.fonte.serie})${via}.`;
   const ultimo = serieDaFonte(indice.slug, dados).at(-1);
   return ultimo ? `${fonte} Dados até ${dataDoPonto(ultimo.data)}.` : fonte;
 }

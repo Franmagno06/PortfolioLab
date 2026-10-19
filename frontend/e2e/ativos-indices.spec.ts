@@ -193,7 +193,8 @@ test.describe("fichas", () => {
       await expect(page.getByRole("heading", { level: 1, name: i.nome })).toBeVisible();
       await expect(page.getByText(`Fonte: ${i.fonte.nome}`).first()).toBeVisible();
       await expect(page.getByText("Atualizado em 15/10/2026").first()).toBeVisible();
-      const nota = page.getByRole("main").getByText(`Fonte: ${i.fonte.nome} (${i.fonte.serie}). Dados até`);
+      const via = i.tipo === "pontos" ? ", via Yahoo Finance" : "";
+      const nota = page.getByRole("main").getByText(`Fonte: ${i.fonte.nome} (${i.fonte.serie})${via}. Dados até`);
       await expect(nota).toBeVisible();
       await expect(nota).toContainText("Nada aqui é recomendação de investimento");
       await expect(page.getByText(/Dados de exemplo/)).toHaveCount(0);
@@ -206,6 +207,7 @@ test.describe("fichas", () => {
       await page.goto("/ativos/indices/ifix");
       await expect(page.getByText("O histórico do IFIX começa em 15/10/2026. O gráfico aparece a partir do segundo pregão.")).toBeVisible();
       await expect(page.locator(".recharts-surface")).toHaveCount(0);
+      await expect(page.getByRole("heading", { name: /Resumo do período/ })).toHaveCount(0);
       await expect(page.getByText("Variação em 12 meses").locator("..")).toContainText("—");
     });
   });

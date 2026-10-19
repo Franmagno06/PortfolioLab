@@ -26,7 +26,7 @@ export function IconeDoIndice({ indice, tamanho }: { indice: Indice; tamanho: "c
 export function DataEFonte({ indice, atualizadoEm, className = "" }: { indice: Indice; atualizadoEm?: string; className?: string }) {
   return (
     <p className={`text-xs leading-[17px] text-mute ${className}`}>
-      {atualizadoEm ? `Atualizado em ${dataDeLeitura(atualizadoEm)} · ` : ""}Fonte: {indice.fonte.nome} ({indice.fonte.serie})
+      {atualizadoEm ? `Atualizado em ${dataDeLeitura(atualizadoEm)} · ` : ""}Fonte: {indice.fonte.nome} ({indice.fonte.serie}){indice.tipo === "pontos" ? ", via Yahoo Finance" : ""}
     </p>
   );
 }

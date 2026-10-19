@@ -16,6 +16,9 @@ export const metadata: Metadata = {
     "Os termômetros da economia e da bolsa: juros, inflação e os principais índices de ações e de fundos imobiliários, cada um com gráfico e explicação.",
 };
 
+// Sempre dinâmica, como as páginas de ativos: lida no pedido (e guardada 2 min pelo fetch), nunca assada no build com a API fora.
+export const revalidate = 0;
+
 type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 
 /** O endereço de um chip: troca a categoria e mantém a ordem escolhida. */
@@ -100,8 +103,7 @@ export default async function IndicesPage({ searchParams }: Props) {
       </ul>
 
       <NotaDaFonte>
-        Selic, CDI e IPCA vêm do Banco Central (SGS); Ibovespa, IFIX, Small Caps e IDIV, da B3; o S&amp;P 500, da S&amp;P
-        Dow Jones Indices. Cada ficha mostra a fonte e a data do último dado. Nada aqui é recomendação de investimento.
+        Selic, CDI e IPCA vêm do Banco Central (SGS); Ibovespa, IFIX, Small Caps, IDIV e S&amp;P 500, via Yahoo Finance. Cada ficha mostra a fonte e a data do último dado. Nada aqui é recomendação de investimento.
       </NotaDaFonte>
     </>
   );

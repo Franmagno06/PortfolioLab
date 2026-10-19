@@ -38,6 +38,9 @@ import {
 } from "@/lib/indices-dados";
 import { ROTAS } from "@/lib/navegacao";
 
+// Sempre dinâmica, como as páginas de ativos: os dados são lidos no pedido, nunca assados no build com a API fora.
+export const revalidate = 0;
+
 // As oito fichas saem prontas do build. Um slug fora da lista cai no notFound() abaixo, que mostra o
 // not-found.tsx dos índices (com cabeçalho e saída), e não o 404 genérico do Next.
 export function generateStaticParams() {
