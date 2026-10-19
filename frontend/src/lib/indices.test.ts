@@ -28,8 +28,10 @@ import {
   type PontoSerie,
   type Slug,
 } from "./indices";
-import { destaqueDoIndice, ordenarEFiltrar, paragrafoDeHoje, provedorDeIndices, variacaoEmMeses } from "./indices-dados";
+import { destaqueDoIndice, ordenarEFiltrar, paragrafoDeHoje, provedorDaApi, variacaoEmMeses } from "./indices-dados";
 import { DADOS_DE_EXEMPLO } from "./indices-exemplo";
+
+const provedorDeTeste = provedorDaApi(DADOS_DE_EXEMPLO);
 
 const { selicMensal: SELIC_MENSAL, ipcaMensal: IPCA_MENSAL, cdiMensal: CDI_MENSAL, cdiTaxaMensal: CDI_TAXA, pontos: SERIES_DE_PONTOS } =
   DADOS_DE_EXEMPLO;
@@ -216,8 +218,8 @@ describe("contas", () => {
   });
 
   it("trocar o período muda os dados: 6M e 1A não começam no mesmo dia", async () => {
-    const seis = await provedorDeIndices.getSerie("ibovespa", "6M");
-    const um = await provedorDeIndices.getSerie("ibovespa", "1A");
+    const seis = await provedorDeTeste.getSerie("ibovespa", "6M");
+    const um = await provedorDeTeste.getSerie("ibovespa", "1A");
     expect(seis[0]?.data).not.toBe(um[0]?.data);
     expect(seis.length).toBeLessThan(um.length);
   });

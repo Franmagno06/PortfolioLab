@@ -1,0 +1,39 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { lerDadosDosIndices } from "./indices-api";
+import { DADOS_DE_EXEMPLO } from "./indices-exemplo";
+
+const resposta = (corpo: unknown, status = 200) => new Response(JSON.stringify(corpo), { status });
+
+const fetchFalso = vi.fn();
+beforeEach(() => {
+  fetchFalso.mockReset();
+  vi.stubGlobal("fetch", fetchFalso);
+});
+afterEach(() => vi.unstubAllGlobals());
+
+describe("leitura dos dados dos índices", () => {
+  it("chama GET /indices/dados no endereço de API_URL, guarda a resposta por 2 minutos e tem prazo", async () => {
+    fetchFalso.mockResolvedValue(resposta(DADOS_DE_EXEMPLO));
+    const dados = await lerDadosDosIndices();
+    const [url, opcoes] = fetchFalso.mock.calls[0] as [string, RequestInit & { next?: { revalidate: number } }];
+    expect(url).toBe("http://localhost:3333/indices/dados");
+    expect(opcoes.next?.revalidate).toBe(120);
+    expect(opcoes.signal).toBeInstanceOf(AbortSignal);
+    expect(dados).toEqual(DADOS_DE_EXEMPLO);
+  });
+
+  it("status de erro vira null, sem lançar", async () => {
+    fetchFalso.mockResolvedValue(resposta({ error: "x" }, 500));
+    await expect(lerDadosDosIndices()).resolves.toBeNull();
+  });
+
+  it("rede fora do ar (fetch rejeitando) vira null, sem lançar", async () => {
+    fetchFalso.mockRejectedValue(new TypeError("fetch failed"));
+    await expect(lerDadosDosIndices()).resolves.toBeNull();
+  });
+
+  it("corpo que não é JSON vira null", async () => {
+    fetchFalso.mockResolvedValue(new Response("<html>", { status: 200 }));
+    await expect(lerDadosDosIndices()).resolves.toBeNull();
+  });
+});

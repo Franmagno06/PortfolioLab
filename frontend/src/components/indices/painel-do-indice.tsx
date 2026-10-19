@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Anotacao } from "@/components/ativos/pecas";
+import { MensagemAviso } from "@/components/ui/mensagem";
 import { numero, percentual } from "@/lib/format";
 import {
   formatarData,
@@ -38,6 +39,8 @@ type Props = {
   linhaFixa?: { rotulo: string; texto: string };
   /** Uma observação para o último ponto, quando ele ainda não fechou: "até setembro". */
   notaDoUltimo?: string;
+  /** Índice de pontos com um ponto só: no lugar do gráfico, o texto de quando o histórico começou. */
+  historicoCurto?: { desde: string };
   lateral: React.ReactNode;
 };
 
@@ -50,12 +53,14 @@ function LinhaDoResumo({ rotulo, texto }: { rotulo: string; texto: string }) {
   );
 }
 
-export function PainelDoIndice({ indice, serie, hoje, linhaFixa, notaDoUltimo, lateral }: Props) {
+export function PainelDoIndice({ indice, serie, hoje, linhaFixa, notaDoUltimo, historicoCurto, lateral }: Props) {
   const [periodo, setPeriodo] = useState<Periodo>(indice.periodoPadrao);
   const recorte = recortar(serie, periodo, indice.granularidade);
   const resumo = resumir(recorte);
   const ehTaxa = indice.tipo === "taxa";
   const ultimaData = serie[serie.length - 1]?.data;
+  // série vazia: a fonte falhou, e só este índice fica sem gráfico
+  const semDados = serie.length === 0;
 
   // Os formatos do tooltip, do eixo e da tabela.
   const valor = (v: number) => (ehTaxa ? percentual(v, 2) : `${numero(v, 2)} pts`);
@@ -98,47 +103,59 @@ export function PainelDoIndice({ indice, serie, hoje, linhaFixa, notaDoUltimo, l
           <SeletorDePeriodo periodos={indice.periodos} atual={periodo} aoEscolher={setPeriodo} />
         </div>
 
-        <div className="mt-4">
-          {ehTaxa ? (
-            <GraficoDeBarras
-              serie={recorte}
-              granularidade={indice.granularidade}
-              titulo={indice.grafico.titulo}
-              descricao={descricao}
-              valor={valor}
-              data={data}
-            />
-          ) : (
-            <GraficoDeArea
-              id={indice.slug}
-              serie={recorte}
-              media={resumo?.media ?? 0}
-              titulo={indice.grafico.titulo}
-              descricao={descricao}
-              valor={valor}
-              valorCurto={valorCurto}
-              data={data}
-            />
-          )}
-        </div>
+        {semDados ? (
+          <div className="mt-4">
+            <MensagemAviso titulo="Não conseguimos buscar os índices agora. Tente de novo em alguns minutos." />
+          </div>
+        ) : historicoCurto ? (
+          <p className="mt-4 rounded-md bg-paper px-4 py-5 text-[15px] leading-[22px] text-ink-2">
+            O histórico do {indice.nome} começa em {historicoCurto.desde}. O gráfico aparece a partir do segundo pregão.
+          </p>
+        ) : (
+          <>
+            <div className="mt-4">
+              {ehTaxa ? (
+                <GraficoDeBarras
+                  serie={recorte}
+                  granularidade={indice.granularidade}
+                  titulo={indice.grafico.titulo}
+                  descricao={descricao}
+                  valor={valor}
+                  data={data}
+                />
+              ) : (
+                <GraficoDeArea
+                  id={indice.slug}
+                  serie={recorte}
+                  media={resumo?.media ?? 0}
+                  titulo={indice.grafico.titulo}
+                  descricao={descricao}
+                  valor={valor}
+                  valorCurto={valorCurto}
+                  data={data}
+                />
+              )}
+            </div>
 
-        <Anotacao className="mt-3 text-[13px]! leading-[19px]!">
-          {ehTaxa
-            ? "No computador, o valor exato aparece ao passar o mouse; no celular, ao tocar e arrastar o dedo sobre as barras. Com o teclado, clique no gráfico e use as setas."
-            : "Passe o mouse no gráfico para ver o valor de cada dia; no celular, toque e arraste. Com o teclado, clique no gráfico e use as setas."}
-        </Anotacao>
+            <Anotacao className="mt-3 text-[13px]! leading-[19px]!">
+              {ehTaxa
+                ? "No computador, o valor exato aparece ao passar o mouse; no celular, ao tocar e arrastar o dedo sobre as barras. Com o teclado, clique no gráfico e use as setas."
+                : "Passe o mouse no gráfico para ver o valor de cada dia; no celular, toque e arraste. Com o teclado, clique no gráfico e use as setas."}
+            </Anotacao>
 
-        <div className="mt-2">
-          <TabelaDosDados
-            titulo={`${indice.grafico.titulo}, ${frase}${tabelaMensal ? ", no último pregão de cada mês" : ""}`}
-            serie={linhasDaTabela}
-            valor={valor}
-            data={data}
-            rotuloDaData={
-              indice.granularidade === "anual" ? "Ano" : indice.granularidade === "mensal" ? "Mês" : tabelaMensal ? "Último pregão do mês" : "Dia"
-            }
-          />
-        </div>
+            <div className="mt-2">
+              <TabelaDosDados
+                titulo={`${indice.grafico.titulo}, ${frase}${tabelaMensal ? ", no último pregão de cada mês" : ""}`}
+                serie={linhasDaTabela}
+                valor={valor}
+                data={data}
+                rotuloDaData={
+                  indice.granularidade === "anual" ? "Ano" : indice.granularidade === "mensal" ? "Mês" : tabelaMensal ? "Último pregão do mês" : "Dia"
+                }
+              />
+            </div>
+          </>
+        )}
       </section>
 
       <aside

@@ -3,11 +3,11 @@ import Link from "next/link";
 import { Anotacao, Migalhas } from "@/components/ativos/pecas";
 import { CardDeIndice } from "@/components/indices/card-de-indice";
 import { OrdenarIndices } from "@/components/indices/ordenar-indices";
-import { NotaDeExemplo } from "@/components/indices/pecas-da-ficha";
-import { AVISO_DE_EXEMPLO, CATEGORIAS, lerCategoria, lerOrdem, type Categoria } from "@/lib/indices";
-import { destaqueDoIndice, ordenarEFiltrar, provedorDeIndices } from "@/lib/indices-dados";
-// Temporário: a próxima tarefa troca o exemplo pelos dados de GET /indices/dados.
-import { DADOS_DE_EXEMPLO } from "@/lib/indices-exemplo";
+import { NotaDaFonte } from "@/components/indices/pecas-da-ficha";
+import { MensagemAviso } from "@/components/ui/mensagem";
+import { CATEGORIAS, lerCategoria, lerOrdem, type Categoria } from "@/lib/indices";
+import { lerDadosDosIndices } from "@/lib/indices-api";
+import { dadosVazios, destaqueDoIndice, ordenarEFiltrar, provedorDaApi } from "@/lib/indices-dados";
 import { ROTAS } from "@/lib/navegacao";
 
 export const metadata: Metadata = {
@@ -31,8 +31,10 @@ export default async function IndicesPage({ searchParams }: Props) {
   const params = await searchParams;
   const ordem = lerOrdem(params.ordem);
   const categoria = lerCategoria(params.categoria);
-  const todos = await provedorDeIndices.listarIndices();
-  const visiveis = ordenarEFiltrar(todos, ordem, categoria, DADOS_DE_EXEMPLO);
+  const lidos = await lerDadosDosIndices();
+  const dados = lidos ?? dadosVazios();
+  const todos = await provedorDaApi(lidos).listarIndices();
+  const visiveis = ordenarEFiltrar(todos, ordem, categoria, dados);
 
   const chips = [
     { id: null, rotulo: "Todos", total: todos.length },
@@ -83,19 +85,24 @@ export default async function IndicesPage({ searchParams }: Props) {
         {visiveis.length} {visiveis.length === 1 ? "índice" : "índices"} na lista.
       </p>
 
+      {!lidos && (
+        <div className="mb-5">
+          <MensagemAviso titulo="Não conseguimos buscar os índices agora. Tente de novo em alguns minutos." />
+        </div>
+      )}
+
       <ul className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-4 lg:gap-6">
         {visiveis.map((indice) => (
           <li key={indice.slug} className="flex">
-            <CardDeIndice indice={indice} destaque={destaqueDoIndice(indice, DADOS_DE_EXEMPLO)} />
+            <CardDeIndice indice={indice} destaque={destaqueDoIndice(indice, dados)} />
           </li>
         ))}
       </ul>
 
-      <NotaDeExemplo>
-        {AVISO_DE_EXEMPLO} Quando forem reais, Selic, CDI e IPCA virão do Banco Central (SGS); Ibovespa, IFIX, Small
-        Caps e IDIV, da B3; o S&amp;P 500, da S&amp;P Dow Jones Indices. Cada ficha mostra a data do último dado. Nada
-        aqui é recomendação de investimento.
-      </NotaDeExemplo>
+      <NotaDaFonte>
+        Selic, CDI e IPCA vêm do Banco Central (SGS); Ibovespa, IFIX, Small Caps e IDIV, da B3; o S&amp;P 500, da S&amp;P
+        Dow Jones Indices. Cada ficha mostra a fonte e a data do último dado. Nada aqui é recomendação de investimento.
+      </NotaDaFonte>
     </>
   );
 }

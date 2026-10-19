@@ -1,14 +1,29 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { numero, percentual } from "../src/lib/format";
 import { CATEGORIAS, formatarData, INDICES, type Indice } from "../src/lib/indices";
-import { destaqueDoIndice, ordenarEFiltrar, provedorDeIndices } from "../src/lib/indices-dados";
+import { destaqueDoIndice, ordenarEFiltrar, provedorDaApi } from "../src/lib/indices-dados";
 import { DADOS_DE_EXEMPLO } from "../src/lib/indices-exemplo";
 
-// Páginas de índices (/ativos/indices). Os dados são de exemplo e locais (lib/indices-exemplo.ts):
-// não há API nem stub. Os valores esperados saem da própria lib, e não de números escritos no teste,
-// para o teste conferir que a tela mostra o que a fonte de dados diz.
+const provedorDeTeste = provedorDaApi(DADOS_DE_EXEMPLO);
+
+// Páginas de índices (/ativos/indices). Os dados vêm da API de mentira (e2e/ativos/stub-api.mjs), que
+// responde GET /indices/dados com e2e/ativos/indices-dados.json, gerado de lib/indices-exemplo.ts. Os
+// valores esperados saem da própria lib, e não de números escritos no teste, para o teste conferir que
+// a tela mostra o que a fonte de dados diz. Os cenários de falha ligam o modo do stub (POST /__modo).
 
 test.describe.configure({ timeout: 60_000 });
+
+const API_DE_MENTIRA = "http://localhost:3399";
+
+/** Liga um cenário do stub só durante o teste; o modo é global, e o desligamento volta ao normal. */
+async function comCenario(request: APIRequestContext, indices: string, teste: () => Promise<void>) {
+  await request.post(`${API_DE_MENTIRA}/__modo`, { data: { indices } });
+  try {
+    await teste();
+  } finally {
+    await request.post(`${API_DE_MENTIRA}/__modo/reset`);
+  }
+}
 
 const indice = (slug: string) => INDICES.find((i) => i.slug === slug) as Indice;
 const cards = (page: Page) => page.getByRole("article");
@@ -111,7 +126,7 @@ test.describe("fichas", () => {
 
   test("Selic: passar o mouse na última barra mostra o valor exato e o mês", async ({ page }) => {
     const selic = indice("selic");
-    const serie = await provedorDeIndices.getSerie("selic", selic.periodoPadrao);
+    const serie = await provedorDeTeste.getSerie("selic", selic.periodoPadrao);
     const ultimo = serie[serie.length - 1];
 
     await page.goto("/ativos/indices/selic");
@@ -130,7 +145,7 @@ test.describe("fichas", () => {
   });
 
   test("Ibovespa: no fim do gráfico de área, o tooltip mostra o último fechamento e a data", async ({ page }) => {
-    const ibov = await provedorDeIndices.getSerie("ibovespa", "1A");
+    const ibov = await provedorDeTeste.getSerie("ibovespa", "1A");
     const ultimo = ibov[ibov.length - 1];
 
     await page.goto("/ativos/indices/ibovespa");
@@ -172,16 +187,54 @@ test.describe("fichas", () => {
     await expect(tabela.getByRole("row").nth(1)).toContainText("15/10/26");
   });
 
-  test("toda ficha mostra a fonte, a data e o aviso de exemplo", async ({ page }) => {
+  test("toda ficha mostra a fonte, a data e a nota da fonte, sem aviso de exemplo", async ({ page }) => {
     for (const i of INDICES) {
       await page.goto(`/ativos/indices/${i.slug}`);
       await expect(page.getByRole("heading", { level: 1, name: i.nome })).toBeVisible();
       await expect(page.getByText(`Fonte: ${i.fonte.nome}`).first()).toBeVisible();
       await expect(page.getByText("Atualizado em 15/10/2026").first()).toBeVisible();
-      const nota = page.getByRole("main").getByText(/Dados de exemplo/);
+      const nota = page.getByRole("main").getByText(`Fonte: ${i.fonte.nome} (${i.fonte.serie}). Dados até`);
       await expect(nota).toBeVisible();
       await expect(nota).toContainText("Nada aqui é recomendação de investimento");
+      await expect(page.getByText(/Dados de exemplo/)).toHaveCount(0);
+      if (i.tipo === "pontos") await expect(nota).toContainText("Cotação com atraso de cerca de 15 minutos.");
     }
+  });
+
+  test("ficha do IFIX com um ponto mostra o aviso de histórico curto, sem gráfico", async ({ page, request }) => {
+    await comCenario(request, "curto", async () => {
+      await page.goto("/ativos/indices/ifix");
+      await expect(page.getByText("O histórico do IFIX começa em 15/10/2026. O gráfico aparece a partir do segundo pregão.")).toBeVisible();
+      await expect(page.locator(".recharts-surface")).toHaveCount(0);
+      await expect(page.getByText("Variação em 12 meses").locator("..")).toContainText("—");
+    });
+  });
+
+  test("uma série vazia (IPCA) deixa só aquele índice sem gráfico, e os outros seguem", async ({ page, request }) => {
+    await comCenario(request, "ipca-vazio", async () => {
+      await page.goto("/ativos/indices/ipca");
+      await expect(page.getByRole("heading", { level: 1, name: "IPCA" })).toBeVisible();
+      await expect(page.getByText("Não conseguimos buscar os índices agora. Tente de novo em alguns minutos.")).toBeVisible();
+      await expect(page.locator(".recharts-surface")).toHaveCount(0);
+
+      await page.goto("/ativos/indices/selic");
+      await expect(page.locator(".recharts-bar-rectangle").first()).toBeVisible();
+    });
+  });
+
+  test("API fora mostra o aviso na ficha e na listagem, e não quebra", async ({ page, request }) => {
+    await comCenario(request, "erro", async () => {
+      await page.goto("/ativos/indices/selic");
+      await expect(page.getByRole("heading", { level: 1, name: "Selic" })).toBeVisible();
+      await expect(page.getByText("Não conseguimos buscar os índices agora. Tente de novo em alguns minutos.")).toBeVisible();
+      await expect(page.locator(".recharts-surface")).toHaveCount(0);
+
+      await page.goto("/ativos/indices");
+      await expect(page.getByRole("heading", { level: 1, name: "Índices" })).toBeVisible();
+      await expect(page.getByText("Não conseguimos buscar os índices agora. Tente de novo em alguns minutos.")).toBeVisible();
+      await expect(cards(page)).toHaveCount(8);
+      await expect(cards(page).first()).toContainText("—");
+    });
   });
 });
 

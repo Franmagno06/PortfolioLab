@@ -1,4 +1,4 @@
-import { mesNumerico, mesPorExtenso, numero, percentual } from "./format";
+import { dataCurta, mesNumerico, mesPorExtenso, numero, percentual } from "./format";
 import {
   acharIndice,
   acumular,
@@ -29,7 +29,6 @@ import {
   type Slug,
   type Trecho,
 } from "./indices";
-import { DADOS_DE_EXEMPLO } from "./indices-exemplo";
 
 /**
  * Os dados das páginas de índices: o provedor e tudo o que lê as séries (os números do card, os
@@ -41,24 +40,41 @@ import { DADOS_DE_EXEMPLO } from "./indices-exemplo";
  * nunca um número inventado.
  */
 
-export const provedorDeExemplo: ProvedorDeIndices = {
-  async listarIndices() {
-    return INDICES;
-  },
-  async getIndice(slug) {
-    return acharIndice(slug) ?? null;
-  },
-  async getSerie(slug, periodo) {
-    const indice = acharIndice(slug);
-    return indice ? recortar(serieDoGrafico(slug, DADOS_DE_EXEMPLO), periodo, indice.granularidade) : [];
-  },
-  async getDados() {
-    return DADOS_DE_EXEMPLO;
-  },
-};
+/** Sem resposta da API: todas as séries vazias, e as contas devolvem "—" em vez de inventar número. */
+export function dadosVazios(hoje: string = new Date().toISOString().slice(0, 10)): DadosDosIndices {
+  return {
+    atualizadoEm: "",
+    hoje,
+    selicMensal: [],
+    ipcaMensal: [],
+    cdiMensal: [],
+    cdiTaxaMensal: [],
+    pontos: { ibovespa: [], ifix: [], smll: [], sp500: [], idiv: [] },
+  };
+}
 
-/** Troque aqui quando os dados forem reais. */
-export const provedorDeIndices: ProvedorDeIndices = provedorDeExemplo;
+/**
+ * O provedor das páginas: os dados vêm de GET /indices/dados (lib/indices-api.ts), lidos uma vez por
+ * página e passados para cá. `null` (a API falhou) vira séries vazias.
+ */
+export function provedorDaApi(dados: DadosDosIndices | null): ProvedorDeIndices {
+  const efetivos = dados ?? dadosVazios();
+  return {
+    async listarIndices() {
+      return INDICES;
+    },
+    async getIndice(slug) {
+      return acharIndice(slug) ?? null;
+    },
+    async getSerie(slug, periodo) {
+      const indice = acharIndice(slug);
+      return indice ? recortar(serieDoGrafico(slug, efetivos), periodo, indice.granularidade) : [];
+    },
+    async getDados() {
+      return efetivos;
+    },
+  };
+}
 
 /** O último mês com IPCA divulgado (o IBGE publica no mês seguinte). Sem série: "". */
 const ultimoMesDoIpca = (dados: DadosDosIndices) => dados.ipcaMensal[dados.ipcaMensal.length - 1]?.data ?? "";
@@ -342,4 +358,37 @@ export function notaDoUltimoPonto(indice: Indice, dados: DadosDosIndices): strin
   if (indice.slug !== "cdi") return undefined;
   const mes = ultimoMesCompletoDoCdi(dados);
   return mes ? `até ${mesPorExtenso(mes)}` : undefined;
+}
+
+// ---------------------------------------------------------------------------------------------
+// A nota de fonte e o aviso de histórico curto.
+
+/** A série bruta de cada índice, sem as contas do gráfico: dela vem a data do "Dados até". */
+function serieDaFonte(slug: Slug, dados: DadosDosIndices): PontoSerie[] {
+  if (slug === "selic") return dados.selicMensal;
+  if (slug === "ipca") return dados.ipcaMensal;
+  if (slug === "cdi") return dados.cdiMensal;
+  return dados.pontos[slug];
+}
+
+/** "dd/mm/aaaa" para ponto diário, "mm/aaaa" para ponto mensal. */
+const dataDoPonto = (data: string) => (data.length > 7 ? dataCurta(data) : mesNumerico(data));
+
+/** "Fonte: B3 (IFIX). Dados até 19/10/2026." Sem nenhum ponto, só a fonte: a data não se inventa. */
+export function notaDaFonte(indice: Indice, dados: DadosDosIndices): string {
+  const fonte = `Fonte: ${indice.fonte.nome} (${indice.fonte.serie}).`;
+  const ultimo = serieDaFonte(indice.slug, dados).at(-1);
+  return ultimo ? `${fonte} Dados até ${dataDoPonto(ultimo.data)}.` : fonte;
+}
+
+/**
+ * Índice de pontos com um único ponto gravado (o primeiro dia do IFIX, SMLL e IDIV): a ficha não
+ * desenha gráfico e diz desde quando o histórico existe. Sem ponto nenhum é falha da fonte, não
+ * histórico curto: quem trata é o aviso de "não conseguimos buscar".
+ */
+export function historicoCurtoDoIndice(indice: Indice, dados: DadosDosIndices): { desde: string } | undefined {
+  if (indice.tipo !== "pontos") return undefined;
+  const serie = serieDoGrafico(indice.slug, dados);
+  const primeiro = serie[0];
+  return serie.length === 1 && primeiro ? { desde: dataCurta(primeiro.data) } : undefined;
 }

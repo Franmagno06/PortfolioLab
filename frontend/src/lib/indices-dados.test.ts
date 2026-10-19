@@ -4,7 +4,9 @@ import {
   destaqueDoIndice,
   efeitoNoBolso,
   linhaFixaDoResumo,
+  notaDaFonte,
   notaDoUltimoPonto,
+  historicoCurtoDoIndice,
   ordenarEFiltrar,
   paragrafoDeHoje,
   tabelaDoIndice,
@@ -99,5 +101,29 @@ describe("contas com os dados por parâmetro", () => {
     const semSetembro = { ...DADOS_DE_EXEMPLO, ipcaMensal: DADOS_DE_EXEMPLO.ipcaMensal.slice(0, -1) };
     expect(linhaFixaDoResumo(ipca, semSetembro).rotulo).toBe("IPCA de agosto");
     expect(tabelaDoIndice(ipca, semSetembro)?.linhas[0]?.chave).toBe("2026-08");
+  });
+});
+
+describe("nota da fonte e histórico curto", () => {
+  it("diz a fonte e a data do último ponto: dia para pontos, mês para taxas", () => {
+    const ibov = acharIndice("ibovespa")!;
+    const ultimo = DADOS_DE_EXEMPLO.pontos.ibovespa.at(-1)!;
+    const [ano, mes, dia] = ultimo.data.split("-");
+    expect(notaDaFonte(ibov, DADOS_DE_EXEMPLO)).toBe(`Fonte: B3 (Ibovespa). Dados até ${dia}/${mes}/${ano}.`);
+    expect(notaDaFonte(acharIndice("ipca")!, DADOS_DE_EXEMPLO)).toBe(
+      "Fonte: IBGE, via Banco Central (SGS 13522 e 433). Dados até 09/2026.",
+    );
+  });
+
+  it("sem nenhum ponto, só a fonte, sem inventar data", () => {
+    expect(notaDaFonte(acharIndice("ifix")!, VAZIO)).toBe("Fonte: B3 (IFIX).");
+  });
+
+  it("histórico curto: só índice de pontos com um único ponto, com a data desse ponto", () => {
+    const um = { ...DADOS_DE_EXEMPLO, pontos: { ...DADOS_DE_EXEMPLO.pontos, ifix: [{ data: "2026-10-19", valor: 3800 }] } };
+    expect(historicoCurtoDoIndice(acharIndice("ifix")!, um)).toEqual({ desde: "19/10/2026" });
+    expect(historicoCurtoDoIndice(acharIndice("ibovespa")!, um)).toBeUndefined();
+    expect(historicoCurtoDoIndice(acharIndice("ifix")!, VAZIO)).toBeUndefined();
+    expect(historicoCurtoDoIndice(acharIndice("selic")!, VAZIO)).toBeUndefined();
   });
 });

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { dataCurta } from "@/lib/format";
+import { dataDeLeitura } from "@/lib/format";
 import type { Indice, Link as LinkDoIndice, Trecho } from "@/lib/indices";
 
 /** Peças das fichas de índice que não mudam com o período: renderizadas no servidor. */
@@ -22,11 +22,11 @@ export function IconeDoIndice({ indice, tamanho }: { indice: Indice; tamanho: "c
   );
 }
 
-/** "Atualizado em 15/10/2026 · Fonte: Banco Central (SGS 432)". */
-export function DataEFonte({ indice, className = "" }: { indice: Indice; className?: string }) {
+/** "Atualizado em 15/10/2026 · Fonte: Banco Central (SGS 432)". `atualizadoEm` é o instante em que o backend leu as fontes; sem ele (API fora), só a fonte. */
+export function DataEFonte({ indice, atualizadoEm, className = "" }: { indice: Indice; atualizadoEm?: string; className?: string }) {
   return (
     <p className={`text-xs leading-[17px] text-mute ${className}`}>
-      Atualizado em {dataCurta(indice.atualizadoEm)} · Fonte: {indice.fonte.nome} ({indice.fonte.serie})
+      {atualizadoEm ? `Atualizado em ${dataDeLeitura(atualizadoEm)} · ` : ""}Fonte: {indice.fonte.nome} ({indice.fonte.serie})
     </p>
   );
 }
@@ -53,12 +53,12 @@ export function CabecalhoDaFicha({ indice, direita }: { indice: Indice; direita:
 }
 
 /** O número de hoje no cabeçalho de uma taxa, com a data e a fonte. */
-export function ValorDeHoje({ indice, valor }: { indice: Indice; valor: string }) {
+export function ValorDeHoje({ indice, valor, atualizadoEm }: { indice: Indice; valor: string; atualizadoEm?: string }) {
   return (
     <div className="sm:text-right">
       <p className="text-[13px] leading-[19px] text-mute">{indice.rotuloDoValor}</p>
       <p className="tnum text-[30px] leading-[36px] font-semibold text-ink">{valor}</p>
-      <DataEFonte indice={indice} className="mt-0.5" />
+      <DataEFonte indice={indice} atualizadoEm={atualizadoEm} className="mt-0.5" />
     </div>
   );
 }
@@ -167,7 +167,7 @@ export function BlocoDeArtigo({ titulo, children, className = "" }: { titulo: st
   );
 }
 
-/** A nota de rodapé de toda página de índice: de onde o número vem, e que aqui ele é de exemplo. */
-export function NotaDeExemplo({ children }: { children: React.ReactNode }) {
+/** A nota de rodapé de toda página de índice: de onde o número vem e até que dia vai. */
+export function NotaDaFonte({ children }: { children: React.ReactNode }) {
   return <p className="mt-10 max-w-[760px] text-xs leading-[18px] text-mute">{children}</p>;
 }

@@ -567,9 +567,6 @@ export interface ProvedorDeIndices {
   getDados(): Promise<DadosDosIndices>;
 }
 
-export const AVISO_DE_EXEMPLO =
-  "Dados de exemplo, gerados para esta versão do site: não são as cotações nem as taxas reais.";
-
 // =============================================================================================
 // O que cada card e cada ficha mostram. Card e ficha leem destas funções, para nunca divergirem.
 

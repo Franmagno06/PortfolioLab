@@ -3,7 +3,15 @@
 //
 // Alguns tickers existem só para exercitar um estado da tela; a lista está em CASOS no fim do arquivo.
 // POST /__modo liga uma falha geral (ex.: {"listas":"erro"}), e POST /__modo/reset desliga.
+//
+// GET /indices/dados devolve e2e/ativos/indices-dados.json, gerado de DADOS_DE_EXEMPLO por
+// scripts/gerar-fixture-indices.ts (rode de novo se o exemplo mudar). Cenários, ligados por
+// POST /__modo com {"indices": "..."}:
+//   "erro"       → 503, como o backend fora do ar (a página mostra o aviso e segue de pé)
+//   "curto"      → o IFIX com um ponto só, como no primeiro dia de gravação
+//   "ipca-vazio" → a série do IPCA vazia, como com o Banco Central falhando; o resto segue normal
 
+import { readFileSync } from "node:fs";
 import { createServer } from "node:http";
 
 const PORTA = Number(process.env.STUB_PORT ?? 3399);
@@ -219,6 +227,19 @@ function fichaDoEtf(linha) {
   };
 }
 
+
+// ---- índices ----------------------------------------------------------------
+const DADOS_DOS_INDICES = JSON.parse(readFileSync(new URL("./indices-dados.json", import.meta.url), "utf8"));
+
+function dadosDosIndices(cenario) {
+  if (cenario === "curto") {
+    const ultimo = DADOS_DOS_INDICES.pontos.ifix.at(-1);
+    return { ...DADOS_DOS_INDICES, pontos: { ...DADOS_DOS_INDICES.pontos, ifix: [ultimo] } };
+  }
+  if (cenario === "ipca-vazio") return { ...DADOS_DOS_INDICES, ipcaMensal: [] };
+  return DADOS_DOS_INDICES;
+}
+
 // ---- servidor -------------------------------------------------------------
 let modo = {};
 
@@ -245,6 +266,11 @@ createServer((req, res) => {
       responder(res, 200, { ok: true });
     });
     return;
+  }
+
+  if (req.method === "GET" && url.pathname === "/indices/dados") {
+    if (modo.indices === "erro") return responder(res, 503, { error: "Fora do ar" });
+    return responder(res, 200, dadosDosIndices(modo.indices));
   }
 
   if (req.method !== "GET" || partes[0] !== "ativos" || !["acoes", "fiis", "etfs"].includes(partes[1] ?? "")) {
