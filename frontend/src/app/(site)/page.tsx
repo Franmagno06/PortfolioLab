@@ -9,7 +9,11 @@ import { RodapeSite } from "@/components/site/rodape-site";
 import { APORTE_DO_DESAFIO, CARTEIRA_DE_NOVEMBRO } from "@/lib/carteira-exemplo";
 import { brlSemCentavos, numero, percentual } from "@/lib/format";
 import { ROTAS } from "@/lib/navegacao";
-import { CONTA_DEMO, juroReal, NUMEROS_DO_MES, TRILHAS } from "@/lib/site-dados";
+import { lerDadosDosIndices } from "@/lib/indices-api";
+import { CONTA_DEMO, juroReal, NUMEROS_DO_MES, numerosDoMes, TRILHAS } from "@/lib/site-dados";
+
+/** Os números do mês vêm do Banco Central e do Yahoo a cada visita (a leitura guarda a resposta por 2 min). */
+export const revalidate = 0;
 
 export const metadata: Metadata = {
   title: "PortfolioLab: invista aprendendo, aprenda investindo",
@@ -20,9 +24,9 @@ export const metadata: Metadata = {
 /*
  * Página inicial v2 — "caderno de laboratório". Um único recurso marcante: as
  * anotações na margem, em Literata itálico roxo, ao lado de cada número real.
- * O resto é calmo e textual. Página estática: nada aqui depende de quem vê.
- * Os números saem de lib/site-dados e lib/carteira-exemplo, formatados só
- * por lib/format.
+ * O resto é calmo e textual. Nada aqui depende de quem vê. Os números do mês vêm
+ * dos índices reais (numerosDoMes) e caem nos fixos se a leitura falhar; o
+ * resto sai de lib/site-dados e lib/carteira-exemplo, formatados só por lib/format.
  */
 
 const recipiente = "mx-auto w-full max-w-[1200px] px-6";
@@ -59,8 +63,9 @@ const FERRAMENTAS = [
   },
 ];
 
-export default function SitePage() {
-  const { selic, ipca12m, ipcaReferencia, ibovespa, ifix, rotulo, fechamento, mesAnterior } = NUMEROS_DO_MES;
+export default async function SitePage() {
+  const numeros = numerosDoMes(await lerDadosDosIndices());
+  const { selic, ipca12m, ipcaReferencia, ibovespa, ifix, rotulo, fechamento, mesAnterior, aoVivo } = numeros;
   const variacaoIbovespa = ibovespa.variacaoNoMes;
 
   return (
@@ -123,7 +128,17 @@ export default function SitePage() {
                 Os números de {rotulo}
               </h2>
               <p className="mt-1.5 text-[13px] leading-[19px] text-mute">
-                Fechamento de {fechamento}; IPCA em 12 meses até {ipcaReferencia}. Fontes: Banco Central, IBGE e B3.
+                {aoVivo ? (
+                  <>
+                    Fechamento de {fechamento}; IPCA em 12 meses até {ipcaReferencia}. Fontes: Banco Central, IBGE e
+                    B3, via Yahoo Finance. Cotação com atraso de cerca de 15 minutos.
+                  </>
+                ) : (
+                  <>
+                    Referência fixa de {fechamento}, não atualizada ao vivo; IPCA em 12 meses até {ipcaReferencia}.
+                    Fontes: Banco Central, IBGE e B3.
+                  </>
+                )}
               </p>
             </div>
 
@@ -149,8 +164,10 @@ export default function SitePage() {
 
               <p className="mt-10 text-[15px] leading-[23px] text-ink-2">
                 Na bolsa, o Ibovespa fechou em {numero(ibovespa.pontos)} pontos,{" "}
-                {percentual(Math.abs(variacaoIbovespa), 2)} {variacaoIbovespa >= 0 ? "acima" : "abaixo"} do fim de{" "}
-                {mesAnterior}, e o IFIX, índice dos fundos imobiliários, em {numero(ifix.pontos)} pontos.
+                {variacaoIbovespa === null
+                  ? ""
+                  : `${percentual(Math.abs(variacaoIbovespa), 2)} ${variacaoIbovespa >= 0 ? "acima" : "abaixo"} do fim de ${mesAnterior}, `}
+                e o IFIX, índice dos fundos imobiliários, em {numero(ifix.pontos)} pontos.
               </p>
             </div>
           </div>
@@ -205,7 +222,7 @@ export default function SitePage() {
                 compare com o cálculo do PortfolioLab.
               </p>
               <p className="mt-3 text-sm leading-[21px] text-mute">
-                Os ativos são reais e os preços são uma referência fixa de {rotulo}. “Fora das metas” conta
+                Os ativos são reais e os preços são uma referência fixa de {NUMEROS_DO_MES.rotulo}. “Fora das metas” conta
                 quantos pontos percentuais da carteira estão no lugar errado: zero é a carteira igual às metas.
               </p>
             </div>
