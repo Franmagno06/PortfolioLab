@@ -1,6 +1,8 @@
 // Cliente HTTP único do frontend: todas as chamadas à API passam por aqui.
 // O prefixo /api é reescrito pelo Next para o backend (ver next.config.ts).
 
+import { comNext } from "./navegacao";
+
 type ApiErrorBody = { error?: string };
 
 export class ApiError extends Error {
@@ -40,7 +42,10 @@ async function encerrarSessao(): Promise<void> {
   // Best-effort: se o backend estiver fora, o marcador na URL ainda garante
   // que a tela de login é alcançável.
   await fetch("/api/auth/logout", { method: "POST" }).catch(() => undefined);
-  window.location.replace("/login?expirada=1");
+  // Leva a página em que a sessão caiu, para voltar a ela depois de entrar de
+  // novo. Só se passar no mesmo validador do login (que o login aplica de novo
+  // ao ler); senão, só o marcador. `expirada` continua presente nos dois casos.
+  window.location.replace(comNext("/login?expirada=1", window.location.pathname + window.location.search));
 }
 
 // Upload de arquivos (multipart/form-data): o navegador define o

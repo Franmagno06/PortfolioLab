@@ -270,3 +270,89 @@ export const RODAPE: { titulo: string; links: { rotulo: string; href: string }[]
     ],
   },
 ];
+
+/** Para onde vai quem entrou sem ter pedido página nenhuma, ou pediu uma que não passa na regra abaixo. */
+const DESTINO_PADRAO = ROTAS.dashboard;
+/** Bem acima de qualquer caminho real do app; o resto é lixo ou tentativa de estouro. */
+const TAMANHO_MAXIMO_DO_NEXT = 2048;
+/** Origem fictícia só para o `URL` normalizar o caminho; nunca sai daqui. */
+const ORIGEM_DE_TESTE = "http://portfoliolab.invalid";
+const CARACTERE_DE_CONTROLE = /[\u0000-\u001f\u007f]/;
+
+/**
+ * Caminho absoluto da própria origem: uma barra só no começo, seguida de algo
+ * que não seja outra barra nem contrabarra. Contrabarra em lugar nenhum (o
+ * navegador a trata como "/", então "/\evil.com" vira "//evil.com"), e nenhum
+ * caractere de controle (o navegador APAGA tab e quebra de linha da URL antes de
+ * interpretá-la: "/\t/evil.com" vira "//evil.com").
+ */
+function ehCaminhoDaOrigem(texto: string): boolean {
+  return /^\/[^/\\]/.test(texto) && !texto.includes("\\") && !CARACTERE_DE_CONTROLE.test(texto);
+}
+
+/**
+ * Para onde mandar o visitante depois de entrar ou criar a conta, a partir do
+ * `?next=` da URL. O `next` vem da barra de endereço (o proxy o monta a partir
+ * do caminho pedido, mas qualquer um pode escrever `/login?next=...` num link),
+ * então é entrada hostil: sem esta regra, o login vira um redirecionador aberto
+ * para phishing ("entre no PortfolioLab" e cair em outro site).
+ *
+ * Aceita só caminho da mesma origem, e devolve o texto original intacto:
+ *  1. até 2048 caracteres;
+ *  2. `ehCaminhoDaOrigem` no texto cru e em cada camada de decodificação de
+ *     porcentagem (até três): "/%2f/evil.com" e "/%09/evil.com" caem aqui,
+ *     caso algum salto entre o navegador e o app decodifique antes. Porcentagem
+ *     malformada também é recusada;
+ *  3. resolvido contra uma origem fictícia, o `URL` não pode mudar de origem;
+ *  4. o caminho normalizado ("/./login", "/a/../login", "/%6cogin") não pode
+ *     começar por /login nem /registro (voltar para a tela de entrada só
+ *     confunde), nem ser "/" (a página inicial é pública; quem entra quer a carteira).
+ *
+ * Qualquer outra coisa — esquema (`https:`, `javascript:`), `//`, `/\`,
+ * caminho relativo, vazio, null — vira /dashboard.
+ */
+export function destinoDepoisDoLogin(next: string | null): string {
+  if (!next || next.length > TAMANHO_MAXIMO_DO_NEXT) return DESTINO_PADRAO;
+
+  let camada = next;
+  for (let i = 0; ; i++) {
+    if (!ehCaminhoDaOrigem(camada)) return DESTINO_PADRAO;
+    let decodificado: string;
+    try {
+      decodificado = decodeURIComponent(camada);
+    } catch {
+      return DESTINO_PADRAO;
+    }
+    if (decodificado === camada) break;
+    // codificado em mais de três camadas não é navegação, é tentativa de despiste
+    if (i === 3) return DESTINO_PADRAO;
+    camada = decodificado;
+  }
+
+  let caminho: string;
+  try {
+    const url = new URL(camada, ORIGEM_DE_TESTE);
+    if (url.origin !== ORIGEM_DE_TESTE) return DESTINO_PADRAO;
+    caminho = url.pathname;
+  } catch {
+    return DESTINO_PADRAO;
+  }
+
+  if (caminho === "/" || caminho.startsWith(ROTAS.login) || caminho.startsWith(ROTAS.registro)) {
+    return DESTINO_PADRAO;
+  }
+  return next;
+}
+
+/**
+ * Acrescenta o `next` a um endereço de login ou cadastro, só se ele passar em
+ * `destinoDepoisDoLogin`; senão devolve a rota como veio. Serve aos links entre
+ * login e cadastro e à queda de sessão em lib/api.ts:
+ *   comNext("/registro", "/simulacao")          → "/registro?next=%2Fsimulacao"
+ *   comNext("/login?expirada=1", "/carteira")   → "/login?expirada=1&next=%2Fcarteira"
+ *   comNext("/registro", "//evil.com")          → "/registro"
+ */
+export function comNext(rota: string, next: string | null): string {
+  if (next === null || destinoDepoisDoLogin(next) !== next) return rota;
+  return `${rota}${rota.includes("?") ? "&" : "?"}next=${encodeURIComponent(next)}`;
+}

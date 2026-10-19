@@ -66,6 +66,37 @@ test.describe("área logada", () => {
   });
 });
 
+test.describe("login volta para onde o visitante ia", () => {
+  /** Pelo formulário, de propósito: é o redirecionamento da tela de login que está em teste. */
+  async function entrarPeloFormulario(page: Page) {
+    await page.getByLabel("E-mail").fill("carteira@portfoliolab.dev");
+    await page.getByLabel("Senha").fill("demo123456");
+    await page.getByRole("button", { name: "Entrar" }).click();
+  }
+
+  test("sem sessão, /simulacao leva ao login e volta para /simulacao depois de entrar", async ({ page }) => {
+    await page.goto("/simulacao");
+
+    await expect(page).toHaveURL(/\/login\?next=%2Fsimulacao$/);
+    // o link para criar conta leva o destino junto
+    await expect(page.getByRole("link", { name: "Criar conta" })).toHaveAttribute("href", "/registro?next=%2Fsimulacao");
+
+    await entrarPeloFormulario(page);
+
+    await expect(page).toHaveURL(/\/simulacao$/);
+    await expect(page.getByRole("heading", { level: 1, name: "Simulação de aportes" })).toBeVisible();
+  });
+
+  test("um next para outro site é ignorado: depois de entrar, fica no /dashboard da mesma origem", async ({ page, baseURL }) => {
+    await page.goto("/login?next=//evil.com");
+    await expect(page.getByRole("link", { name: "Criar conta" })).toHaveAttribute("href", "/registro");
+
+    await entrarPeloFormulario(page);
+
+    await expect(page).toHaveURL(`${baseURL}/dashboard`);
+  });
+});
+
 test.describe("área logada no celular", () => {
   test.use({ viewport: { width: 390, height: 844 } });
 

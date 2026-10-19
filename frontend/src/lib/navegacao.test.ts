@@ -2,7 +2,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { ACOES, ETFS, FIIS } from "./ativos-catalogo";
-import { ABAS_DA_CARTEIRA, NAVEGACAO, RODAPE, ROTAS } from "./navegacao";
+import { ABAS_DA_CARTEIRA, comNext, destinoDepoisDoLogin, NAVEGACAO, RODAPE, ROTAS } from "./navegacao";
 
 // "Nenhum link quebrado": cada href da navegação precisa ser uma rota de
 // ROTAS, e cada rota precisa ter uma página de verdade em src/app.
@@ -136,5 +136,82 @@ describe("navegação do site", () => {
     const hrefs = ABAS_DA_CARTEIRA.map((a) => a.href);
     expect(new Set(hrefs).size).toBe(hrefs.length);
     expect(hrefs).toEqual([ROTAS.dashboard, ROTAS.carteira, ROTAS.simulacao, ROTAS.relatorios, ROTAS.indicadores, ROTAS.noticias]);
+  });
+});
+
+describe("destinoDepoisDoLogin", () => {
+  it.each([
+    [null, "/dashboard"],
+    ["/simulacao", "/simulacao"],
+    ["/carteira?aba=2", "/carteira?aba=2"],
+    ["//evil.com", "/dashboard"],
+    ["https://evil.com", "/dashboard"],
+    ["/\\evil.com", "/dashboard"],
+    ["/login", "/dashboard"],
+    ["/registro", "/dashboard"],
+    ["simulacao", "/dashboard"],
+  ])("destinoDepoisDoLogin(%s) → %s", (next, esperado) => expect(destinoDepoisDoLogin(next)).toBe(esperado));
+
+  // Além da tabela do plano: os truques conhecidos de open redirect e os limites.
+  it.each([
+    ["", "/dashboard"],
+    ["/", "/dashboard"],
+    ["///evil.com", "/dashboard"],
+    ["\\\\evil.com", "/dashboard"],
+    ["\\/evil.com", "/dashboard"],
+    ["/\\/evil.com", "/dashboard"],
+    ["javascript:alert(1)", "/dashboard"],
+    ["data:text/html,oi", "/dashboard"],
+    ["HTTPS://evil.com", "/dashboard"],
+    ["https:/evil.com", "/dashboard"],
+    [" /simulacao", "/dashboard"],
+    // o navegador apaga tab e quebra de linha dentro da URL: "/\t/evil.com" vira "//evil.com"
+    ["/\t/evil.com", "/dashboard"],
+    ["/\n/evil.com", "/dashboard"],
+    ["/\r/evil.com", "/dashboard"],
+    ["/simulacao\u0000", "/dashboard"],
+    ["/simulacao\u007f", "/dashboard"],
+    ["/carteira\\..\\evil", "/dashboard"],
+    // codificado: algum salto (proxy, servidor) pode decodificar antes do navegador
+    ["/%09/evil.com", "/dashboard"],
+    ["/%2f/evil.com", "/dashboard"],
+    ["/%2F%2Fevil.com", "/dashboard"],
+    ["/%5cevil.com", "/dashboard"],
+    ["/%252f/evil.com", "/dashboard"],
+    ["/%E0%A4%A", "/dashboard"],
+    // não volta para a própria tela de entrada, nem por caminho normalizado
+    ["/./login", "/dashboard"],
+    ["/carteira/../login", "/dashboard"],
+    ["/%6cogin", "/dashboard"],
+    ["/login?expirada=1&next=/simulacao", "/dashboard"],
+    ["/loginx", "/dashboard"],
+    ["/registro/qualquer", "/dashboard"],
+    ["/" + "a".repeat(3000), "/dashboard"],
+    // o que é legítimo passa intacto
+    ["/dashboard?x=1#frag", "/dashboard?x=1#frag"],
+    ["/ativos/acoes/PETR4", "/ativos/acoes/PETR4"],
+    ["/carteira?busca=a%20b", "/carteira?busca=a%20b"],
+    ["/javascript:alert(1)", "/javascript:alert(1)"],
+  ])("caso hostil ou limite: destinoDepoisDoLogin(%j) → %s", (next, esperado) =>
+    expect(destinoDepoisDoLogin(next)).toBe(esperado),
+  );
+});
+
+describe("comNext", () => {
+  it.each([
+    ["/registro", null, "/registro"],
+    ["/registro", "/simulacao", "/registro?next=%2Fsimulacao"],
+    ["/login", "/carteira?aba=2", "/login?next=%2Fcarteira%3Faba%3D2"],
+    ["/login?expirada=1", "/carteira", "/login?expirada=1&next=%2Fcarteira"],
+    ["/login?expirada=1", "/login", "/login?expirada=1"],
+    ["/registro", "//evil.com", "/registro"],
+    ["/registro", "https://evil.com", "/registro"],
+    ["/login", "/", "/login"],
+  ])("comNext(%s, %j) → %s", (rota, next, esperado) => expect(comNext(rota, next)).toBe(esperado));
+
+  it("o next que ele monta volta inteiro pelo validador", () => {
+    const url = new URL(comNext("/login?expirada=1", "/carteira?aba=2#x"), "http://localhost");
+    expect(url.searchParams.get("expirada")).toBe("1");
+    expect(destinoDepoisDoLogin(url.searchParams.get("next"))).toBe("/carteira?aba=2#x");
   });
 });

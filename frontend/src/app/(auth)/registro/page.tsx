@@ -1,13 +1,14 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Botao } from "@/components/ui/botao";
 import { Campo } from "@/components/ui/campo";
 import { MensagemErro } from "@/components/ui/mensagem";
 import { api, ApiError } from "@/lib/api";
+import { destinoDepoisDoLogin } from "@/lib/navegacao";
 import { esquecerSimulacao } from "@/lib/simulacao-guardada";
+import { GuardarNext, LinkComNext } from "../proximo-destino";
 
 export default function RegistroPage() {
   const router = useRouter();
@@ -16,6 +17,8 @@ export default function RegistroPage() {
   const [password, setPassword] = useState("");
   const [erro, setErro] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
+  // a página que o visitante pediu antes de cair aqui (?next=), ainda sem validar
+  const [next, setNext] = useState<string | null>(null);
 
   async function criarConta(e: React.FormEvent) {
     e.preventDefault();
@@ -33,7 +36,7 @@ export default function RegistroPage() {
       });
       // conta nova na aba: nada da sessão anterior fica visível
       esquecerSimulacao();
-      router.push("/dashboard");
+      router.push(destinoDepoisDoLogin(next));
       router.refresh();
     } catch (err) {
       setErro(err instanceof ApiError ? err.message : "Falha ao conectar com o servidor");
@@ -47,6 +50,8 @@ export default function RegistroPage() {
         <h1 className="text-xl font-bold">Criar conta</h1>
         <p className="text-sm text-mute-soft">Comece a acompanhar seus investimentos</p>
       </div>
+
+      <GuardarNext aoLer={setNext} />
 
       <Campo
         rotulo="Nome"
@@ -89,9 +94,9 @@ export default function RegistroPage() {
 
       <p className="text-center text-sm text-mute-soft">
         Já tem conta?{" "}
-        <Link href="/login" className="rounded font-semibold text-gain-ink hover:underline">
+        <LinkComNext rota="/login" className="rounded font-semibold text-gain-ink hover:underline">
           Entrar
-        </Link>
+        </LinkComNext>
       </p>
     </form>
   );
