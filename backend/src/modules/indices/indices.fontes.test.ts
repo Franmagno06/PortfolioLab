@@ -25,6 +25,13 @@ describe("buscarSerieSgs", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(json([{ data: "01/09/2026", valor: "x" }, { data: "01/10/2026", valor: "1.5" }])));
     expect(await buscarSerieSgs(433, new Date("2026-09-01T12:00:00Z"), ate)).toEqual([{ data: "2026-10-01", valor: 1.5 }]);
   });
+  it("descarta linha com valor vazio em vez de virar 0", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(json([{ data: "01/09/2026", valor: "" }, { data: "01/10/2026", valor: "  " }, { data: "01/11/2026", valor: "1.5" }])),
+    );
+    expect(await buscarSerieSgs(433, new Date("2026-09-01T12:00:00Z"), ate)).toEqual([{ data: "2026-11-01", valor: 1.5 }]);
+  });
   it("uma chamada por janela", async () => {
     const f = vi.fn().mockResolvedValue(json([]));
     vi.stubGlobal("fetch", f);

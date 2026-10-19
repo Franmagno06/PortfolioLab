@@ -6,6 +6,7 @@ import { assetsRoutes } from "./modules/assets/assets.routes.js";
 import { ativosRoutes } from "./modules/ativos/ativos.routes.js";
 import { authRoutes } from "./modules/auth/auth.routes.js";
 import { dividendsRoutes } from "./modules/dividends/dividends.routes.js";
+import { indicesRoutes } from "./modules/indices/indices.routes.js";
 import { goalsRoutes } from "./modules/goals/goals.routes.js";
 import { indicatorsRoutes } from "./modules/indicators/indicators.routes.js";
 import { newsRoutes } from "./modules/news/news.routes.js";
@@ -47,6 +48,10 @@ app.use(
 // derrubaria o login e a carteira de todos os usuários. Ela tem o limitador dela (limitadorAtivos),
 // e só ticker do catálogo curado chega às fontes externas.
 app.use("/ativos", ativosRoutes);
+
+// Pública, pelo mesmo motivo de /ativos: séries de índices (Banco Central e Yahoo) das páginas abertas.
+// Antes do limitador global, com o limitador próprio; as fontes são cacheadas no service.
+app.use("/indices", indicesRoutes);
 
 // Teto global folgado. Antes do express.json() de propósito, pelo mesmo motivo
 // que o limitador de /reports vem antes do multer: recusar sem gastar o parse.
