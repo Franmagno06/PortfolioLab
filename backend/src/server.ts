@@ -3,6 +3,7 @@ import { descreverBanco } from "./config/dbGuard.js";
 import { env } from "./config/env.js";
 import { desconectarBanco } from "./database/prisma.js";
 import { ativosService } from "./modules/ativos/ativos.service.js";
+import { indicesService } from "./modules/indices/indices.service.js";
 
 const servidor = app.listen(env.PORT, () => {
   console.log(`🚀 API rodando em http://localhost:${env.PORT}`);
@@ -13,7 +14,11 @@ const servidor = app.listen(env.PORT, () => {
 // Páginas públicas de Ativos: põe o catálogo na fila de renovação, um ativo por vez, sem segurar a
 // subida. Só em produção: em desenvolvimento cada reinício do tsx watch refaria dezenas de consultas
 // ao Yahoo. A renovação preguiçosa por visita continua valendo em qualquer ambiente.
-if (env.NODE_ENV === "production") ativosService.aquecerCatalogo();
+if (env.NODE_ENV === "production") {
+  ativosService.aquecerCatalogo();
+  // Séries de índices: o primeiro visitante depois do deploy não paga o SGS lento (cada série tem janelas de 5 anos).
+  indicesService.aquecer();
+}
 
 // Achado 24: o Render manda SIGTERM e espera antes de matar o processo. Sem
 // tratar o sinal, a API morria no meio das requisições em voo e deixava o pool

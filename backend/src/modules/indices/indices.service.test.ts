@@ -137,4 +137,34 @@ describe("indicesService.montarDados", () => {
     await indicesService.montarDados();
     expect(buscarSerieSgs).toHaveBeenCalledTimes(8);
   });
+
+  it("série lenta do SGS estoura o orçamento: vai vazia agora, e a próxima chamada já traz o dado", async () => {
+    vi.useRealTimers();
+    vi.useFakeTimers({ toFake: ["Date", "setTimeout", "clearTimeout"] });
+    vi.setSystemTime(new Date(`${HOJE}T15:00:00Z`));
+    let liberar: (v: { data: string; valor: number }[]) => void = () => undefined;
+    const lenta = new Promise<{ data: string; valor: number }[]>((r) => (liberar = r));
+    vi.mocked(buscarSerieSgs).mockImplementation(async (codigo) => {
+      if (codigo === 433) return lenta;
+      return [{ data: "2026-10-01", valor: 1 }];
+    });
+
+    const pendente = indicesService.montarDados();
+    await vi.advanceTimersByTimeAsync(12_001);
+    const d1 = await pendente;
+    expect(d1.ipcaMensal).toEqual([]);
+    expect(d1.cdiMensal).toEqual([{ data: "2026-10", valor: 1 }]);
+    expect(d1.selicMensal.length).toBeGreaterThan(0);
+
+    liberar([{ data: "2026-09-01", valor: 0.5 }]);
+    await vi.advanceTimersByTimeAsync(0);
+    const d2 = await indicesService.montarDados();
+    expect(d2.ipcaMensal).toEqual([{ data: "2026-09", valor: 0.5 }]);
+    expect(buscarSerieSgs).toHaveBeenCalledTimes(4);
+  });
+
+  it("aquecer() não rejeita nem espera, e enche o cache", async () => {
+    vi.mocked(buscarSerieSgs).mockRejectedValue(new Error("x"));
+    expect(() => indicesService.aquecer()).not.toThrow();
+  });
 });

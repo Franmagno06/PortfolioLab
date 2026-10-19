@@ -39,9 +39,21 @@ describe("buscarSerieSgs", () => {
     expect(f).toHaveBeenCalledTimes(4);
   });
   it("status 500 numa janela dá null", async () => {
-    const f = vi.fn().mockResolvedValueOnce(json([])).mockResolvedValueOnce(json([], 500)).mockResolvedValue(json([]));
+    const f = vi.fn().mockResolvedValueOnce(json([])).mockResolvedValueOnce(json([], 500)).mockResolvedValueOnce(json([], 500)).mockResolvedValue(json([]));
     vi.stubGlobal("fetch", f);
     expect(await buscarSerieSgs(432, desde, ate)).toBeNull();
+  });
+  it("tenta de novo uma vez: primeira chamada falha, a segunda acerta", async () => {
+    const f = vi.fn().mockRejectedValueOnce(new Error("timeout")).mockResolvedValue(json([{ data: "01/09/2026", valor: "0.82" }]));
+    vi.stubGlobal("fetch", f);
+    expect(await buscarSerieSgs(433, new Date("2026-09-01T12:00:00Z"), ate)).toEqual([{ data: "2026-09-01", valor: 0.82 }]);
+    expect(f).toHaveBeenCalledTimes(2);
+  });
+  it("as duas tentativas falhando dá null, sem lançar", async () => {
+    const f = vi.fn().mockResolvedValueOnce(json([], 503)).mockRejectedValueOnce(new Error("rede"));
+    vi.stubGlobal("fetch", f);
+    expect(await buscarSerieSgs(433, new Date("2026-09-01T12:00:00Z"), ate)).toBeNull();
+    expect(f).toHaveBeenCalledTimes(2);
   });
   it("fetch rejeitando dá null", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("rede")));

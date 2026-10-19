@@ -4,7 +4,7 @@ import { respostaSgsSchema } from "./indices.schemas.js";
 const BASE = "https://api.bcb.gov.br/dados/serie/bcdata.sgs";
 const TIMEOUT_MS = 10_000;
 
-async function buscarJanela(codigo: number, inicio: Date, fim: Date): Promise<PontoSerie[] | null> {
+async function tentarJanela(codigo: number, inicio: Date, fim: Date): Promise<PontoSerie[] | null> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
@@ -21,6 +21,11 @@ async function buscarJanela(codigo: number, inicio: Date, fim: Date): Promise<Po
   } finally {
     clearTimeout(timer);
   }
+}
+
+/** Uma tentativa extra: o SGS falha de vez em quando (timeout, 5xx) e acerta na seguinte. */
+async function buscarJanela(codigo: number, inicio: Date, fim: Date): Promise<PontoSerie[] | null> {
+  return (await tentarJanela(codigo, inicio, fim)) ?? (await tentarJanela(codigo, inicio, fim));
 }
 
 /**

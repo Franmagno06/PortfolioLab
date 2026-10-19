@@ -1,4 +1,4 @@
-import { criarCacheEmMemoria } from "../ativos/ativos.cache.js";
+import { comLimiteDeTempo, criarCacheEmMemoria } from "../ativos/ativos.cache.js";
 import { buscarSerieDiariaYahoo, buscarUltimoValorYahoo } from "../quotes/quotes.provider.js";
 import { ateHoje, diaEmSaoPaulo, fimDeCadaMes, paraMensal, type PontoSerie } from "./indices.calculos.js";
 import { buscarSerieSgs } from "./indices.fontes.js";
@@ -17,6 +17,9 @@ export type DadosDosIndicesDto = {
 const SEIS_HORAS = 6 * 60 * 60 * 1000;
 const QUINZE_MINUTOS = 15 * 60 * 1000;
 const DOIS_MINUTOS = 2 * 60 * 1000;
+// Quanto a rota espera por UMA série do SGS. Estourou: a série vai vazia nesta resposta, mas a busca
+// continua e preenche o cache para a próxima (o [] do orçamento nunca é guardado).
+const ORCAMENTO_SGS_MS = 12_000;
 
 // Falha (null) fica guardada 2 min: sem isso, cada visita refaria a consulta a uma fonte fora do ar.
 const cacheSgs = criarCacheEmMemoria<PontoSerie[] | null>(SEIS_HORAS, (v) => v === null, DOIS_MINUTOS);
@@ -37,9 +40,8 @@ export function limparCacheDosIndices(): void {
 }
 
 function sgs(codigo: number, desde: Date, ate: Date): Promise<PontoSerie[]> {
-  return cacheSgs
-    .obter(String(codigo), () => buscarSerieSgs(codigo, desde, ate).catch(() => null))
-    .then((serie) => serie ?? []);
+  const busca = cacheSgs.obter(String(codigo), () => buscarSerieSgs(codigo, desde, ate).catch(() => null));
+  return comLimiteDeTempo(busca, ORCAMENTO_SGS_MS, null).then((serie) => serie ?? []);
 }
 
 function serieYahoo(simbolo: string): Promise<PontoSerie[]> {
@@ -64,6 +66,11 @@ async function serieGravada(slug: SlugGravado): Promise<PontoSerie[]> {
 }
 
 export const indicesService = {
+  /** Esquenta os caches ao subir a API, sem esperar e sem nunca rejeitar. */
+  aquecer(): void {
+    void indicesService.montarDados().catch(() => undefined);
+  },
+
   async montarDados(): Promise<DadosDosIndicesDto> {
     const agora = new Date();
     const hoje = diaEmSaoPaulo(agora);
