@@ -1,4 +1,5 @@
 import { AssetType } from "@prisma/client";
+import { diaEmSaoPaulo, type PontoSerie } from "../indices/indices.calculos.js";
 
 /**
  * Cotações da B3 via Yahoo Finance.
@@ -472,6 +473,73 @@ export async function buscarProventosOuNulo(
       )
       .map((e) => ({ dataEx: new Date(e.date * 1000), valorPorCota: e.amount }))
       .sort((a, b) => a.dataEx.getTime() - b.dataEx.getTime());
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * Série diária de fechamento de um símbolo do Yahoo (índices como "^BVSP", "IFIX.SA").
+ * `simbolo` é o símbolo completo: aqui NÃO se acrescenta `.SA`. Datas em "AAAA-MM-DD"
+ * de São Paulo; fechamento nulo (dia sem pregão) é descartado. null se a API falhar.
+ */
+export async function buscarSerieDiariaYahoo(simbolo: string, desde: Date): Promise<PontoSerie[] | null> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8000);
+  const period1 = Math.floor(desde.getTime() / 1000);
+  const period2 = Math.floor(Date.now() / 1000);
+
+  try {
+    const res = await fetch(`${BASE}/${naUrl(simbolo)}?period1=${period1}&period2=${period2}&interval=1d`, {
+      headers: CABECALHOS,
+      signal: controller.signal,
+    });
+    if (!res.ok) return null;
+
+    const json = (await res.json()) as {
+      chart?: {
+        result?: { timestamp?: number[]; indicators?: { quote?: { close?: (number | null)[] }[] } }[] | null;
+      };
+    };
+    const resultado = json.chart?.result?.[0];
+    if (!resultado) return null;
+
+    const fechamentos = resultado.indicators?.quote?.[0]?.close ?? [];
+    const pontos: PontoSerie[] = [];
+    (resultado.timestamp ?? []).forEach((ts, i) => {
+      const valor = fechamentos[i];
+      if (typeof valor !== "number") return;
+      pontos.push({ data: diaEmSaoPaulo(new Date(ts * 1000)), valor });
+    });
+    return pontos;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** Último valor negociado de um símbolo do Yahoo e o dia (São Paulo) em que ocorreu. null se falhar. */
+export async function buscarUltimoValorYahoo(simbolo: string): Promise<PontoSerie | null> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8000);
+
+  try {
+    const res = await fetch(`${BASE}/${naUrl(simbolo)}?interval=1d&range=1d`, {
+      headers: CABECALHOS,
+      signal: controller.signal,
+    });
+    if (!res.ok) return null;
+
+    const json = (await res.json()) as { chart?: { result?: { meta?: MetaYahoo }[] | null } };
+    const meta = json.chart?.result?.[0]?.meta;
+    const valor = meta?.regularMarketPrice;
+    const instante = meta?.regularMarketTime;
+    if (typeof valor !== "number" || valor <= 0 || typeof instante !== "number") return null;
+
+    return { data: diaEmSaoPaulo(new Date(instante * 1000)), valor };
   } catch {
     return null;
   } finally {
