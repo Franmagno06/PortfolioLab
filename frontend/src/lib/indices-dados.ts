@@ -1,4 +1,4 @@
-import { dataCurta, mesNumerico, mesPorExtenso, numero, percentual } from "./format";
+import { brl, dataCurta, mesNumerico, mesPorExtenso, numero, percentual } from "./format";
 import {
   acharIndice,
   acumular,
@@ -267,11 +267,9 @@ export function efeitoNoBolso(indice: Indice, dados: DadosDosIndices): string {
     return `Com a Selic em ${percentual(valor, 2)} ao ano, o Tesouro Selic e boa parte dos CDBs rendem perto disso, antes do imposto. Já financiamentos e cartão de crédito ficam mais caros.`;
   }
   if (indice.slug === "ipca") {
-    const reais = (100 * (1 + valor / 100)).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-    return `Com a inflação em ${percentual(valor, 2)} em 12 meses, o que custava R$ 100,00 há um ano custa cerca de ${reais} hoje. Um investimento precisa render mais que isso para aumentar o seu poder de compra.`;
+    return `Com a inflação em ${percentual(valor, 2)} em 12 meses, o que custava ${brl(100)} há um ano custa cerca de ${brl(100 * (1 + valor / 100))} hoje. Um investimento precisa render mais que isso para aumentar o seu poder de compra.`;
   }
-  const reais = (1000 * (1 + valor / 100)).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-  return `Com o CDI em ${percentual(valor, 2)} ao ano, R$ 1.000,00 num título que paga 100% do CDI viram cerca de ${reais} em um ano, antes do imposto.`;
+  return `Com o CDI em ${percentual(valor, 2)} ao ano, ${brl(1000)} num título que paga 100% do CDI viram cerca de ${brl(1000 * (1 + valor / 100))} em um ano, antes do imposto.`;
 }
 
 /** A quarta linha do "Resumo do período" das taxas, que não depende do período escolhido. */
@@ -295,8 +293,6 @@ export type TabelaDoIndice = {
   colunas: string[];
   linhas: { chave: string; celulas: Celula[] }[];
 };
-
-const reais = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 /** A tabela própria de cada taxa. Sem linha nenhuma (a fonte falhou), não há tabela: null. */
 export function tabelaDoIndice(indice: Indice, dados: DadosDosIndices): TabelaDoIndice | null {
@@ -350,7 +346,7 @@ function montarTabela(indice: Indice, dados: DadosDosIndices): TabelaDoIndice | 
           { texto: l.ano },
           { texto: percentual(l.noAno, 2) },
           l.diferenca === null ? { texto: "—" } : { texto: pontosPercentuais(l.diferenca), variacao: l.diferenca },
-          { texto: reais(l.milViram) },
+          { texto: brl(l.milViram) },
         ],
       })),
     };
@@ -379,7 +375,10 @@ function serieDaFonte(slug: Slug, dados: DadosDosIndices): PontoSerie[] {
 /** "dd/mm/aaaa" para ponto diário, "mm/aaaa" para ponto mensal. */
 const dataDoPonto = (data: string) => (data.length > 7 ? dataCurta(data) : mesNumerico(data));
 
-/** "Fonte: B3 (IFIX). Dados até 19/10/2026." Sem nenhum ponto, só a fonte: a data não se inventa. */
+/**
+ * "Fonte: Banco Central (SGS 432). Dados até 10/2026." nas taxas e "Fonte: B3 (IFIX), via Yahoo Finance.
+ * Dados até 19/10/2026." nos índices de pontos. Sem nenhum ponto, só a fonte: a data não se inventa.
+ */
 export function notaDaFonte(indice: Indice, dados: DadosDosIndices): string {
   // os índices de pontos vêm do Yahoo Finance; as taxas, do Banco Central
   const via = indice.tipo === "pontos" ? ", via Yahoo Finance" : "";

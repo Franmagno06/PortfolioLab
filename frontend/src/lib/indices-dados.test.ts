@@ -147,3 +147,15 @@ describe("nota da fonte e histórico curto", () => {
     expect(historicoCurtoDoIndice(acharIndice("selic")!, VAZIO)).toBeUndefined();
   });
 });
+
+describe("valores em reais das fichas passam por format.brl", () => {
+  const semEspacosEspeciais = (s: string) => s.replace(/ /g, " ");
+
+  it("efeito no bolso do IPCA e do CDI em reais com centavos", () => {
+    const ipca = semEspacosEspeciais(efeitoNoBolso(acharIndice("ipca")!, DADOS_DE_EXEMPLO));
+    const cdi = semEspacosEspeciais(efeitoNoBolso(acharIndice("cdi")!, DADOS_DE_EXEMPLO));
+
+    expect(ipca).toMatch(/o que custava R\$ 100,00 há um ano custa cerca de R\$ \d{3},\d{2} hoje/);
+    expect(cdi).toMatch(/R\$ 1\.000,00 num título que paga 100% do CDI viram cerca de R\$ 1\.\d{3},\d{2} em um ano/);
+  });
+});
