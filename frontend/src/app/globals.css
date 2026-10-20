@@ -247,6 +247,48 @@ html {
   }
 }
 
+/* Padrão B — traço que se desenha (Minigrafico). O path usa pathLength="1", então
+   dasharray/dashoffset são frações do caminho. .tracar-espera só existe quando o
+   observador já disse "fora da tela"; a animação parte sempre do traço apagado. */
+@keyframes tracar {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+.tracar-espera {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+}
+.tracar {
+  stroke-dasharray: 1;
+  animation: tracar var(--duracao-grafico) var(--curva) both;
+}
+
+/* Padrão E — gráfico vivo ao fundo do topo. Os ciclos longos não são tempos de
+   interação, por isso têm nomes próprios. Movimento constante vai em linear (sem
+   aceleração); a pausa vem do botão (animation-play-state no próprio svg). */
+:root {
+  --ciclo-fundo-a: 14s;
+  --ciclo-fundo-b: 19s;
+}
+@keyframes deriva-fundo {
+  from {
+    transform: translateX(-30px);
+  }
+  to {
+    transform: translateX(30px);
+  }
+}
+.deriva-fundo-a {
+  animation: deriva-fundo var(--ciclo-fundo-a) linear infinite alternate;
+}
+.deriva-fundo-b {
+  animation: deriva-fundo var(--ciclo-fundo-b) linear infinite alternate-reverse;
+}
+
 /*
   Escala tipográfica de /aprender (artigos, glossário e páginas de consulta).
   Os nomes são os estilos do Figma ("Artigo/Titulo" etc.). Em @layer components

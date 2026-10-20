@@ -51,7 +51,7 @@ describe("globals.css: movimento", () => {
   it("nenhuma duração ou curva escrita à mão fora dos tokens", () => {
     const linhas = css
       .split("\n")
-      .filter((l) => !/^\s*--(duracao|curva)/.test(l)) // definição dos tokens
+      .filter((l) => !/^\s*--(duracao|curva|ciclo-fundo-[ab]:)/.test(l)) // definição dos tokens (e dos dois ciclos do fundo)
       .filter((l) => !/^\s*(\/\*|\*)/.test(l)) // comentários
       .filter((l) => !/animation-delay|--atraso/.test(l)); // escalonamento
     const sobras = linhas.filter((l) => /\d(ms|s)\b|cubic-bezier|\bease/.test(l));
