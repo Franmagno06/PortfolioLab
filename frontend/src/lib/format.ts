@@ -35,6 +35,16 @@ export function numero(valor: number, casas = 0): string {
 }
 
 /**
+ * Quantidade de ativo: inteira sem casas ("10"), fracionária com as que tem ("0,5"), até 8.
+ * Aceita o Decimal que a API manda como string.
+ */
+export function quantidadeTexto(q: string | number): string {
+  const n = Number(q);
+  const casas = Math.min(8, (String(n).split(".")[1] ?? "").length);
+  return numero(n, casas);
+}
+
+/**
  * Percentual sem sinal, para taxa e indicador: percentual(7.02) → "7,0%";
  * percentual(13.75, 2) → "13,75%". Para variação, que precisa do sinal, use pct().
  */

@@ -5,7 +5,7 @@ import { Botao } from "@/components/ui/botao";
 import { EmptyState } from "@/components/ui/empty-state";
 import { MensagemErro } from "@/components/ui/mensagem";
 import { api, ApiError, type Pagina } from "@/lib/api";
-import { brl, dataCurta, numero } from "@/lib/format";
+import { brl, dataCurta, quantidadeTexto } from "@/lib/format";
 
 // Forma de GET /transactions. Quantidade, preço e taxa são Prisma.Decimal no
 // servidor e chegam como string no JSON; convertem-se só para exibir.
@@ -19,6 +19,8 @@ type Transacao = {
   asset: { ticker: string; name: string; type: string };
 };
 
+type Lista = { itens: Transacao[]; cursor: string | null };
+
 const POR_PAGINA = 20;
 
 type Props = {
@@ -26,24 +28,45 @@ type Props = {
   aoApagar: () => void;
 };
 
-// Quantidade fracionária mantém as casas que tem (0,5); inteira não ganha ",00".
-function quantidadeTexto(q: string | number): string {
-  const n = Number(q);
-  const casas = Math.min(8, (String(n).split(".")[1] ?? "").length);
-  return numero(n, casas);
-}
-
 const nomeDaOperacao = { COMPRA: "Compra", VENDA: "Venda" } as const;
 
 function descricao(t: Transacao): string {
   return `${nomeDaOperacao[t.kind]} de ${quantidadeTexto(t.quantity)} ${t.asset.ticker} em ${dataCurta(t.executedAt)}`;
 }
 
+// Só a palavra da operação vai para minúscula: "petr4" seria lido como palavra.
+function descricaoDoBotao(t: Transacao): string {
+  return `Apagar ${nomeDaOperacao[t.kind].toLowerCase()} de ${quantidadeTexto(t.quantity)} ${t.asset.ticker} em ${dataCurta(t.executedAt)}`;
+}
+
+/**
+ * Pergunta da confirmação. Apagar uma compra recalcula quantidade e preço médio;
+ * apagar uma venda devolve as cotas e só mexe no preço médio se houver compra
+ * do ativo depois dela (a venda em si não altera o PM).
+ */
+function perguntaDeConfirmacao(t: Transacao): string {
+  const qtd = quantidadeTexto(t.quantity);
+  const { ticker } = t.asset;
+  const data = dataCurta(t.executedAt);
+  if (t.kind === "COMPRA") {
+    return `Apagar esta compra de ${qtd} ${ticker} em ${data}? A quantidade e o preço médio de ${ticker} serão recalculados sem ela.`;
+  }
+  const volta =
+    Number(t.quantity) <= 1 ? `A ${qtd} cota volta` : `As ${qtd} cotas voltam`;
+  return `Apagar esta venda de ${qtd} ${ticker} em ${data}? ${volta} para a sua posição. O preço médio só muda se houver compra de ${ticker} depois desta venda.`;
+}
+
 type PedidoDeFoco = { alvo: "apagar"; id: string } | { alvo: "titulo" } | null;
 
 export function HistoricoTransacoes({ aoApagar }: Props) {
-  const [itens, setItens] = useState<Transacao[] | null>(null);
-  const [cursor, setCursor] = useState<string | null>(null);
+  const [lista, setListaEstado] = useState<Lista | null>(null);
+  // Espelho síncrono da lista: respostas assíncronas (página nova, DELETE) sempre
+  // partem do valor MAIS RECENTE, nunca de uma cópia capturada antes do await.
+  const listaRef = useRef<Lista | null>(null);
+  // Ids apagados nesta sessão: uma página que chegue atrasada não os traz de volta
+  // nem aponta o cursor para eles.
+  const apagados = useRef(new Set<string>());
+
   const [erroLista, setErroLista] = useState<string | null>(null);
   const [erroMais, setErroMais] = useState<string | null>(null);
   const [carregandoMais, setCarregandoMais] = useState(false);
@@ -59,17 +82,24 @@ export function HistoricoTransacoes({ aoApagar }: Props) {
   const cancelarRef = useRef<HTMLButtonElement>(null);
   const botoesApagar = useRef(new Map<string, HTMLButtonElement>());
 
+  const definirLista = useCallback((nova: Lista | null) => {
+    listaRef.current = nova;
+    setListaEstado(nova);
+  }, []);
+
   const carregarInicio = useCallback(() => {
     api<Pagina<Transacao>>(`/transactions?limite=${POR_PAGINA}`)
       .then((p) => {
         setErroLista(null);
-        setItens(p.itens);
-        setCursor(p.proximoCursor);
+        definirLista({
+          itens: p.itens.filter((t) => !apagados.current.has(t.id)),
+          cursor: p.proximoCursor,
+        });
       })
       .catch((err) =>
         setErroLista(err instanceof ApiError ? err.message : "Falha ao carregar o histórico"),
       );
-  }, []);
+  }, [definirLista]);
 
   useEffect(() => {
     carregarInicio();
@@ -93,18 +123,23 @@ export function HistoricoTransacoes({ aoApagar }: Props) {
   });
 
   async function carregarMais() {
-    if (!cursor) return;
+    const cursor = listaRef.current?.cursor;
+    if (!cursor || carregandoMais || apagando) return;
     setCarregandoMais(true);
     setErroMais(null);
     try {
       const p = await api<Pagina<Transacao>>(
         `/transactions?limite=${POR_PAGINA}&cursor=${encodeURIComponent(cursor)}`,
       );
-      setItens((atuais) => {
-        const ids = new Set((atuais ?? []).map((t) => t.id));
-        return [...(atuais ?? []), ...p.itens.filter((t) => !ids.has(t.id))];
-      });
-      setCursor(p.proximoCursor);
+      // parte da lista de AGORA, que pode ter perdido linhas durante a espera
+      const atual = listaRef.current ?? { itens: [], cursor: null };
+      const ids = new Set(atual.itens.map((t) => t.id));
+      const novos = p.itens.filter((t) => !ids.has(t.id) && !apagados.current.has(t.id));
+      const itens = [...atual.itens, ...novos];
+      let proximo = p.proximoCursor;
+      // um cursor apagado faria o servidor devolver lista vazia: recua para o último item vivo
+      if (proximo && apagados.current.has(proximo)) proximo = itens[itens.length - 1]?.id ?? null;
+      definirLista({ itens, cursor: proximo });
     } catch (err) {
       setErroMais(err instanceof ApiError ? err.message : "Falha ao carregar mais transações");
     } finally {
@@ -113,7 +148,7 @@ export function HistoricoTransacoes({ aoApagar }: Props) {
   }
 
   function abrirConfirmacao(id: string) {
-    if (apagando) return;
+    if (apagando || carregandoMais) return;
     setErroLinha(null);
     setAviso("");
     setConfirmando(id);
@@ -129,7 +164,7 @@ export function HistoricoTransacoes({ aoApagar }: Props) {
     if (apagando) return;
     setApagando(t.id);
     try {
-      await api(`/transactions/${t.id}`, { method: "DELETE" });
+      await api(`/transactions/${encodeURIComponent(t.id)}`, { method: "DELETE" });
     } catch (err) {
       setErroLinha({
         id: t.id,
@@ -141,24 +176,34 @@ export function HistoricoTransacoes({ aoApagar }: Props) {
       return;
     }
 
-    const lista = itens ?? [];
-    const posicao = lista.findIndex((x) => x.id === t.id);
-    const restantes = lista.filter((x) => x.id !== t.id);
-    setItens(restantes);
-    // O cursor é o id do último item entregue. Se foi esse que saiu, o servidor
-    // não acharia mais o ponto de partida e devolveria lista vazia: o cursor
-    // passa para o item anterior (ou, sem anterior, recomeça da primeira página).
-    if (cursor === t.id) {
-      const anterior = lista[posicao - 1];
-      if (anterior) setCursor(anterior.id);
-      else carregarInicio();
+    apagados.current.add(t.id);
+    // Sempre a lista de agora: uma página carregada durante o DELETE não pode sumir.
+    const atual = listaRef.current;
+    let recomecar = false;
+    if (atual) {
+      const posicao = atual.itens.findIndex((x) => x.id === t.id);
+      const itens = atual.itens.filter((x) => x.id !== t.id);
+      let cursor = atual.cursor;
+      // O cursor é o id do último item entregue. Se foi esse que saiu, o servidor
+      // não acharia mais o ponto de partida e devolveria lista vazia: passa para o
+      // item anterior (ou, sem anterior, recomeça da primeira página).
+      if (cursor === t.id) {
+        const anterior = atual.itens[posicao - 1];
+        if (anterior) cursor = anterior.id;
+        else recomecar = true;
+      }
+      definirLista({ itens, cursor });
     }
+    if (recomecar) carregarInicio();
     setConfirmando(null);
     setApagando(null);
     setAviso(`${descricao(t)} apagada.`);
     pedidoDeFoco.current = { alvo: "titulo" };
     aoApagar();
   }
+
+  const itens = lista?.itens ?? null;
+  const cursor = lista?.cursor ?? null;
 
   return (
     <section aria-labelledby="titulo-historico" className="space-y-3">
@@ -182,10 +227,14 @@ export function HistoricoTransacoes({ aoApagar }: Props) {
       {erroLista ? (
         <div className="space-y-3">
           <MensagemErro>{erroLista}</MensagemErro>
-          <Botao variante="secundario" className="min-h-11" onClick={() => {
+          <Botao
+            variante="secundario"
+            className="min-h-11"
+            onClick={() => {
               setErroLista(null);
               carregarInicio();
-            }}>
+            }}
+          >
             Tentar de novo
           </Botao>
         </div>
@@ -203,6 +252,7 @@ export function HistoricoTransacoes({ aoApagar }: Props) {
       ) : (
         <>
           <div className="overflow-hidden rounded-md border border-line bg-card">
+            {/* cabeçalho só visual: no leitor de tela, cada valor carrega o próprio rótulo (sr-only) */}
             <div
               aria-hidden="true"
               className="hidden grid-cols-[minmax(0,1.6fr)_5rem_6.5rem_5rem_7rem_6rem_7.5rem] gap-x-3 border-b border-line px-5 py-3 text-xs font-semibold text-mute md:grid"
@@ -241,19 +291,19 @@ export function HistoricoTransacoes({ aoApagar }: Props) {
                     </span>
                   </p>
                   <p className="tnum text-ink-2">
-                    <span className="mr-1.5 text-xs text-mute md:hidden">Data</span>
+                    <span className="mr-1.5 text-xs text-mute md:sr-only">Data</span>
                     {dataCurta(t.executedAt)}
                   </p>
-                  <p className="tnum text-right md:text-right">
-                    <span className="mr-1.5 text-xs text-mute md:hidden">Qtd.</span>
+                  <p className="tnum text-right">
+                    <span className="mr-1.5 text-xs text-mute md:sr-only">Qtd.</span>
                     {quantidadeTexto(t.quantity)}
                   </p>
                   <p className="tnum md:text-right">
-                    <span className="mr-1.5 text-xs text-mute md:hidden">Preço</span>
+                    <span className="mr-1.5 text-xs text-mute md:sr-only">Preço</span>
                     {brl(Number(t.unitPrice))}
                   </p>
                   <p className="tnum text-right text-mute">
-                    <span className="mr-1.5 text-xs md:hidden">Taxa</span>
+                    <span className="mr-1.5 text-xs md:sr-only">Taxa</span>
                     {brl(Number(t.fee))}
                   </p>
 
@@ -263,8 +313,8 @@ export function HistoricoTransacoes({ aoApagar }: Props) {
                         variante="secundario"
                         tamanho="sm"
                         className="min-h-11 w-full md:min-w-24"
-                        disabled={apagando !== null}
-                        aria-label={`Apagar ${descricao(t).toLowerCase()}`}
+                        disabled={apagando !== null || carregandoMais}
+                        aria-label={descricaoDoBotao(t)}
                         ref={(el) => {
                           if (el) botoesApagar.current.set(t.id, el);
                           else botoesApagar.current.delete(t.id);
@@ -279,22 +329,21 @@ export function HistoricoTransacoes({ aoApagar }: Props) {
                   {confirmando === t.id && (
                     <div
                       role="group"
-                      aria-label="Confirmar exclusão"
+                      aria-labelledby={`pergunta-${t.id}`}
                       className="col-span-full mt-1 space-y-3 rounded border border-loss-ink/25 bg-loss/6 p-3"
                       onKeyDown={(e) => {
                         if (e.key === "Escape") cancelar(t.id);
                       }}
                     >
-                      <p className="text-sm">
-                        Apagar esta {t.kind === "COMPRA" ? "compra" : "venda"} de{" "}
-                        {quantidadeTexto(t.quantity)} {t.asset.ticker} em {dataCurta(t.executedAt)}? O
-                        preço médio e a quantidade serão recalculados.
+                      <p id={`pergunta-${t.id}`} className="text-sm">
+                        {perguntaDeConfirmacao(t)}
                       </p>
                       <div className="flex flex-wrap gap-2">
                         <Botao
                           variante="perigo"
                           className="min-h-11 min-w-28"
                           disabled={apagando === t.id}
+                          aria-describedby={`pergunta-${t.id}`}
                           onClick={() => confirmar(t)}
                         >
                           {apagando === t.id ? "Apagando…" : "Apagar"}
@@ -303,6 +352,7 @@ export function HistoricoTransacoes({ aoApagar }: Props) {
                           variante="secundario"
                           className="min-h-11 min-w-28"
                           disabled={apagando === t.id}
+                          aria-describedby={`pergunta-${t.id}`}
                           onClick={() => cancelar(t.id)}
                           ref={cancelarRef}
                         >
@@ -328,7 +378,7 @@ export function HistoricoTransacoes({ aoApagar }: Props) {
               <Botao
                 variante="secundario"
                 className="min-h-11"
-                disabled={carregandoMais}
+                disabled={carregandoMais || apagando !== null}
                 onClick={carregarMais}
               >
                 {carregandoMais ? "Carregando…" : "Carregar mais"}

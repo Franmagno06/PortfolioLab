@@ -74,5 +74,14 @@ test.describe("histórico de transações no celular", () => {
 
     const botao = await linhas.first().getByRole("button", { name: /^Apagar/ }).boundingBox();
     expect(botao?.height ?? 0).toBeGreaterThanOrEqual(44);
+
+    // a confirmação inline também: os dois botões cabem num toque
+    await linhas.first().getByRole("button", { name: /^Apagar/ }).click();
+    for (const nome of ["Apagar", "Cancelar"]) {
+      const caixa = await linhas.first().getByRole("button", { name: nome, exact: true }).boundingBox();
+      expect(caixa?.height ?? 0, nome).toBeGreaterThanOrEqual(44);
+    }
+    const depois = await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
+    expect(depois).toBe(true);
   });
 });

@@ -108,7 +108,7 @@ describe("HistoricoTransacoes", () => {
 
     expect(
       screen.getByText(
-        "Apagar esta compra de 10 PETR4 em 12/03/2026? O preço médio e a quantidade serão recalculados.",
+        "Apagar esta compra de 10 PETR4 em 12/03/2026? A quantidade e o preço médio de PETR4 serão recalculados sem ela.",
       ),
     ).toBeTruthy();
     const cancelar = screen.getByRole("button", { name: "Cancelar" });
