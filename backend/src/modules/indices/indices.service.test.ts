@@ -218,6 +218,83 @@ describe("indicesService.montarDados", () => {
     expect(buscarSerieSgs).toHaveBeenCalledTimes(4);
   });
 
+  describe("último valor bom do SGS", () => {
+    const SELIC_BOA = [{ data: "2026-10-18", valor: 13.75 }];
+    const SELIC_NOVA = [{ data: "2026-10-18", valor: 14 }];
+
+    const primeiraBuscaBoa = async () => {
+      vi.mocked(buscarSerieSgs).mockResolvedValue(SELIC_BOA);
+      const d = await indicesService.montarDados();
+      expect(d.selicMensal).toEqual([{ data: "2026-10", valor: 13.75 }]);
+    };
+    // validade do SGS é de 6 h: 15:00 + 6 h 1 min
+    const passarSeisHoras = () => vi.setSystemTime(new Date(`${HOJE}T21:01:00Z`));
+
+    it("vencido o cache, a renovação que estoura o prazo devolve a série boa anterior, não []", async () => {
+      comTimers();
+      await primeiraBuscaBoa();
+      passarSeisHoras();
+      vi.mocked(buscarSerieSgs).mockImplementation(() => new Promise(() => undefined));
+
+      const pendente = indicesService.montarDados();
+      await vi.advanceTimersByTimeAsync(15_001);
+      const d = await pendente;
+
+      expect(buscarSerieSgs).toHaveBeenCalledTimes(5); // houve renovação (a 1ª da fila, travada)
+      expect(d.selicMensal).toEqual([{ data: "2026-10", valor: 13.75 }]);
+      expect(d.cdiTaxaMensal).toEqual([{ data: "2026-10", valor: 13.75 }]);
+    });
+
+    it("renovação que falha (null) devolve a série boa anterior", async () => {
+      await primeiraBuscaBoa();
+      passarSeisHoras();
+      vi.mocked(buscarSerieSgs).mockResolvedValue(null);
+
+      const d = await indicesService.montarDados();
+
+      expect(buscarSerieSgs).toHaveBeenCalledTimes(8);
+      expect(d.selicMensal).toEqual([{ data: "2026-10", valor: 13.75 }]);
+      expect(d.cdiTaxaMensal).toEqual([{ data: "2026-10", valor: 13.75 }]);
+    });
+
+    it("renovação que volta vazia também não apaga a série boa", async () => {
+      await primeiraBuscaBoa();
+      passarSeisHoras();
+      vi.mocked(buscarSerieSgs).mockResolvedValue([]);
+
+      const d = await indicesService.montarDados();
+
+      expect(d.selicMensal).toEqual([{ data: "2026-10", valor: 13.75 }]);
+    });
+
+    it("sem valor bom anterior, falha continua vindo vazia", async () => {
+      vi.mocked(buscarSerieSgs).mockResolvedValue(null);
+      const d = await indicesService.montarDados();
+      expect(d.selicMensal).toEqual([]);
+    });
+
+    it("uma renovação boa depois substitui o valor antigo", async () => {
+      await primeiraBuscaBoa();
+      passarSeisHoras();
+      vi.mocked(buscarSerieSgs).mockResolvedValue(null);
+      await indicesService.montarDados(); // falha: guardada 2 min
+      vi.setSystemTime(new Date(`${HOJE}T21:04:00Z`));
+      vi.mocked(buscarSerieSgs).mockResolvedValue(SELIC_NOVA);
+
+      const d = await indicesService.montarDados();
+
+      expect(d.selicMensal).toEqual([{ data: "2026-10", valor: 14 }]);
+    });
+
+    it("limparCacheDosIndices esquece também o último valor bom", async () => {
+      await primeiraBuscaBoa();
+      limparCacheDosIndices();
+      vi.mocked(buscarSerieSgs).mockResolvedValue(null);
+      const d = await indicesService.montarDados();
+      expect(d.selicMensal).toEqual([]);
+    });
+  });
+
   it("aquecer() espera as fontes e deixa o cache cheio: o montarDados seguinte não chama fonte nenhuma", async () => {
     await indicesService.aquecer();
     const chamadas = [buscarSerieSgs, buscarSerieDiariaYahoo, buscarUltimoValorYahoo].map((f) => vi.mocked(f).mock.calls.length);

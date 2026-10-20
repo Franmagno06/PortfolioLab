@@ -17,9 +17,9 @@ export type DadosDosIndicesDto = {
 const SEIS_HORAS = 6 * 60 * 60 * 1000;
 const QUINZE_MINUTOS = 15 * 60 * 1000;
 const DOIS_MINUTOS = 2 * 60 * 1000;
-// Quanto a rota espera, no total, pelas séries do SGS. Passou do prazo: o que não ficou pronto vai vazio
-// nesta resposta, mas a busca continua na fila e preenche o cache para a próxima (o [] do prazo nunca é
-// guardado). Abaixo dos 20 s de espera do front.
+// Quanto a rota espera, no total, pelas séries do SGS. Passou do prazo: o que não ficou pronto vai com a
+// última série boa (ou vazio, se nunca houve uma) nesta resposta, mas a busca continua na fila e preenche
+// o cache para a próxima (o [] do prazo nunca é guardado). Abaixo dos 20 s de espera do front.
 const PRAZO_DA_RESPOSTA_MS = 15_000;
 
 // Uma fila só para todo o SGS: nunca duas chamadas ao Banco Central ao mesmo tempo, mesmo que a rota
@@ -28,6 +28,10 @@ let filaSgs = criarFila();
 
 // Falha (null) fica guardada 2 min: sem isso, cada visita refaria a consulta a uma fonte fora do ar.
 const cacheSgs = criarCacheEmMemoria<PontoSerie[] | null>(SEIS_HORAS, (v) => v === null, DOIS_MINUTOS);
+// Última série boa (não vazia) de cada código do SGS. Quando a renovação estoura o prazo, falha ou volta
+// vazia, a resposta usa esta: o dado de ontem vale mais que nenhum. A busca segue na fila e, se der certo,
+// troca este valor para as próximas respostas.
+let ultimoBom = new Map<number, PontoSerie[]>();
 const cacheSerieYahoo = criarCacheEmMemoria<PontoSerie[] | null>(QUINZE_MINUTOS, (v) => v === null, DOIS_MINUTOS);
 const cacheUltimo = criarCacheEmMemoria<PontoSerie | null>(QUINZE_MINUTOS, (v) => v === null, DOIS_MINUTOS);
 
@@ -42,21 +46,27 @@ export function limparCacheDosIndices(): void {
   cacheSgs.limpar();
   cacheSerieYahoo.limpar();
   cacheUltimo.limpar();
+  ultimoBom = new Map();
   filaSgs = criarFila(); // uma busca travada de um teste não pode segurar a fila do próximo
 }
 
 function sgs(codigo: number, desde: Date, ate: Date, limite: number): Promise<PontoSerie[]> {
+  const bons = ultimoBom; // a busca de antes de um limparCacheDosIndices não escreve no mapa novo
   const busca = cacheSgs.obter(
     String(codigo),
     () =>
       new Promise<PontoSerie[] | null>((resolve) => {
         const enfileirou = filaSgs.adicionar(String(codigo), async () => {
-          resolve(await buscarSerieSgs(codigo, desde, ate).catch(() => null));
+          const serie = await buscarSerieSgs(codigo, desde, ate).catch(() => null);
+          if (serie && serie.length > 0) bons.set(codigo, serie);
+          resolve(serie);
         });
         if (!enfileirou) resolve(null);
       }),
   );
-  return comLimiteDeTempo(busca, Math.max(0, limite - Date.now()), null).then((serie) => serie ?? []);
+  return comLimiteDeTempo(busca, Math.max(0, limite - Date.now()), null).then((serie) =>
+    serie && serie.length > 0 ? serie : (ultimoBom.get(codigo) ?? []),
+  );
 }
 
 function serieYahoo(simbolo: string): Promise<PontoSerie[]> {
