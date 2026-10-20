@@ -24,7 +24,9 @@ function formatar(valor: number, formato: FormatoDoNumero, casas?: number): stri
 //
 // Hidratação: o servidor e o primeiro render do cliente já mostram o valor FINAL, então o HTML
 // bate e, com o JavaScript lento ou desligado, ninguém vê um 0. Só depois de montar, quando o
-// observador responde, o número vai a 0 (se ainda está fora da tela) e conta ao chegar a 50%.
+// observador responde: se a primeira leitura o vê fora da tela, o número vai a 0 (ninguém está
+// olhando) e conta ao chegar a 50%. Se já estava à vista (acima da dobra), fica no valor final e
+// não conta nunca: contar ali seria trocar um número que a pessoa já leu por um 0.
 export function NumeroQueConta({
   valor,
   formato,
@@ -34,14 +36,14 @@ export function NumeroQueConta({
   formato: FormatoDoNumero;
   casas?: number;
 }) {
-  const [ref, visibilidade] = useVisibilidade<HTMLSpanElement>(0.5);
+  const [ref, visibilidade, passouPorFora] = useVisibilidade<HTMLSpanElement>(0.5);
   // null = a contagem ainda não deu o primeiro quadro.
   const [decorrido, setDecorrido] = useState<number | null>(null);
   const [terminou, setTerminou] = useState(false);
-  const entrou = visibilidade === "entrou";
+  const entrouDepoisDeFora = visibilidade === "entrou" && passouPorFora;
 
   useEffect(() => {
-    if (!entrou || typeof requestAnimationFrame !== "function") return;
+    if (!entrouDepoisDeFora || typeof requestAnimationFrame !== "function") return;
     let inicio: number | null = null;
     let quadro = 0;
     // Um render por quadro, mas de um único <span>: barato, e o valor exibido segue o `valor`
@@ -58,11 +60,12 @@ export function NumeroQueConta({
     };
     quadro = requestAnimationFrame(passo);
     return () => cancelAnimationFrame(quadro);
-  }, [entrou]);
+  }, [entrouDepoisDeFora]);
 
   const final = formatar(valor, formato, casas);
   const vaiContar =
     !terminou &&
+    passouPorFora &&
     (visibilidade === "fora" || visibilidade === "entrou") &&
     typeof requestAnimationFrame === "function";
   const exibido = !vaiContar

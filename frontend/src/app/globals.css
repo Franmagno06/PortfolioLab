@@ -249,7 +249,11 @@ html {
 
 /* Padrão B — traço que se desenha (Minigrafico). O path usa pathLength="1", então
    dasharray/dashoffset são frações do caminho. .tracar-espera só existe quando o
-   observador já disse "fora da tela"; a animação parte sempre do traço apagado. */
+   observador já disse "fora da tela"; .tracar só depois dele.
+   "1 2": traço do tamanho do caminho e vão maior que ele. Na espera, o deslocamento
+   1.5 põe o caminho inteiro no meio do vão, longe das duas pontas do traço, e a
+   ponta redonda não desenha um pingo no começo. No fim (0) o traço cobre o caminho
+   inteiro e o vão começa exatamente onde ele acaba: a linha fica sólida. */
 @keyframes tracar {
   from {
     stroke-dashoffset: 1;
@@ -259,11 +263,11 @@ html {
   }
 }
 .tracar-espera {
-  stroke-dasharray: 1;
-  stroke-dashoffset: 1;
+  stroke-dasharray: 1 2;
+  stroke-dashoffset: 1.5;
 }
 .tracar {
-  stroke-dasharray: 1;
+  stroke-dasharray: 1 2;
   animation: tracar var(--duracao-grafico) var(--curva) both;
 }
 

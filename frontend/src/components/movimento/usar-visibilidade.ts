@@ -32,13 +32,18 @@ function chegouAoLimiar(entrada: IntersectionObserverEntry, limiar: number): boo
 /**
  * Observa um elemento até ele entrar na tela uma vez e então desliga o observador.
  * `ativo = false` adia a observação (ex.: o elemento ainda não foi renderizado).
+ *
+ * O terceiro valor, `passouPorFora`, diz se alguma leitura viu o elemento fora da tela antes
+ * de ele entrar. Só nesse caso faz sentido animar a chegada: o que já estava à vista na
+ * primeira leitura foi visto com o valor final, e animar daria um "pisca" (some e volta).
  */
 export function useVisibilidade<T extends Element>(
   limiar: number,
   ativo = true,
-): [RefObject<T | null>, Visibilidade] {
+): [RefObject<T | null>, Visibilidade, boolean] {
   const ref = useRef<T>(null);
   const [lida, setLida] = useState<"esperando" | "fora" | "entrou">("esperando");
+  const [passouPorFora, setPassouPorFora] = useState(false);
 
   // useSyncExternalStore dá `false` no servidor e na hidratação e o valor real logo depois,
   // sem setState dentro de efeito e sem diferença de HTML entre servidor e cliente.
@@ -52,16 +57,21 @@ export function useVisibilidade<T extends Element>(
   useEffect(() => {
     const alvo = ref.current;
     if (!ativo || jaEntrou || !alvo || typeof IntersectionObserver === "undefined") return;
+    // Leitura atrasada depois de entrar (o navegador pode entregar uma após o disconnect) é
+    // ignorada: não pode "desver" o elemento nem marcar que ele passou por fora.
+    let entrou = false;
     const observador = new IntersectionObserver(
       (entradas) => {
+        if (entrou) return;
         const entrada = entradas.find((e) => e.target === alvo) ?? entradas[0];
         if (!entrada) return;
         if (chegouAoLimiar(entrada, limiar)) {
+          entrou = true;
           observador.disconnect();
           setLida("entrou");
         } else {
-          // Leitura atrasada depois de entrar não pode "desver" o elemento.
-          setLida((atual) => (atual === "entrou" ? atual : "fora"));
+          setLida("fora");
+          setPassouPorFora(true);
         }
       },
       { threshold: LIMIARES.includes(limiar) ? LIMIARES : [...LIMIARES, limiar] },
@@ -70,5 +80,5 @@ export function useVisibilidade<T extends Element>(
     return () => observador.disconnect();
   }, [ativo, jaEntrou, limiar]);
 
-  return [ref, semObservador ? "sem-observador" : lida];
+  return [ref, semObservador ? "sem-observador" : lida, !semObservador && passouPorFora];
 }

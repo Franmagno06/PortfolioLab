@@ -59,6 +59,18 @@ describe("Minigrafico", () => {
     expect(path().classList.contains("tracar")).toBe(true);
   });
 
+  it("já à vista na primeira leitura, a linha fica inteira e não se redesenha", async () => {
+    const { container } = render(<Minigrafico valores={VALORES} rotulo="Ibovespa" />);
+    const path = () => container.querySelector("path") as SVGPathElement;
+    await act(async () => dispararTodos(0.6));
+    expect(path().classList.contains("tracar")).toBe(false);
+    expect(path().classList.contains("tracar-espera")).toBe(false);
+    // Leitura atrasada "fora" depois de entrar não apaga nem anima.
+    await act(async () => dispararTodos(0));
+    expect(path().classList.contains("tracar")).toBe(false);
+    expect(path().classList.contains("tracar-espera")).toBe(false);
+  });
+
   it("sem IntersectionObserver, a linha aparece inteira", () => {
     vi.stubGlobal("IntersectionObserver", undefined);
     const { container } = render(<Minigrafico valores={VALORES} rotulo="Ibovespa" />);

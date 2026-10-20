@@ -13,7 +13,11 @@ const LINHA_B =
 // fica lento e apagado para não competir com o título, e o botão de pausa é obrigatório (WCAG 2.2.2)
 // porque é movimento contínuo.
 //
-// Uso: o pai precisa de `position: relative` (e `isolate` ou z-index no conteúdo, que vem por cima).
+// Uso: o pai precisa de `position: relative`; o conteúdo vem por cima em `relative z-10`. O botão de
+// pausa tem `z-20` próprio (este wrapper não tem z-index, então não cria contexto de empilhamento)
+// e fica acima da camada de conteúdo mesmo quando ela ocupa a largura inteira.
+// O rótulo troca entre "Pausar" e "Retomar" e por isso o botão não tem aria-pressed: um rótulo
+// que muda não pode ser também um botão de alternância "pressionado" (ARIA APG).
 export function GraficoDeFundo({ className = "text-ink" }: { className?: string }) {
   const [pausado, setPausado] = useState(false);
   const estado = pausado ? "paused" : "running";
@@ -45,9 +49,8 @@ export function GraficoDeFundo({ className = "text-ink" }: { className?: string 
 
       <button
         type="button"
-        aria-pressed={pausado}
         onClick={() => setPausado((p) => !p)}
-        className="pointer-events-auto absolute right-3 bottom-3 min-h-11 touch-manipulation rounded-full border border-line bg-card/90 px-4 text-xs font-medium text-ink hover:bg-paper"
+        className="pointer-events-auto absolute right-3 bottom-3 z-20 min-h-11 touch-manipulation rounded-full border border-line bg-card/90 px-4 text-xs font-medium text-ink hover:bg-paper"
         style={{ transition: "background-color var(--duracao-rapida) var(--curva)" }}
       >
         {pausado ? "Retomar animação" : "Pausar animação"}

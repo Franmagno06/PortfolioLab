@@ -78,6 +78,12 @@ describe("globals.css: movimento", () => {
     expect(css).toMatch(/@media \(scripting: none\)\s*\{\s*\.revelar\s*\{[^}]*opacity:\s*1/);
   });
 
+  it("traço do minigráfico: espera sem pingo na ponta e termina sólido", () => {
+    expect(css).toMatch(/\.tracar-espera\s*\{[^}]*stroke-dasharray:\s*1 2;[^}]*stroke-dashoffset:\s*1\.5;/);
+    expect(css).toMatch(/\.tracar\s*\{[^}]*stroke-dasharray:\s*1 2;[^}]*animation:\s*tracar var\(--duracao-grafico\) var\(--curva\) both/);
+    expect(css).toMatch(/@keyframes tracar\s*\{\s*from\s*\{\s*stroke-dashoffset:\s*1;\s*\}\s*to\s*\{\s*stroke-dashoffset:\s*0;/);
+  });
+
   it("scroll suave e abrir-menu valem sempre", () => {
     expect(css).toMatch(/scroll-behavior:\s*smooth/);
     expect(css).toMatch(/\.abrir-menu\s*\{/);

@@ -10,18 +10,26 @@ function linhas(container: HTMLElement) {
 }
 
 describe("GraficoDeFundo", () => {
-  it("o botão alterna entre Pausar e Retomar e muda aria-pressed", async () => {
+  it("o botão alterna entre Pausar e Retomar, sem aria-pressed", async () => {
     render(<GraficoDeFundo />);
     const botao = screen.getByRole("button", { name: "Pausar animação" });
-    expect(botao.getAttribute("aria-pressed")).toBe("false");
+    expect(botao.hasAttribute("aria-pressed")).toBe(false);
 
     await act(async () => botao.click());
     expect(botao.textContent).toBe("Retomar animação");
-    expect(botao.getAttribute("aria-pressed")).toBe("true");
+    expect(botao.hasAttribute("aria-pressed")).toBe(false);
 
     await act(async () => botao.click());
     expect(botao.textContent).toBe("Pausar animação");
-    expect(botao.getAttribute("aria-pressed")).toBe("false");
+    expect(botao.hasAttribute("aria-pressed")).toBe(false);
+  });
+
+  it("o botão de pausa fica acima da camada de conteúdo (z-20) e tem alvo de 44 px", () => {
+    render(<GraficoDeFundo />);
+    const botao = screen.getByRole("button");
+    expect(botao.classList.contains("z-20")).toBe(true);
+    expect(botao.classList.contains("min-h-11")).toBe(true);
+    expect(botao.classList.contains("pointer-events-auto")).toBe(true);
   });
 
   it("pausado, as linhas recebem animation-play-state paused", async () => {
@@ -32,6 +40,8 @@ describe("GraficoDeFundo", () => {
       expect(svg.style.animationPlayState).toBe("running");
     }
     await act(async () => screen.getByRole("button").click());
+    expect(screen.getByRole("button").textContent).toBe("Retomar animação");
+    expect(screen.getByRole("button").hasAttribute("aria-pressed")).toBe(false);
     for (const svg of linhas(container)) expect(svg.style.animationPlayState).toBe("paused");
   });
 

@@ -5,6 +5,10 @@ import { useVisibilidade } from "./usar-visibilidade";
 
 // Por que existe: o leitor percebe que chegou a um bloco novo sem que nada salte; entra uma vez e
 // fica, porque reanimar a cada rolada é a interface brigando com quem lê.
+//
+// NÃO envolva o topo da página (hero, primeira dobra, o elemento do LCP): o conteúdo fica com
+// opacidade 0 até a hidratação e a primeira leitura do observador, e a primeira dobra nunca espera
+// animação para aparecer.
 export function Revelar({
   atrasoMs,
   className,

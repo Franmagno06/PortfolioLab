@@ -12,6 +12,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
+  vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
 
@@ -21,7 +22,49 @@ function partes(container: HTMLElement) {
   return { leitor, visivel };
 }
 
+/** Primeira leitura fora da tela, depois 60% visível: o único caminho em que a contagem roda. */
+async function entrarDepoisDeFora() {
+  await act(async () => dispararTodos(0));
+  await act(async () => dispararTodos(0.6));
+}
+
 describe("NumeroQueConta", () => {
+  it("já à vista na primeira leitura, fica no valor final e não conta", async () => {
+    const pedirQuadro = vi.spyOn(window, "requestAnimationFrame");
+    const { container } = render(<NumeroQueConta valor={208296} formato="inteiro" />);
+    await act(async () => dispararTodos(0.6));
+    expect(partes(container).visivel.textContent).toBe("208.296");
+    await act(async () => {
+      vi.advanceTimersByTime(300);
+    });
+    expect(partes(container).visivel.textContent).toBe("208.296");
+    expect(pedirQuadro).not.toHaveBeenCalled();
+    // Uma leitura atrasada "fora" depois de entrar não faz o número começar a contar.
+    await act(async () => dispararTodos(0));
+    await act(async () => {
+      vi.advanceTimersByTime(300);
+    });
+    expect(partes(container).visivel.textContent).toBe("208.296");
+    expect(pedirQuadro).not.toHaveBeenCalled();
+  });
+
+  it("visto fora primeiro e depois a 60%, conta até o valor final em 1100 ms", async () => {
+    const { container } = render(<NumeroQueConta valor={208296} formato="inteiro" />);
+    await act(async () => dispararTodos(0));
+    expect(partes(container).visivel.textContent).toBe("0");
+    await act(async () => dispararTodos(0.6));
+    await act(async () => {
+      vi.advanceTimersByTime(500);
+    });
+    const meio = partes(container).visivel.textContent;
+    expect(meio).not.toBe("0");
+    expect(meio).not.toBe("208.296");
+    await act(async () => {
+      vi.advanceTimersByTime(620);
+    });
+    expect(partes(container).visivel.textContent).toBe("208.296");
+  });
+
   it("o leitor de tela recebe só o valor final desde o início", async () => {
     const { container } = render(<NumeroQueConta valor={208296} formato="inteiro" />);
     const { leitor, visivel } = partes(container);
@@ -29,7 +72,7 @@ describe("NumeroQueConta", () => {
     expect(visivel.getAttribute("aria-hidden")).toBe("true");
 
     // No meio da contagem, o leitor de tela continua com o valor final.
-    await act(async () => dispararTodos(0.6));
+    await entrarDepoisDeFora();
     await act(async () => {
       vi.advanceTimersByTime(300);
     });
@@ -39,7 +82,7 @@ describe("NumeroQueConta", () => {
 
   it("ao terminar, o número visível é o valor final", async () => {
     const { container } = render(<NumeroQueConta valor={208296} formato="inteiro" />);
-    await act(async () => dispararTodos(0.6));
+    await entrarDepoisDeFora();
     await act(async () => {
       vi.advanceTimersByTime(1100);
     });
@@ -90,7 +133,7 @@ describe("NumeroQueConta", () => {
   it("cancela o quadro e o observador ao desmontar", async () => {
     const cancelar = vi.spyOn(window, "cancelAnimationFrame");
     const { unmount } = render(<NumeroQueConta valor={208296} formato="inteiro" />);
-    await act(async () => dispararTodos(0.6));
+    await entrarDepoisDeFora();
     await act(async () => {
       vi.advanceTimersByTime(100);
     });

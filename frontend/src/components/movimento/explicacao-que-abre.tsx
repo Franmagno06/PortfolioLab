@@ -4,6 +4,9 @@ import { useState, type ReactNode } from "react";
 
 // Por que existe: o número e a frase curta ficam sempre à vista para quem só quer o essencial;
 // a conta e a armadilha se abrem para quem quer entender, sem empurrar a página de uma vez.
+//
+// `rotulo` e `valor` moram DENTRO do <button>: só texto (string ou número já formatado), nunca
+// link, botão ou bloco. Por isso o tipo é estreito. Link e conteúdo rico vão no corpo ou no resumo.
 export function ExplicacaoQueAbre({
   id,
   rotulo,
@@ -12,8 +15,8 @@ export function ExplicacaoQueAbre({
   children,
 }: {
   id: string;
-  rotulo: ReactNode;
-  valor?: ReactNode;
+  rotulo: string | number;
+  valor?: string | number;
   resumo: ReactNode;
   children: ReactNode;
 }) {
