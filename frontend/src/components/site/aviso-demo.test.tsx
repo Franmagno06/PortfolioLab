@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api";
 import { AvisoDemo } from "./aviso-demo";
@@ -25,21 +25,54 @@ describe("AvisoDemo", () => {
     expect(api).toHaveBeenCalledWith("/auth/me");
   });
 
+  // Promessa controlada: o teste decide quando a resposta chega e esvazia a fila
+  // de microtarefas e o React antes de afirmar, para a ausência não ser vazia.
+  function controlada<T>() {
+    let resolver!: (v: T) => void;
+    let rejeitar!: (e: unknown) => void;
+    const promessa = new Promise<T>((res, rej) => {
+      resolver = res;
+      rejeitar = rej;
+    });
+    return { promessa, resolver, rejeitar };
+  }
+
+  it("com a mesma aparelhagem, demo:true mostra a faixa depois que a resposta chega", async () => {
+    const c = controlada<{ demo: boolean }>();
+    api.mockReturnValue(c.promessa);
+    render(<AvisoDemo />);
+    expect(screen.queryByText(/carteira de demonstração/)).toBeNull();
+
+    await act(async () => {
+      c.resolver({ demo: true });
+    });
+
+    expect(screen.queryByText(/carteira de demonstração/)).not.toBeNull();
+  });
+
   it("não mostra nada para uma conta normal", async () => {
-    api.mockResolvedValue({ demo: false });
+    const c = controlada<{ demo: boolean }>();
+    api.mockReturnValue(c.promessa);
     const { container } = render(<AvisoDemo />);
 
-    await waitFor(() => expect(api).toHaveBeenCalled());
-    await Promise.resolve();
+    await act(async () => {
+      c.resolver({ demo: false });
+    });
+
+    expect(api).toHaveBeenCalledWith("/auth/me");
     expect(container.textContent).toBe("");
   });
 
   it("não mostra nada quando a consulta falha", async () => {
-    api.mockRejectedValue(new ApiError("fora do ar", 500));
+    const c = controlada<{ demo: boolean }>();
+    api.mockReturnValue(c.promessa);
     const { container } = render(<AvisoDemo />);
 
-    await waitFor(() => expect(api).toHaveBeenCalled());
-    await Promise.resolve();
+    await act(async () => {
+      c.rejeitar(new ApiError("fora do ar", 500));
+    });
+
+    expect(api).toHaveBeenCalledWith("/auth/me");
     expect(container.textContent).toBe("");
   });
 });

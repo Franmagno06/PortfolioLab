@@ -133,17 +133,26 @@ test.describe("faixa da conta de demonstração", () => {
   const faixa = (page: Page) => page.getByText(/Você está na carteira de demonstração/);
 
   test("a demo mostra a faixa e recusa registrar transação com a mensagem do servidor", async ({ page }) => {
+    // Cotação simulada (forma real de GET /quotes/:ticker): o formulário só
+    // libera o envio depois da busca, e o teste não pode depender do Yahoo.
+    await page.route("**/api/quotes/**", (route) =>
+      route.fulfill({ json: { ticker: "PETR4", nome: "Petrobras PN", preco: 30, tipo: "ACAO" } }),
+    );
     await page.goto("/");
     await page.getByRole("button", { name: "Ver a demonstração" }).first().click();
     await expect(page).toHaveURL(/\/dashboard$/);
     await expect(faixa(page)).toBeVisible();
     await expect(page.getByRole("link", { name: "Criar minha conta" })).toHaveAttribute("href", "/registro");
 
-    await page.goto("/carteira");
+    // o layout continua montado entre as abas: a faixa acompanha
+    await abas(page).getByRole("link", { name: "Posições" }).click();
+    await expect(page).toHaveURL(/\/carteira$/);
+    await expect(faixa(page)).toBeVisible();
     await page.getByRole("button", { name: "Nova transação" }).click();
     await page.getByLabel(/^Ativo/).fill("PETR4");
     await page.getByLabel("Qtd.").fill("1");
     await page.getByLabel("Preço (R$)").fill("30");
+    await expect(page.getByText("Petrobras PN")).toBeVisible();
     await page.getByRole("button", { name: "Registrar compra" }).click();
 
     await expect(page.getByRole("alert").filter({ hasText: MENSAGEM_DA_DEMO })).toBeVisible();
@@ -156,7 +165,12 @@ test.describe("faixa da conta de demonstração", () => {
     });
     expect(registro.ok(), `registro: ${registro.status()} ${await registro.text()}`).toBeTruthy();
 
+    // espera a resposta de /auth/me ANTES de afirmar a ausência; senão a
+    // contagem 0 seria verdadeira no instante em que a página abre.
+    const me = page.waitForResponse((r) => r.url().includes("/api/auth/me"));
     await page.goto("/dashboard");
+    const resposta = await me;
+    expect((await resposta.json()).demo).toBe(false);
     await expect(page.getByRole("heading", { level: 1, name: "Resumo" })).toBeVisible();
     await expect(faixa(page)).toHaveCount(0);
   });
