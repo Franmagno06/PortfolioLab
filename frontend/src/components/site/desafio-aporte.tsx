@@ -174,7 +174,7 @@ export function DesafioAporte({ carteira }: { carteira: readonly AtivoExemplo[] 
                   </div>
                   <div className="h-2 overflow-hidden rounded-full bg-caderno">
                     <div
-                      className="h-full rounded-full transition-[width] duration-300 motion-reduce:transition-none"
+                      className="h-full rounded-full transition-[width] duration-300"
                       style={{ width: `${Math.min((pctDepois / ESCALA_PCT) * 100, 100)}%`, background: cor }}
                     />
                   </div>

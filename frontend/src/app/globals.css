@@ -83,7 +83,7 @@ body {
   font-size: 0.875rem;
   font-weight: 600;
   color: #fff;
-  transition: top 0.15s ease-in-out;
+  transition: top var(--duracao-rapida) var(--curva);
 }
 
 .pular-para-conteudo:focus {
@@ -142,7 +142,7 @@ html {
 }
 
 .reveal {
-  animation: fade-up 0.55s var(--curva) both;
+  animation: fade-up var(--duracao-entrada) var(--curva) both;
 }
 .reveal-2 {
   animation-delay: 0.07s;
@@ -183,7 +183,7 @@ html {
   }
 }
 .abrir-menu {
-  animation: abrir-menu 120ms ease-out both;
+  animation: abrir-menu var(--duracao-rapida) var(--curva) both;
 }
 
 /* Kit de movimento: tokens únicos. Nenhuma curva ou duração à mão fora deles. */
@@ -192,6 +192,7 @@ html {
   --duracao-media: 260ms;
   --duracao-lenta: 900ms;
   --duracao-grafico: 1100ms;
+  --duracao-entrada: 600ms;
   --curva: cubic-bezier(.2,.8,.2,1);
 }
 
@@ -205,7 +206,8 @@ html {
     border-color var(--duracao-media) var(--curva);
 }
 .interativo:hover,
-.interativo:focus-visible {
+.interativo:focus-visible,
+.interativo:has(:focus-visible) {
   transform: translateY(-3px);
   box-shadow: 0 10px 24px -12px color-mix(in srgb, var(--color-ink) 33%, transparent);
   border-color: color-mix(in srgb, var(--color-line) 70%, var(--color-ink));
@@ -218,7 +220,8 @@ html {
   transition: transform var(--duracao-media) var(--curva);
 }
 .interativo:hover .seta,
-.interativo:focus-visible .seta {
+.interativo:focus-visible .seta,
+.interativo:has(:focus-visible) .seta {
   transform: translateX(4px);
 }
 
@@ -228,13 +231,20 @@ html {
   opacity: 0;
   transform: translateY(16px);
   transition:
-    opacity 600ms var(--curva),
-    transform 600ms var(--curva);
+    opacity var(--duracao-entrada) var(--curva),
+    transform var(--duracao-entrada) var(--curva);
   transition-delay: var(--atraso, 0ms);
 }
 .revelar.visivel {
   opacity: 1;
   transform: none;
+}
+/* Sem JavaScript nada adicionaria .visivel: o conteúdo nunca fica invisível. */
+@media (scripting: none) {
+  .revelar {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 /*
