@@ -236,7 +236,7 @@ export default function SitePage() {
                 Comece pela carteira de demonstração
               </h2>
               <p className="mt-3 max-w-[560px] font-leitura text-lg leading-[30px] text-white/78">
-                {CONTA_DEMO.ativos} ativos reais e {CONTA_DEMO.transacoes} transações, prontos para você mexer
+                {CONTA_DEMO.ativos} ativos reais e {CONTA_DEMO.transacoes} transações, prontos para você explorar
                 antes de montar a sua.
               </p>
             </div>
