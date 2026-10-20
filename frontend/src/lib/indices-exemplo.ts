@@ -11,7 +11,10 @@
  * contas leem `DADOS_DE_EXEMPLO`, que tem o mesmo formato da resposta da API.
  */
 
-import { DATA_FINAL, type DadosDosIndices, type PontoSerie } from "./indices";
+import type { DadosDosIndices, PontoSerie } from "./indices";
+
+/** O último dia das séries de exemplo (o "hoje" da fixture do E2E e dos testes das contas). */
+export const DATA_FINAL = "2026-10-15";
 
 /** mulberry32: pequeno, rápido e com período suficiente para alguns milhares de sorteios. */
 function gerador(semente: number) {

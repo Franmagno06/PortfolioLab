@@ -63,15 +63,9 @@ export function provedorDaApi(dados: DadosDosIndices | null): ProvedorDeIndices 
     async listarIndices() {
       return INDICES;
     },
-    async getIndice(slug) {
-      return acharIndice(slug) ?? null;
-    },
     async getSerie(slug, periodo) {
       const indice = acharIndice(slug);
       return indice ? recortar(serieDoGrafico(slug, efetivos), periodo, indice.granularidade) : [];
-    },
-    async getDados() {
-      return efetivos;
     },
   };
 }

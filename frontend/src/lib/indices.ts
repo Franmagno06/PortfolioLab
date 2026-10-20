@@ -37,9 +37,6 @@ export type DadosDosIndices = {
   pontos: Record<"ibovespa" | "ifix" | "smll" | "sp500" | "idiv", PontoSerie[]>;
 };
 
-/** O último dia das séries de exemplo: a data de "atualizado em" de todas as páginas. */
-export const DATA_FINAL = "2026-10-15";
-
 export const SLUGS = ["selic", "ipca", "cdi", "ibovespa", "ifix", "smll", "sp500", "idiv"] as const;
 export type Slug = (typeof SLUGS)[number];
 
@@ -64,8 +61,6 @@ export type Indice = {
   /** "% a.a." para taxa anual, "%" para inflação, "pontos" para os índices de bolsa. */
   unidade: "% a.a." | "%" | "pontos";
   fonte: { nome: string; serie: string };
-  /** Data (AAAA-MM-DD) do último dado da série. */
-  atualizadoEm: string;
   /** Uma frase, para o card da listagem. */
   descricao: string;
   /** O que o índice é, em parágrafos curtos: o bloco em formato de artigo da ficha. */
@@ -112,7 +107,6 @@ export const INDICES: Indice[] = [
     tipo: "taxa",
     unidade: "% a.a.",
     fonte: { nome: "Banco Central do Brasil", serie: "SGS 432" },
-    atualizadoEm: DATA_FINAL,
     descricao: "Definida pelo Copom a cada cerca de 45 dias.",
     explicacao: [
       "Quando a Selic sobe, o crédito fica mais caro e a renda fixa passa a render mais; em geral, a bolsa perde parte do apelo. Quando cai, costuma acontecer o contrário. Por isso ela serve de termômetro para quase tudo o que se investe no Brasil.",
@@ -143,7 +137,6 @@ export const INDICES: Indice[] = [
     tipo: "taxa",
     unidade: "%",
     fonte: { nome: "IBGE, via Banco Central", serie: "SGS 13522 e 433" },
-    atualizadoEm: DATA_FINAL,
     descricao: "A inflação oficial do Brasil, medida pelo IBGE.",
     explicacao: [
       "O IPCA é a inflação oficial do Brasil, medida pelo IBGE. Ele mostra quanto subiram os preços de uma cesta de produtos e serviços que as famílias compram. Se a sua renda e os seus investimentos não acompanham, você perde poder de compra.",
@@ -177,7 +170,6 @@ export const INDICES: Indice[] = [
     tipo: "taxa",
     unidade: "% a.a.",
     fonte: { nome: "B3, via Banco Central", serie: "SGS 4389" },
-    atualizadoEm: DATA_FINAL,
     descricao: "A régua da renda fixa.",
     explicacao: [
       "O CDI é a taxa dos empréstimos de um dia entre bancos e anda quase colado na Selic. Por isso ele é a régua da renda fixa: CDB, LCI e LCA costumam prometer “tantos % do CDI”.",
@@ -208,7 +200,6 @@ export const INDICES: Indice[] = [
     tipo: "pontos",
     unidade: "pontos",
     fonte: { nome: "B3", serie: "Ibovespa" },
-    atualizadoEm: DATA_FINAL,
     descricao: "As ações mais negociadas da B3.",
     explicacao: [
       "O Ibovespa é o principal índice da bolsa brasileira. Ele funciona como uma carteira de referência com as ações mais negociadas da B3 e mostra, em pontos, se o conjunto delas está subindo ou caindo.",
@@ -236,7 +227,6 @@ export const INDICES: Indice[] = [
     tipo: "pontos",
     unidade: "pontos",
     fonte: { nome: "B3", serie: "IFIX" },
-    atualizadoEm: DATA_FINAL,
     descricao: "Os fundos imobiliários mais negociados da B3.",
     explicacao: [
       "O IFIX mede o desempenho dos fundos imobiliários mais negociados da B3. É o “Ibovespa dos FIIs”: mostra, em pontos, se o conjunto desses fundos está valorizando ou não.",
@@ -264,7 +254,6 @@ export const INDICES: Indice[] = [
     tipo: "pontos",
     unidade: "pontos",
     fonte: { nome: "B3", serie: "SMLL" },
-    atualizadoEm: DATA_FINAL,
     descricao: "As empresas menores da bolsa.",
     explicacao: [
       "O Small Caps (SMLL) acompanha as empresas de menor valor de mercado da bolsa brasileira. Elas costumam oscilar mais que as gigantes, para cima e para baixo.",
@@ -292,7 +281,6 @@ export const INDICES: Indice[] = [
     tipo: "pontos",
     unidade: "pontos",
     fonte: { nome: "S&P Dow Jones Indices", serie: "S&P 500" },
-    atualizadoEm: DATA_FINAL,
     descricao: "500 grandes empresas dos EUA.",
     explicacao: [
       "O S&P 500 reúne cerca de 500 das maiores empresas listadas nos Estados Unidos e é a principal referência da bolsa americana. O valor é em pontos, calculado em dólares.",
@@ -320,7 +308,6 @@ export const INDICES: Indice[] = [
     tipo: "pontos",
     unidade: "pontos",
     fonte: { nome: "B3", serie: "IDIV" },
-    atualizadoEm: DATA_FINAL,
     descricao: "Empresas que distribuem mais proventos.",
     explicacao: [
       "O Índice de Dividendos (IDIV) acompanha as empresas da bolsa que mais distribuíram proventos aos acionistas, em relação ao preço das ações, nos últimos anos.",
@@ -555,16 +542,13 @@ export function marcasDoEixoX(serie: PontoSerie[], granularidade: Granularidade)
 }
 
 // =============================================================================================
-// O provedor: a única porta pela qual as páginas pegam dados. Assíncrono já agora, para a troca
-// por uma API não mudar nenhuma página.
+// O provedor: a lista dos índices e a série do gráfico de cada um, a partir da resposta da API
+// (provedorDaApi em indices-dados.ts). As fichas acham o índice com acharIndice.
 
 export interface ProvedorDeIndices {
   listarIndices(): Promise<Indice[]>;
-  getIndice(slug: string): Promise<Indice | null>;
   /** A série que o gráfico do índice mostra, recortada no período. */
   getSerie(slug: Slug, periodo: Periodo): Promise<PontoSerie[]>;
-  /** Todas as séries, para as contas que precisam de mais que a série do gráfico. */
-  getDados(): Promise<DadosDosIndices>;
 }
 
 // =============================================================================================
