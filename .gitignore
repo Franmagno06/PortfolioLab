@@ -28,3 +28,5 @@ relatorios-para-teste/*.pdf
 .claude/skills/review-animations
 .agents/
 docs/superpowers/
+# Área de trabalho do plugin superpowers (ledgers, esboços, chaves de sessão do navegador de esboços)
+.superpowers/
