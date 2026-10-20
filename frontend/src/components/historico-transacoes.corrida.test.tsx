@@ -58,76 +58,41 @@ async function abrirConfirmacao(indice = 0) {
 
 const botaoMais = () => screen.getByRole("button", { name: "Carregar mais" }) as HTMLButtonElement;
 
-describe("Carregar mais e DELETE ao mesmo tempo", () => {
-  it("a página chega ANTES do DELETE: a página 2 não some e o cursor segue o dela", async () => {
+describe("Carregar mais e DELETE: um de cada vez", () => {
+  it("Confirmar fica desabilitado enquanto a página carrega: clicar não dispara DELETE", async () => {
     const pagina = controlada<unknown>();
-    const exclusao = controlada<undefined>();
     api.mockResolvedValueOnce(primeiraPagina);
-    api.mockReturnValueOnce(pagina.promessa); // carregar mais
-    api.mockReturnValueOnce(exclusao.promessa); // DELETE t1
-    api.mockResolvedValueOnce({ itens: [t4], proximoCursor: null });
+    api.mockReturnValueOnce(pagina.promessa);
     render(<HistoricoTransacoes aoApagar={vi.fn()} />);
     await abrirConfirmacao(); // t1 em confirmação
+    const confirmar = screen.getByRole("button", { name: "Apagar" }) as HTMLButtonElement;
+    expect(confirmar.disabled).toBe(false); // gêmeo: sem página pendente, habilitado
     await clicar(botaoMais());
-    await clicar(screen.getByRole("button", { name: "Apagar" })); // confirma durante a espera
+    expect(confirmar.disabled).toBe(true);
+    await clicar(confirmar);
+    expect(api.mock.calls.filter((c) => c[1]?.method === "DELETE")).toHaveLength(0);
 
     await act(async () => {
       pagina.resolver({ itens: [t3], proximoCursor: "t3" });
     });
-    await act(async () => {
-      exclusao.resolver(undefined);
-    });
-
-    expect(tickersNaTela()).toEqual(["VALE3", "ITUB4"]);
-    await clicar(botaoMais());
-    expect(api).toHaveBeenLastCalledWith("/transactions?limite=20&cursor=t3");
-    expect(tickersNaTela()).toEqual(["VALE3", "ITUB4", "BBAS3"]);
+    expect((screen.getByRole("button", { name: "Apagar" }) as HTMLButtonElement).disabled).toBe(false);
   });
 
-  it("o DELETE chega ANTES da página atrasada: ela não traz a linha apagada nem um cursor apagado", async () => {
+  it("confirmação aberta na linha do cursor: carrega a página, e só depois apagar mantém o cursor da página", async () => {
     const pagina = controlada<unknown>();
-    const exclusao = controlada<undefined>();
-    api.mockResolvedValueOnce(primeiraPagina);
-    api.mockReturnValueOnce(pagina.promessa);
-    api.mockReturnValueOnce(exclusao.promessa);
-    api.mockResolvedValueOnce({ itens: [t4], proximoCursor: null });
-    render(<HistoricoTransacoes aoApagar={vi.fn()} />);
-    await abrirConfirmacao();
-    await clicar(botaoMais());
-    await clicar(screen.getByRole("button", { name: "Apagar" }));
-
-    await act(async () => {
-      exclusao.resolver(undefined);
-    });
-    // resposta velha: repete a linha apagada (t1) e aponta o cursor para ela
-    await act(async () => {
-      pagina.resolver({ itens: [t1, t3], proximoCursor: "t1" });
-    });
-
-    expect(tickersNaTela()).toEqual(["VALE3", "ITUB4"]);
-    // o cursor recuou para o último item vivo, e o botão continua existindo
-    await clicar(botaoMais());
-    expect(api).toHaveBeenLastCalledWith("/transactions?limite=20&cursor=t3");
-  });
-
-  it("apagar o item do cursor com a página pendente: o cursor final é o da página que chegou", async () => {
-    const pagina = controlada<unknown>();
-    const exclusao = controlada<undefined>();
     api.mockResolvedValueOnce(primeiraPagina); // cursor t2
     api.mockReturnValueOnce(pagina.promessa);
-    api.mockReturnValueOnce(exclusao.promessa); // DELETE t2
+    api.mockResolvedValueOnce(undefined); // DELETE t2
     api.mockResolvedValueOnce({ itens: [t4], proximoCursor: null });
     render(<HistoricoTransacoes aoApagar={vi.fn()} />);
     await screen.findByText("VALE3 S.A.");
     fireEvent.click(screen.getAllByRole("button", { name: /^Apagar/ })[1]!); // confirmação em t2
     await clicar(botaoMais());
-    await clicar(screen.getByRole("button", { name: "Apagar" }));
-    await act(async () => {
-      exclusao.resolver(undefined);
-    });
+    await clicar(screen.getByRole("button", { name: "Apagar" })); // desabilitado: nada acontece
     await act(async () => {
       pagina.resolver({ itens: [t3], proximoCursor: "t3" });
     });
+    await clicar(screen.getByRole("button", { name: "Apagar" }));
 
     expect(tickersNaTela()).toEqual(["PETR4", "ITUB4"]);
     await clicar(botaoMais());
@@ -246,7 +211,9 @@ describe("foco, cursor, URL e copy", () => {
     const grupo = screen.getByRole("group");
     const pergunta = document.getElementById(grupo.getAttribute("aria-labelledby")!)!;
     expect(pergunta.textContent).toMatch(/^Apagar esta compra de 10 PETR4/);
-    expect(screen.getByRole("button", { name: "Cancelar" }).getAttribute("aria-describedby")).toBe(pergunta.id);
+    // uma só ligação com a pergunta (o grupo); nos botões repetiria a leitura
+    expect(screen.getByRole("button", { name: "Cancelar" }).getAttribute("aria-describedby")).toBeNull();
+    expect(screen.getByRole("group", { name: pergunta.textContent! })).toBe(grupo);
   });
 
   it.each([
@@ -258,5 +225,36 @@ describe("foco, cursor, URL e copy", () => {
     render(<HistoricoTransacoes aoApagar={vi.fn()} />);
     await abrirConfirmacao();
     expect(screen.getByText(esperado)).toBeTruthy();
+  });
+});
+
+describe("recarga da primeira página depois de apagar o único item do cursor", () => {
+  it("mostra o carregando, e não o vazio, enquanto a recarga roda", async () => {
+    const recarga = controlada<unknown>();
+    api.mockResolvedValueOnce({ itens: [t1], proximoCursor: "t1" });
+    api.mockResolvedValueOnce(undefined); // DELETE t1
+    api.mockReturnValueOnce(recarga.promessa);
+    render(<HistoricoTransacoes aoApagar={vi.fn()} />);
+    await abrirConfirmacao();
+    await clicar(screen.getByRole("button", { name: "Apagar" }));
+
+    expect(screen.queryByText("Você ainda não registrou transações")).toBeNull();
+    expect(screen.getByLabelText("Carregando histórico")).toBeTruthy();
+
+    await act(async () => {
+      recarga.resolver({ itens: [t3], proximoCursor: null });
+    });
+    expect(tickersNaTela()).toEqual(["ITUB4"]);
+    expect(screen.queryByLabelText("Carregando histórico")).toBeNull();
+  });
+
+  it("gêmeo: se a recarga vem vazia de verdade, aí sim aparece o estado vazio", async () => {
+    api.mockResolvedValueOnce({ itens: [t1], proximoCursor: "t1" });
+    api.mockResolvedValueOnce(undefined);
+    api.mockResolvedValueOnce({ itens: [], proximoCursor: null });
+    render(<HistoricoTransacoes aoApagar={vi.fn()} />);
+    await abrirConfirmacao();
+    await clicar(screen.getByRole("button", { name: "Apagar" }));
+    expect(screen.getByText("Você ainda não registrou transações")).toBeTruthy();
   });
 });

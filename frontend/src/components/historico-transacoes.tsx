@@ -70,6 +70,8 @@ export function HistoricoTransacoes({ aoApagar }: Props) {
   const [erroLista, setErroLista] = useState<string | null>(null);
   const [erroMais, setErroMais] = useState<string | null>(null);
   const [carregandoMais, setCarregandoMais] = useState(false);
+  // recarga da primeira página em andamento: não é hora de dizer "lista vazia"
+  const [recarregando, setRecarregando] = useState(false);
 
   const [confirmando, setConfirmando] = useState<string | null>(null);
   const [apagando, setApagando] = useState<string | null>(null);
@@ -91,14 +93,16 @@ export function HistoricoTransacoes({ aoApagar }: Props) {
     api<Pagina<Transacao>>(`/transactions?limite=${POR_PAGINA}`)
       .then((p) => {
         setErroLista(null);
+        setRecarregando(false);
         definirLista({
           itens: p.itens.filter((t) => !apagados.current.has(t.id)),
           cursor: p.proximoCursor,
         });
       })
-      .catch((err) =>
-        setErroLista(err instanceof ApiError ? err.message : "Falha ao carregar o histórico"),
-      );
+      .catch((err) => {
+        setRecarregando(false);
+        setErroLista(err instanceof ApiError ? err.message : "Falha ao carregar o histórico");
+      });
   }, [definirLista]);
 
   useEffect(() => {
@@ -131,6 +135,9 @@ export function HistoricoTransacoes({ aoApagar }: Props) {
       const p = await api<Pagina<Transacao>>(
         `/transactions?limite=${POR_PAGINA}&cursor=${encodeURIComponent(cursor)}`,
       );
+      // O cursor desta requisição foi apagado durante a espera: o servidor, sem o ponto de
+      // partida, devolve lista vazia e cursor nulo. Resposta descartada; vale o cursor atual.
+      if (apagados.current.has(cursor)) return;
       // parte da lista de AGORA, que pode ter perdido linhas durante a espera
       const atual = listaRef.current ?? { itens: [], cursor: null };
       const ids = new Set(atual.itens.map((t) => t.id));
@@ -161,7 +168,7 @@ export function HistoricoTransacoes({ aoApagar }: Props) {
   }
 
   async function confirmar(t: Transacao) {
-    if (apagando) return;
+    if (apagando || carregandoMais) return;
     setApagando(t.id);
     try {
       await api(`/transactions/${encodeURIComponent(t.id)}`, { method: "DELETE" });
@@ -194,7 +201,10 @@ export function HistoricoTransacoes({ aoApagar }: Props) {
       }
       definirLista({ itens, cursor });
     }
-    if (recomecar) carregarInicio();
+    if (recomecar) {
+      setRecarregando(true);
+      carregarInicio();
+    }
     setConfirmando(null);
     setApagando(null);
     setAviso(`${descricao(t)} apagada.`);
@@ -238,7 +248,7 @@ export function HistoricoTransacoes({ aoApagar }: Props) {
             Tentar de novo
           </Botao>
         </div>
-      ) : !itens ? (
+      ) : !itens || recarregando ? (
         <div className="space-y-2" aria-busy="true" aria-label="Carregando histórico">
           {[0, 1, 2].map((i) => (
             <div key={i} className="h-16 animate-pulse rounded-md border border-line bg-card" />
@@ -342,8 +352,7 @@ export function HistoricoTransacoes({ aoApagar }: Props) {
                         <Botao
                           variante="perigo"
                           className="min-h-11 min-w-28"
-                          disabled={apagando === t.id}
-                          aria-describedby={`pergunta-${t.id}`}
+                          disabled={apagando === t.id || carregandoMais}
                           onClick={() => confirmar(t)}
                         >
                           {apagando === t.id ? "Apagando…" : "Apagar"}
@@ -352,7 +361,6 @@ export function HistoricoTransacoes({ aoApagar }: Props) {
                           variante="secundario"
                           className="min-h-11 min-w-28"
                           disabled={apagando === t.id}
-                          aria-describedby={`pergunta-${t.id}`}
                           onClick={() => cancelar(t.id)}
                           ref={cancelarRef}
                         >
