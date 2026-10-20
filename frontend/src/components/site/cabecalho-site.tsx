@@ -6,7 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { IconeFechar, IconeMenu } from "@/components/ui/icones";
 import { Marca, Wordmark } from "@/components/ui/marca";
-import { api } from "@/lib/api";
+import { api, cancelarSaida, iniciarSaida } from "@/lib/api";
 import {
   NAVEGACAO,
   ROTAS,
@@ -179,7 +179,14 @@ function DestaqueDoPainel({ destaque }: { destaque: Destaque }) {
 function useSair() {
   const router = useRouter();
   return async () => {
-    await api("/auth/logout", { method: "POST" });
+    iniciarSaida();
+    try {
+      await api("/auth/logout", { method: "POST" });
+    } catch (erro) {
+      // continua logado: um 401 daqui em diante volta a ser sessão morta
+      cancelarSaida();
+      throw erro;
+    }
     // a simulação guardada é desta conta: a próxima pessoa na aba não a vê
     esquecerSimulacao();
     router.push(ROTAS.inicio);

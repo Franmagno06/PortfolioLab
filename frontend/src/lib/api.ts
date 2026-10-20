@@ -23,6 +23,24 @@ export class ApiError extends Error {
 const SEM_REDIRECIONAR = ["/auth/login", "/auth/register"];
 
 /**
+ * A pessoa clicou em "Sair". O logout apaga o cookie, mas a página ainda
+ * montada pode disparar mais uma chamada (os painéis carregam em cascata) e
+ * ela volta 401. Isso não é sessão morta: sem este marcador, o 401 levaria ao
+ * login com o aviso "sua sessão expirou", em vez de à página inicial.
+ *
+ * Vale até um login bem-sucedido (ou até o logout falhar, `cancelarSaida`).
+ */
+let saindo = false;
+
+export function iniciarSaida(): void {
+  saindo = true;
+}
+
+export function cancelarSaida(): void {
+  saindo = false;
+}
+
+/**
  * Sessão caiu: apaga o cookie e manda para o login.
  *
  * Existe por causa de um travamento real. O proxy do Next só sabe se o cookie
@@ -38,7 +56,7 @@ const SEM_REDIRECIONAR = ["/auth/login", "/auth/register"];
  * Next) para o proxy reavaliar já sem o cookie.
  */
 async function encerrarSessao(): Promise<void> {
-  if (typeof window === "undefined") return;
+  if (typeof window === "undefined" || saindo) return;
   // Best-effort: se o backend estiver fora, o marcador na URL ainda garante
   // que a tela de login é alcançável.
   await fetch("/api/auth/logout", { method: "POST" }).catch(() => undefined);
@@ -82,6 +100,9 @@ export async function api<T>(path: string, options?: RequestInit): Promise<T> {
     }
     throw new ApiError(body?.error ?? "Erro inesperado, tente novamente", res.status);
   }
+
+  // entrou de novo na mesma aba: a próxima sessão morta volta a redirecionar
+  if (path === "/auth/login") cancelarSaida();
 
   return body as T;
 }

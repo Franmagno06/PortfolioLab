@@ -149,7 +149,9 @@ test.describe("faixa da conta de demonstração", () => {
     await expect(page).toHaveURL(/\/carteira$/);
     await expect(faixa(page)).toBeVisible();
     await page.getByRole("button", { name: "Nova transação" }).click();
-    await page.getByLabel(/^Ativo/).fill("PETR4");
+    // o formulário tem um select "Ativo" e o campo de texto do ticker: o rótulo
+    // sozinho casa com os dois, então o campo certo é o do texto
+    await page.getByRole("textbox", { name: /^Ativo/ }).fill("PETR4");
     await page.getByLabel("Qtd.").fill("1");
     await page.getByLabel("Preço (R$)").fill("30");
     await expect(page.getByText("Petrobras PN")).toBeVisible();
@@ -164,6 +166,9 @@ test.describe("faixa da conta de demonstração", () => {
       data: { name: "Conta normal", email, password: "senha-forte-123" },
     });
     expect(registro.ok(), `registro: ${registro.status()} ${await registro.text()}`).toBeTruthy();
+    // o cadastro não grava o cookie de sessão (só o login grava)
+    const login = await page.request.post("/api/auth/login", { data: { email, password: "senha-forte-123" } });
+    expect(login.ok(), `login: ${login.status()} ${await login.text()}`).toBeTruthy();
 
     // espera a resposta de /auth/me ANTES de afirmar a ausência; senão a
     // contagem 0 seria verdadeira no instante em que a página abre.
