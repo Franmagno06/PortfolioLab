@@ -17,5 +17,14 @@ relatorios-para-teste/*.pdf
 .claude/skills/web-design-guidelines
 .claude/skills/accessibility
 .claude/skills/playwright-best-practices
+# Skills de movimento do Emil Kowalski (emilkowalski/skill), reinstaláveis pelo skills-lock.json
+.claude/skills/animate
+.claude/skills/animation-performance
+.claude/skills/animation-vocabulary
+.claude/skills/emil-design-eng
+.claude/skills/find-animation-opportunities
+.claude/skills/improve-animations
+.claude/skills/mobile-native
+.claude/skills/review-animations
 .agents/
 docs/superpowers/
