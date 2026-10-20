@@ -48,6 +48,19 @@ describe("NumeroQueConta", () => {
     expect(pedirQuadro).not.toHaveBeenCalled();
   });
 
+  it("parcialmente visível na primeira leitura (40%, limiar 50%), fica no final e não conta nem depois", async () => {
+    const pedirQuadro = vi.spyOn(window, "requestAnimationFrame");
+    const { container } = render(<NumeroQueConta valor={208296} formato="inteiro" />);
+    await act(async () => dispararTodos(0.4));
+    expect(partes(container).visivel.textContent).toBe("208.296");
+    await act(async () => dispararTodos(0.6));
+    await act(async () => {
+      vi.advanceTimersByTime(1200);
+    });
+    expect(partes(container).visivel.textContent).toBe("208.296");
+    expect(pedirQuadro).not.toHaveBeenCalled();
+  });
+
   it("visto fora primeiro e depois a 60%, conta até o valor final em 1100 ms", async () => {
     const { container } = render(<NumeroQueConta valor={208296} formato="inteiro" />);
     await act(async () => dispararTodos(0));

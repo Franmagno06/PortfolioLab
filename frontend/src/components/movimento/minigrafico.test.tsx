@@ -71,6 +71,17 @@ describe("Minigrafico", () => {
     expect(path().classList.contains("tracar-espera")).toBe(false);
   });
 
+  it("parcialmente visível na primeira leitura (40%), a linha fica inteira e não se desenha depois", async () => {
+    const { container } = render(<Minigrafico valores={VALORES} rotulo="Ibovespa" />);
+    const path = () => container.querySelector("path") as SVGPathElement;
+    await act(async () => dispararTodos(0.4));
+    expect(path().classList.contains("tracar-espera")).toBe(false);
+    expect(path().classList.contains("tracar")).toBe(false);
+    await act(async () => dispararTodos(0.6));
+    expect(path().classList.contains("tracar-espera")).toBe(false);
+    expect(path().classList.contains("tracar")).toBe(false);
+  });
+
   it("sem IntersectionObserver, a linha aparece inteira", () => {
     vi.stubGlobal("IntersectionObserver", undefined);
     const { container } = render(<Minigrafico valores={VALORES} rotulo="Ibovespa" />);

@@ -43,6 +43,18 @@ describe("Revelar", () => {
     expect(caixa().classList.contains("visivel")).toBe(true);
   });
 
+  it("parcialmente visível ao carregar (10%) ainda ganha .visivel ao chegar a 30%", async () => {
+    render(
+      <Revelar>
+        <p>conteúdo</p>
+      </Revelar>,
+    );
+    await act(async () => dispararTodos(0.1));
+    expect(caixa().classList.contains("visivel")).toBe(false);
+    await act(async () => dispararTodos(0.35));
+    expect(caixa().classList.contains("visivel")).toBe(true);
+  });
+
   it("atrasoMs vira a variável --atraso", () => {
     render(
       <Revelar atrasoMs={90} className="grid gap-4">

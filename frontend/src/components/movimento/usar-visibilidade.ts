@@ -33,8 +33,8 @@ function chegouAoLimiar(entrada: IntersectionObserverEntry, limiar: number): boo
  * Observa um elemento até ele entrar na tela uma vez e então desliga o observador.
  * `ativo = false` adia a observação (ex.: o elemento ainda não foi renderizado).
  *
- * O terceiro valor, `passouPorFora`, diz se alguma leitura viu o elemento fora da tela antes
- * de ele entrar. Só nesse caso faz sentido animar a chegada: o que já estava à vista na
+ * O terceiro valor, `passouPorFora`, diz se alguma leitura viu o elemento inteiramente fora da
+ * tela (nenhum pixel visível) antes de ele entrar. Só nesse caso faz sentido animar a chegada: o que já estava à vista na
  * primeira leitura foi visto com o valor final, e animar daria um "pisca" (some e volta).
  */
 export function useVisibilidade<T extends Element>(
@@ -71,7 +71,9 @@ export function useVisibilidade<T extends Element>(
           setLida("entrou");
         } else {
           setLida("fora");
-          setPassouPorFora(true);
+          // Só conta como "visto fora" o que não aparece NADA na tela. Um elemento parcialmente
+          // visível (ex.: na dobra, 40% com limiar de 50%) já foi visto com o valor final.
+          if (!entrada.isIntersecting) setPassouPorFora(true);
         }
       },
       { threshold: LIMIARES.includes(limiar) ? LIMIARES : [...LIMIARES, limiar] },

@@ -26,10 +26,11 @@ export function Minigrafico({
 
   // Só se desenha o que foi visto fora da tela antes: a linha que já estava à vista na primeira
   // leitura fica inteira, sem sumir e redesenhar.
-  const classeDoTraco =
-    visibilidade === "fora"
+  const classeDoTraco = !passouPorFora
+    ? undefined
+    : visibilidade === "fora"
       ? "tracar-espera"
-      : visibilidade === "entrou" && passouPorFora
+      : visibilidade === "entrou"
         ? "tracar"
         : undefined;
 
