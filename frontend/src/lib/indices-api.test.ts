@@ -37,3 +37,35 @@ describe("leitura dos dados dos índices", () => {
     await expect(lerDadosDosIndices()).resolves.toBeNull();
   });
 });
+
+describe("prazo da leitura", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it("sem opção, o prazo é de 20 s (o das páginas de índices)", async () => {
+    const timeout = vi.spyOn(AbortSignal, "timeout");
+    fetchFalso.mockResolvedValue(resposta(DADOS_DE_EXEMPLO));
+    await lerDadosDosIndices();
+    expect(timeout).toHaveBeenCalledWith(20_000);
+  });
+
+  it("prazoMs troca o prazo (a home usa 5 s)", async () => {
+    const timeout = vi.spyOn(AbortSignal, "timeout");
+    fetchFalso.mockResolvedValue(resposta(DADOS_DE_EXEMPLO));
+    await lerDadosDosIndices({ prazoMs: 5_000 });
+    expect(timeout).toHaveBeenCalledWith(5_000);
+  });
+
+  it("API que não responde: passado o prazo, vira null em vez de esperar para sempre", async () => {
+    // fetch que só termina quando o sinal aborta, como o de verdade
+    fetchFalso.mockImplementation(
+      (_url: string, opcoes: RequestInit) =>
+        new Promise((_resolve, reject) => {
+          opcoes.signal?.addEventListener("abort", () => reject(opcoes.signal?.reason));
+        }),
+    );
+    const inicio = Date.now();
+
+    await expect(lerDadosDosIndices({ prazoMs: 50 })).resolves.toBeNull();
+    expect(Date.now() - inicio).toBeLessThan(2_000);
+  });
+});

@@ -14,11 +14,15 @@ const REVALIDAR_EM_SEGUNDOS = Number(process.env.ATIVOS_REVALIDAR_S ?? 120);
 /** O backend responde em até 15 s quando o Banco Central está lento. */
 const TEMPO_LIMITE_MS = 20_000;
 
-export async function lerDadosDosIndices(): Promise<DadosDosIndices | null> {
+/**
+ * `prazoMs` encurta a espera: a home usa 5 s, porque lá os números do mês têm o conjunto fixo como
+ * reserva e não vale segurar o visitante; as páginas de índices esperam os 20 s.
+ */
+export async function lerDadosDosIndices({ prazoMs = TEMPO_LIMITE_MS }: { prazoMs?: number } = {}): Promise<DadosDosIndices | null> {
   try {
     const res = await fetch(`${API_URL}/indices/dados`, {
       next: { revalidate: REVALIDAR_EM_SEGUNDOS },
-      signal: AbortSignal.timeout(TEMPO_LIMITE_MS),
+      signal: AbortSignal.timeout(prazoMs),
     });
     if (!res.ok) return null;
     return (await res.json()) as DadosDosIndices;

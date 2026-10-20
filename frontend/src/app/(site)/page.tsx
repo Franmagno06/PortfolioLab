@@ -1,18 +1,22 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Suspense } from "react";
 import { AtivoAnotado, PainelDeCriterios } from "@/components/site/ativo-anotado";
 import { BotaoDemo } from "@/components/site/botao-demo";
 import { CabecalhoSite } from "@/components/site/cabecalho-site";
 import { DesafioAporte } from "@/components/site/desafio-aporte";
 import { FolhaDoAporte } from "@/components/site/folha-do-aporte";
+import { NumerosDoMesAoVivo, NumerosDoMesFixos } from "@/components/site/numeros-do-mes";
 import { RodapeSite } from "@/components/site/rodape-site";
 import { APORTE_DO_DESAFIO, CARTEIRA_DE_NOVEMBRO } from "@/lib/carteira-exemplo";
-import { brlSemCentavos, numero, percentual } from "@/lib/format";
+import { brlSemCentavos } from "@/lib/format";
 import { ROTAS } from "@/lib/navegacao";
-import { lerDadosDosIndices } from "@/lib/indices-api";
-import { CONTA_DEMO, juroReal, NUMEROS_DO_MES, numerosDoMes, TRILHAS } from "@/lib/site-dados";
+import { CONTA_DEMO, NUMEROS_DO_MES, TRILHAS } from "@/lib/site-dados";
 
-/** Os números do mês vêm do Banco Central e do Yahoo a cada visita (a leitura guarda a resposta por 2 min). */
+/**
+ * Os números do mês vêm do Banco Central e do Yahoo a cada visita (a leitura guarda a resposta por 2 min).
+ * Só a seção deles espera o backend: ela chega por streaming, sob <Suspense>, e o resto abre na hora.
+ */
 export const revalidate = 0;
 
 export const metadata: Metadata = {
@@ -25,7 +29,7 @@ export const metadata: Metadata = {
  * Página inicial v2 — "caderno de laboratório". Um único recurso marcante: as
  * anotações na margem, em Literata itálico roxo, ao lado de cada número real.
  * O resto é calmo e textual. Nada aqui depende de quem vê. Os números do mês vêm
- * dos índices reais (numerosDoMes) e caem nos fixos se a leitura falhar; o
+ * dos índices reais (components/site/numeros-do-mes) e caem nos fixos se a leitura falhar; o
  * resto sai de lib/site-dados e lib/carteira-exemplo, formatados só por lib/format.
  */
 
@@ -35,12 +39,6 @@ const tituloDeSecao =
 const apoioDeSecao = "font-leitura text-lg leading-[30px] text-ink-2";
 const linkClaro =
   "px-0.5 py-3 text-base font-semibold text-white underline decoration-1 underline-offset-4 hover:text-white/78";
-
-const DEFINICOES = [
-  { termo: "Selic", definicao: "A taxa básica de juros do país, definida pelo Copom a cada 45 dias." },
-  { termo: "IPCA", definicao: "A inflação oficial, medida pelo IBGE. Render menos que ela é perder poder de compra." },
-  { termo: "Juro real", definicao: "O que sobra do rendimento depois de descontar a inflação." },
-];
 
 const FERRAMENTAS = [
   {
@@ -63,11 +61,7 @@ const FERRAMENTAS = [
   },
 ];
 
-export default async function SitePage() {
-  const numeros = numerosDoMes(await lerDadosDosIndices());
-  const { selic, ipca12m, ipcaReferencia, ibovespa, ifix, rotulo, fechamento, mesAnterior, aoVivo } = numeros;
-  const variacaoIbovespa = ibovespa.variacaoNoMes;
-
+export default function SitePage() {
   return (
     <>
       <a href="#conteudo" className="pular-para-conteudo">
@@ -118,60 +112,9 @@ export default async function SitePage() {
         </section>
 
         {/* ── 2. Os números do mês ───────────────────────────────────── */}
-        <section aria-labelledby="titulo-numeros" className="bg-card">
-          <div
-            className={`${recipiente} grid gap-8 pt-16 pb-20 lg:grid-cols-[232px_1fr] lg:gap-16 lg:pt-[168px] lg:pb-[104px]`}
-          >
-            <div>
-              {/* h2 com cara de legenda: mantém a ordem dos títulos sem virar título grande */}
-              <h2 id="titulo-numeros" className="text-[15px] font-semibold text-ink">
-                Os números de {rotulo}
-              </h2>
-              <p className="mt-1.5 text-[13px] leading-[19px] text-mute">
-                {aoVivo ? (
-                  <>
-                    Fechamento de {fechamento}; IPCA em 12 meses até {ipcaReferencia}. Fontes: Banco Central, IBGE e
-                    B3, via Yahoo Finance. Cotação com atraso de cerca de 15 minutos.
-                  </>
-                ) : (
-                  <>
-                    Referência fixa de {fechamento}, não atualizada ao vivo; IPCA em 12 meses até {ipcaReferencia}.
-                    Fontes: Banco Central, IBGE e B3.
-                  </>
-                )}
-              </p>
-            </div>
-
-            <div className="max-w-[820px]">
-              <p className="font-leitura text-2xl leading-[35px] tracking-[-0.005em] text-ink lg:text-[32px] lg:leading-[47px]">
-                A Selic está em <strong className="font-semibold">{percentual(selic, 2)} ao ano</strong> e a
-                inflação dos últimos 12 meses, em <strong className="font-semibold">{percentual(ipca12m, 2)}</strong>.
-                Descontada a inflação, a renda fixa rende{" "}
-                <strong className="font-semibold">
-                  perto de {percentual(Math.round(juroReal(selic, ipca12m)), 0)} ao ano
-                </strong>
-                . É a régua que qualquer outro investimento precisa superar.
-              </p>
-
-              <dl className="mt-10 grid gap-8 sm:grid-cols-3">
-                {DEFINICOES.map((d) => (
-                  <div key={d.termo} className="border-t border-pauta pt-4">
-                    <dt className="text-[15px] font-semibold text-ink">{d.termo}</dt>
-                    <dd className="mt-1.5 text-sm leading-[21px] text-ink-2">{d.definicao}</dd>
-                  </div>
-                ))}
-              </dl>
-
-              <p className="mt-10 text-[15px] leading-[23px] text-ink-2">
-                Na bolsa, o Ibovespa fechou em {numero(ibovespa.pontos)} pontos,{" "}
-                {variacaoIbovespa === null
-                  ? ""
-                  : `${percentual(Math.abs(variacaoIbovespa), 2)} ${variacaoIbovespa >= 0 ? "acima" : "abaixo"} do fim de ${mesAnterior}, `}
-                e o IFIX, índice dos fundos imobiliários, em {numero(ifix.pontos)} pontos.
-              </p>
-            </div>
-          </div>
-        </section>
+        <Suspense fallback={<NumerosDoMesFixos />}>
+          <NumerosDoMesAoVivo />
+        </Suspense>
 
         {/* ── 3. Por onde começar ────────────────────────────────────── */}
         <section aria-labelledby="titulo-comecar" className="bg-caderno">
