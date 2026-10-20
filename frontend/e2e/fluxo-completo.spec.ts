@@ -54,4 +54,19 @@ test("registrar, lançar transação e simular aporte", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "O que comprar" })).toBeVisible({
     timeout: 15_000,
   });
+
+  // O lançamento aparece no histórico e pode ser apagado: a posição some da tabela.
+  await page.goto("/carteira");
+  const historico = page.getByRole("region", { name: "Histórico de transações" });
+  const linha = historico.getByRole("listitem").filter({ hasText: "PETR4" });
+  await expect(linha).toHaveCount(1, { timeout: 15_000 });
+  await expect(linha.getByText(/Compra/)).toBeVisible();
+
+  await linha.getByRole("button", { name: /^Apagar/ }).click();
+  await linha.getByRole("button", { name: "Apagar", exact: true }).click();
+
+  await expect(historico.getByRole("status")).toContainText("apagada");
+  await expect(historico.getByText("Você ainda não registrou transações")).toBeVisible();
+  await expect(page.getByText("Sua carteira está vazia")).toBeVisible();
+  await expect(page.getByRole("table")).toHaveCount(0);
 });

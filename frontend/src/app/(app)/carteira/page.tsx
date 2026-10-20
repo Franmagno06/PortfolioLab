@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { HistoricoTransacoes } from "@/components/historico-transacoes";
 import { NovaTransacao } from "@/components/nova-transacao";
 import { ProventosCard } from "@/components/proventos-card";
 import { Botao } from "@/components/ui/botao";
@@ -44,6 +45,8 @@ export default function CarteiraPage() {
   const [disponiveis, setDisponiveis] = useState<Ativo[]>([]);
   const [erro, setErro] = useState<string | null>(null);
   const [registrando, setRegistrando] = useState(false);
+  // muda a cada transação nova: o histórico (que tem estado próprio) recarrega
+  const [versaoHistorico, setVersaoHistorico] = useState(0);
 
   const carregar = useCallback(() => {
     api<Posicao[]>("/portfolio")
@@ -98,7 +101,10 @@ export default function CarteiraPage() {
       <NovaTransacao
         aberto={registrando}
         aoFechar={() => setRegistrando(false)}
-        aoCriar={carregar}
+        aoCriar={() => {
+          carregar();
+          setVersaoHistorico((v) => v + 1);
+        }}
       />
 
       {ativos.length === 0 ? (
@@ -192,6 +198,8 @@ export default function CarteiraPage() {
       )}
 
       <ProventosCard ativos={disponiveis} />
+
+      <HistoricoTransacoes key={versaoHistorico} aoApagar={carregar} />
     </div>
   );
 }
