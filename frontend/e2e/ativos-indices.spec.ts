@@ -221,6 +221,11 @@ test.describe("fichas", () => {
 
       await page.goto("/ativos/indices/selic");
       await expect(page.locator(".recharts-bar-rectangle").first()).toBeVisible();
+
+      // a listagem também avisa quando a API respondeu mas uma série veio vazia
+      await page.goto("/ativos/indices");
+      await expect(page.getByText("Não conseguimos buscar alguns índices agora.", { exact: false })).toBeVisible();
+      await expect(page.getByText("Não conseguimos buscar os índices agora.", { exact: false })).toHaveCount(0);
     });
   });
 

@@ -166,6 +166,11 @@ export function destaqueDoIndice(indice: Indice, dados: DadosDosIndices): Destaq
   };
 }
 
+/** Algum dos índices está sem dado (a série dele veio vazia): a listagem avisa, mesmo com a API respondendo. */
+export function algumIndiceSemDados(indices: Indice[], dados: DadosDosIndices): boolean {
+  return indices.some((i) => destaqueDoIndice(i, dados).semDados);
+}
+
 /** Variação de um índice de pontos em N meses, a partir do último fechamento. Sem o ponto de N meses antes: null. */
 export function variacaoEmMeses(slug: Slug, quantos: number, dados: DadosDosIndices): number | null {
   const serie = serieDoGrafico(slug, dados);

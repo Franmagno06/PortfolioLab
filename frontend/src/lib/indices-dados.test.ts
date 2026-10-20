@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { acharIndice, INDICES, type DadosDosIndices } from "./indices";
 import {
+  algumIndiceSemDados,
   destaqueDoIndice,
   efeitoNoBolso,
   linhaFixaDoResumo,
@@ -23,6 +24,25 @@ const VAZIO: DadosDosIndices = {
   cdiTaxaMensal: [],
   pontos: { ibovespa: [], ifix: [], smll: [], sp500: [], idiv: [] },
 };
+
+describe("algumIndiceSemDados", () => {
+  it("com todas as séries, nenhum índice está sem dado", () => {
+    expect(algumIndiceSemDados(INDICES, DADOS_DE_EXEMPLO)).toBe(false);
+  });
+
+  it("uma série vazia (IPCA) basta para avisar", () => {
+    expect(algumIndiceSemDados(INDICES, { ...DADOS_DE_EXEMPLO, ipcaMensal: [] })).toBe(true);
+  });
+
+  it("um índice de pontos vazio (IFIX) também avisa", () => {
+    const semIfix = { ...DADOS_DE_EXEMPLO, pontos: { ...DADOS_DE_EXEMPLO.pontos, ifix: [] } };
+    expect(algumIndiceSemDados(INDICES, semIfix)).toBe(true);
+  });
+
+  it("tudo vazio avisa", () => {
+    expect(algumIndiceSemDados(INDICES, VAZIO)).toBe(true);
+  });
+});
 
 describe("contas com os dados por parâmetro", () => {
   it("destaque de índice sem dados mostra travessão", () => {

@@ -7,7 +7,7 @@ import { NotaDaFonte } from "@/components/indices/pecas-da-ficha";
 import { MensagemAviso } from "@/components/ui/mensagem";
 import { CATEGORIAS, lerCategoria, lerOrdem, type Categoria } from "@/lib/indices";
 import { lerDadosDosIndices } from "@/lib/indices-api";
-import { dadosVazios, destaqueDoIndice, ordenarEFiltrar, provedorDaApi } from "@/lib/indices-dados";
+import { algumIndiceSemDados, dadosVazios, destaqueDoIndice, ordenarEFiltrar, provedorDaApi } from "@/lib/indices-dados";
 import { ROTAS } from "@/lib/navegacao";
 
 export const metadata: Metadata = {
@@ -88,10 +88,16 @@ export default async function IndicesPage({ searchParams }: Props) {
         {visiveis.length} {visiveis.length === 1 ? "índice" : "índices"} na lista.
       </p>
 
-      {!lidos && (
+      {!lidos ? (
         <div className="mb-5">
           <MensagemAviso titulo="Não conseguimos buscar os índices agora. Tente de novo em alguns minutos." />
         </div>
+      ) : (
+        algumIndiceSemDados(todos, dados) && (
+          <div className="mb-5">
+            <MensagemAviso titulo="Não conseguimos buscar alguns índices agora. Os que estão com “—” voltam em alguns minutos." />
+          </div>
+        )
       )}
 
       <ul className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-4 lg:gap-6">
