@@ -126,3 +126,38 @@ test.describe("área logada no celular", () => {
     await expect(gaveta.getByRole("link", { name: "Entrar" })).toHaveCount(0);
   });
 });
+
+test.describe("faixa da conta de demonstração", () => {
+  const MENSAGEM_DA_DEMO =
+    "A conta de demonstração é só para olhar. Crie uma conta grátis para registrar as suas operações.";
+  const faixa = (page: Page) => page.getByText(/Você está na carteira de demonstração/);
+
+  test("a demo mostra a faixa e recusa registrar transação com a mensagem do servidor", async ({ page }) => {
+    await page.goto("/");
+    await page.getByRole("button", { name: "Ver a demonstração" }).first().click();
+    await expect(page).toHaveURL(/\/dashboard$/);
+    await expect(faixa(page)).toBeVisible();
+    await expect(page.getByRole("link", { name: "Criar minha conta" })).toHaveAttribute("href", "/registro");
+
+    await page.goto("/carteira");
+    await page.getByRole("button", { name: "Nova transação" }).click();
+    await page.getByLabel(/^Ativo/).fill("PETR4");
+    await page.getByLabel("Qtd.").fill("1");
+    await page.getByLabel("Preço (R$)").fill("30");
+    await page.getByRole("button", { name: "Registrar compra" }).click();
+
+    await expect(page.getByRole("alert").filter({ hasText: MENSAGEM_DA_DEMO })).toBeVisible();
+  });
+
+  test("uma conta normal não vê a faixa", async ({ page }) => {
+    const email = `normal-${Date.now()}@portfoliolab.dev`;
+    const registro = await page.request.post("/api/auth/register", {
+      data: { name: "Conta normal", email, password: "senha-forte-123" },
+    });
+    expect(registro.ok(), `registro: ${registro.status()} ${await registro.text()}`).toBeTruthy();
+
+    await page.goto("/dashboard");
+    await expect(page.getByRole("heading", { level: 1, name: "Resumo" })).toBeVisible();
+    await expect(faixa(page)).toHaveCount(0);
+  });
+});
