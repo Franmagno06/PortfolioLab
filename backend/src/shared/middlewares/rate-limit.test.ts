@@ -3,9 +3,16 @@ import request from "supertest";
 import { describe, expect, it } from "vitest";
 import { ativosRoutes } from "../../modules/ativos/ativos.routes.js";
 import { authRoutes } from "../../modules/auth/auth.routes.js";
+import { dividendsRoutes } from "../../modules/dividends/dividends.routes.js";
 import { reportsRoutes } from "../../modules/reports/reports.routes.js";
 import { errorHandler } from "./error-handler.js";
-import { criarLimitador, limitadorAtivos, limitadorAuth, limitadorRelatorios } from "./rate-limit.js";
+import {
+  criarLimitador,
+  limitadorAtivos,
+  limitadorAuth,
+  limitadorRelatorios,
+  limitadorSyncDeProventos,
+} from "./rate-limit.js";
 
 // Achado 8: sem teto de requisições, /auth/login aceita força bruta e
 // /reports queima cota paga do Gemini. O limitador é testado aqui isolado,
@@ -75,6 +82,33 @@ function middlewaresDa(router: Router, metodo: string, caminho: string) {
   return rota.route.stack.map((s) => s.handle);
 }
 
+describe("limitador por usuário", () => {
+  // O mesmo molde do limitador do sync de proventos: chave = req.userId (o authGuard o põe antes).
+  function appPorUsuario(max: number) {
+    const app = express();
+    app.use((req, _res, next) => {
+      req.userId = req.header("x-usuario") ?? undefined;
+      next();
+    });
+    app.use(criarLimitador({ janelaMs: 60_000, max, mensagem: "Espere.", porUsuario: true }));
+    app.post("/sync", (_req, res) => {
+      res.json({ ok: true });
+    });
+    app.use(errorHandler);
+    return app;
+  }
+
+  it("conta cada usuário à parte: o teto de um não trava o outro", async () => {
+    const app = appPorUsuario(3);
+    for (let i = 0; i < 3; i++) expect((await request(app).post("/sync").set("x-usuario", "a")).status).toBe(200);
+
+    const estourou = await request(app).post("/sync").set("x-usuario", "a");
+    expect(estourou.status).toBe(429);
+    expect(estourou.body.error).toBe("Espere.");
+    expect((await request(app).post("/sync").set("x-usuario", "b")).status).toBe(200);
+  });
+});
+
 describe("fiação dos limitadores nas rotas", () => {
   it("POST /auth/login passa pelo limitador de autenticação", () => {
     expect(middlewaresDa(authRoutes, "post", "/login")).toContain(limitadorAuth);
@@ -97,6 +131,15 @@ describe("fiação dos limitadores nas rotas", () => {
 
   it("GET /reports é leitura barata e não leva o limitador de relatórios", () => {
     expect(middlewaresDa(reportsRoutes, "get", "/")).not.toContain(limitadorRelatorios);
+  });
+
+  it("POST /dividends/sync (até um Yahoo por ativo) leva o limitador por usuário", () => {
+    expect(middlewaresDa(dividendsRoutes, "post", "/sync")).toContain(limitadorSyncDeProventos);
+  });
+
+  it("as outras rotas de proventos não levam o limitador do sync", () => {
+    expect(middlewaresDa(dividendsRoutes, "post", "/")).not.toContain(limitadorSyncDeProventos);
+    expect(middlewaresDa(dividendsRoutes, "get", "/")).not.toContain(limitadorSyncDeProventos);
   });
 });
 
