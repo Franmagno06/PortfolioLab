@@ -17,6 +17,7 @@ import { reportsRoutes } from "./modules/reports/reports.routes.js";
 import { transactionsRoutes } from "./modules/transactions/transactions.routes.js";
 import { authGuard } from "./shared/middlewares/auth-guard.js";
 import { errorHandler } from "./shared/middlewares/error-handler.js";
+import { somenteLeituraNaDemo } from "./shared/middlewares/somente-leitura-na-demo.js";
 import { limitadorExemplo, limitadorGlobal } from "./shared/middlewares/rate-limit.js";
 
 // app.ts monta a aplicação; server.ts dá o listen.
@@ -82,17 +83,20 @@ app.use("/auth", authRoutes);
 // banco nem cotação, e tem teto próprio por IP.
 app.use("/rebalance/exemplo", limitadorExemplo, rebalanceExemploRoutes);
 
-// Rotas protegidas: o authGuard aplicado no mount vale para todas as subrotas
-app.use("/assets", authGuard, assetsRoutes);
-app.use("/transactions", authGuard, transactionsRoutes);
-app.use("/dividends", authGuard, dividendsRoutes);
-app.use("/goals", authGuard, goalsRoutes);
+// Rotas protegidas: o authGuard aplicado no mount vale para todas as subrotas.
+// somenteLeituraNaDemo recusa escrita da conta de demonstração (exceto
+// POST /dividends/sync). Fica de fora dos prefixos que só têm GET e de
+// /rebalance, cujo único POST é /simulate: simular é só conta, não grava nada.
+app.use("/assets", authGuard, somenteLeituraNaDemo, assetsRoutes);
+app.use("/transactions", authGuard, somenteLeituraNaDemo, transactionsRoutes);
+app.use("/dividends", authGuard, somenteLeituraNaDemo, dividendsRoutes);
+app.use("/goals", authGuard, somenteLeituraNaDemo, goalsRoutes);
 app.use("/indicators", authGuard, indicatorsRoutes);
 app.use("/news", authGuard, newsRoutes);
 app.use("/quotes", authGuard, quotesRoutes);
 app.use("/portfolio", authGuard, portfolioRoutes);
 app.use("/rebalance", authGuard, rebalanceRoutes);
-app.use("/reports", authGuard, reportsRoutes);
+app.use("/reports", authGuard, somenteLeituraNaDemo, reportsRoutes);
 
 // Registrado por último: captura os erros de todas as rotas acima
 app.use(errorHandler);

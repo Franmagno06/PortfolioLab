@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import "dotenv/config";
 import { assertDatabaseUrlIsLocal, descreverBanco } from "../src/config/dbGuard.js";
 import { quotesService } from "../src/modules/quotes/quotes.service.js";
+import { EMAIL_DA_DEMO } from "../src/shared/conta-demo.js";
 
 // Este seed apaga e recria UMA conta (a de demonstração), não o banco inteiro
 // como prisma/seed.ts. Por padrão só roda no banco local. No Supabase ele serve
@@ -16,7 +17,9 @@ const prisma = new PrismaClient();
 
 // E-mail próprio, e não o demo@ do prisma/seed.ts: os dois seeds coexistem no
 // mesmo banco, e reusar o endereço faria um apagar a conta do outro sem aviso.
-const EMAIL = "carteira@portfoliolab.dev";
+// O endereço mora em src/shared/conta-demo.ts: o backend o usa para tratar a
+// conta como somente leitura, e uma cópia aqui poderia divergir sem aviso.
+const EMAIL = EMAIL_DA_DEMO;
 const SENHA = "demo123456";
 
 /**
