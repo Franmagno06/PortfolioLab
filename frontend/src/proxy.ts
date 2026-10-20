@@ -83,9 +83,16 @@ export function proxy(request: NextRequest) {
   const sessaoExpirada = request.nextUrl.searchParams.has("expirada");
 
   const resposta = (() => {
-    // sem sessão tentando acessar área logada → vai para o login
+    // sem sessão tentando acessar área logada → vai para o login, levando em
+    // `next` a página pedida, para voltar a ela depois de entrar. Sem laço: este
+    // ramo nunca roda para /login nem /registro (são `ehRotaPublica`), então
+    // nunca nasce um `next=/login`. O `next` sai do caminho da requisição, que
+    // qualquer um escreve: quem o usa é o login, sempre por
+    // `destinoDepoisDoLogin` (lib/navegacao.ts), que só aceita caminho da
+    // própria origem.
     if (!temToken && !ehRotaPublica && !ehSite) {
-      return NextResponse.redirect(new URL("/login", request.url));
+      const pedido = pathname + request.nextUrl.search;
+      return NextResponse.redirect(new URL(`/login?next=${encodeURIComponent(pedido)}`, request.url));
     }
     // já logado tentando ver login/registro → vai para o dashboard
     if (temToken && ehRotaPublica && !sessaoExpirada) {

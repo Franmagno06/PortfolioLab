@@ -6,8 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { IconeFechar, IconeMenu } from "@/components/ui/icones";
 import { Marca, Wordmark } from "@/components/ui/marca";
-import { api } from "@/lib/api";
-import { numero, pct } from "@/lib/format";
+import { api, cancelarSaida, iniciarSaida } from "@/lib/api";
 import {
   NAVEGACAO,
   ROTAS,
@@ -17,7 +16,6 @@ import {
   type Intencao,
 } from "@/lib/navegacao";
 import { esquecerSimulacao } from "@/lib/simulacao-guardada";
-import { NUMEROS_DO_MES } from "@/lib/site-dados";
 import setaAcesa from "./seta-menu.svg";
 import setaApagada from "./seta-menu-apagada.svg";
 
@@ -150,7 +148,6 @@ function LinkDeDestaque({ destino }: { destino: Destino }) {
 }
 
 function DestaqueDoPainel({ destaque }: { destaque: Destaque }) {
-  const { ibovespa, ifix, mes, fechamentoCurto } = NUMEROS_DO_MES;
   return (
     <div className="flex min-w-0 flex-1 flex-col items-start gap-3 rounded-md bg-caderno px-6 pt-[22px] pb-4">
       <p className="font-leitura text-xl leading-[26px] font-semibold text-ink">{destaque.titulo}</p>
@@ -158,24 +155,19 @@ function DestaqueDoPainel({ destaque }: { destaque: Destaque }) {
         <p className="max-w-[300px] text-sm leading-[21px] text-ink-2">{destaque.texto}</p>
       ) : (
         <>
-          <dl className="w-full text-sm">
-            <div className="flex items-baseline justify-between gap-3 border-b border-pauta py-2">
-              <dt className="text-ink-2">Ibovespa</dt>
-              <dd className="tnum text-right">
-                <span className="font-semibold text-ink">{numero(ibovespa.pontos)} pontos</span>{" "}
-                <span className={ibovespa.variacaoNoMes >= 0 ? "text-gain-ink" : "text-loss-ink"}>
-                  {pct(ibovespa.variacaoNoMes)}
-                </span>
-              </dd>
-            </div>
-            <div className="flex items-baseline justify-between gap-3 py-2">
-              <dt className="text-ink-2">IFIX</dt>
-              <dd className="tnum font-semibold text-ink">{numero(ifix.pontos)} pontos</dd>
-            </div>
-          </dl>
-          <p className="text-xs text-mute">
-            Variação em {mes}, até o fechamento de {fechamentoCurto}.
-          </p>
+          <ul aria-label={destaque.titulo} className="w-full">
+            {destaque.atalhos.map((atalho) => (
+              <li key={atalho.href} className="border-b border-pauta last:border-b-0">
+                <Link
+                  href={atalho.href}
+                  className="flex min-h-10 items-baseline gap-3 rounded px-0.5 py-2 hover:underline"
+                >
+                  <span className="font-leitura text-[15px] font-semibold text-ink">{atalho.rotulo}</span>
+                  <span className="text-[13px] text-ink-2">{atalho.descricao}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
         </>
       )}
       <LinkDeDestaque destino={destaque.link} />
@@ -187,10 +179,17 @@ function DestaqueDoPainel({ destaque }: { destaque: Destaque }) {
 function useSair() {
   const router = useRouter();
   return async () => {
-    await api("/auth/logout", { method: "POST" });
+    iniciarSaida();
+    try {
+      await api("/auth/logout", { method: "POST" });
+    } catch (erro) {
+      // continua logado: um 401 daqui em diante volta a ser sessão morta
+      cancelarSaida();
+      throw erro;
+    }
     // a simulação guardada é desta conta: a próxima pessoa na aba não a vê
     esquecerSimulacao();
-    router.push("/login");
+    router.push(ROTAS.inicio);
     router.refresh();
   };
 }

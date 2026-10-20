@@ -385,7 +385,8 @@ test.describe("menu Ativos", () => {
 
     await expect(principal.getByRole("link", { name: "Buscar ações" })).toHaveAttribute("href", "/ativos/acoes");
     await expect(principal.getByRole("link", { name: "Buscar FIIs" })).toHaveAttribute("href", "/ativos/fiis");
-    await expect(principal.getByText("em breve")).toHaveCount(1);
+    // o menu Ativos não tem mais item "em breve" (a "Agenda de proventos" saiu: menu sem itens mortos)
+    await expect(principal.getByText("em breve")).toHaveCount(0);
 
     await principal.getByRole("link", { name: "Buscar ações" }).hover();
     const lista = principal.getByRole("list", { name: "Ações da lista" });

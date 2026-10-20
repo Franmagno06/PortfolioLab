@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  quantidadeTexto,
   brlOuTraco,
   brl,
   brlSemCentavos,
@@ -167,5 +168,14 @@ describe('mesCurto e mesAno', () => {
     expect(mesCurto('2025-11')).toBe('nov');
     expect(mesCurto('2026-01')).toBe('jan');
     expect(mesAno('2026-10')).toBe('out/2026');
+  });
+});
+
+describe("quantidadeTexto", () => {
+  it("inteira sem casas, fracionária com as que tem, string do Decimal aceita", () => {
+    expect(quantidadeTexto(10)).toBe("10");
+    expect(quantidadeTexto("10.00000000")).toBe("10");
+    expect(quantidadeTexto("0.5")).toBe("0,5");
+    expect(quantidadeTexto(1000)).toBe("1.000");
   });
 });

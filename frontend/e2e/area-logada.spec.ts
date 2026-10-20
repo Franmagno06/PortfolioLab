@@ -60,9 +60,40 @@ test.describe("área logada", () => {
 
     await page.getByRole("banner").getByRole("button", { name: "Sair" }).click();
 
-    await expect(page).toHaveURL(/\/login/);
+    await expect(page).toHaveURL("/");
     await page.goto("/dashboard");
     await expect(page).toHaveURL(/\/login/);
+  });
+});
+
+test.describe("login volta para onde o visitante ia", () => {
+  /** Pelo formulário, de propósito: é o redirecionamento da tela de login que está em teste. */
+  async function entrarPeloFormulario(page: Page) {
+    await page.getByLabel("E-mail").fill("carteira@portfoliolab.dev");
+    await page.getByLabel("Senha").fill("demo123456");
+    await page.getByRole("button", { name: "Entrar" }).click();
+  }
+
+  test("sem sessão, /simulacao leva ao login e volta para /simulacao depois de entrar", async ({ page }) => {
+    await page.goto("/simulacao");
+
+    await expect(page).toHaveURL(/\/login\?next=%2Fsimulacao$/);
+    // o link para criar conta leva o destino junto
+    await expect(page.getByRole("link", { name: "Criar conta" })).toHaveAttribute("href", "/registro?next=%2Fsimulacao");
+
+    await entrarPeloFormulario(page);
+
+    await expect(page).toHaveURL(/\/simulacao$/);
+    await expect(page.getByRole("heading", { level: 1, name: "Simulação de aportes" })).toBeVisible();
+  });
+
+  test("um next para outro site é ignorado: depois de entrar, fica no /dashboard da mesma origem", async ({ page, baseURL }) => {
+    await page.goto("/login?next=//evil.com");
+    await expect(page.getByRole("link", { name: "Criar conta" })).toHaveAttribute("href", "/registro");
+
+    await entrarPeloFormulario(page);
+
+    await expect(page).toHaveURL(`${baseURL}/dashboard`);
   });
 });
 
@@ -93,5 +124,59 @@ test.describe("área logada no celular", () => {
     const gaveta = page.getByRole("dialog", { name: "Menu do site" });
     await expect(gaveta.getByRole("button", { name: "Sair" })).toBeVisible();
     await expect(gaveta.getByRole("link", { name: "Entrar" })).toHaveCount(0);
+  });
+});
+
+test.describe("faixa da conta de demonstração", () => {
+  const MENSAGEM_DA_DEMO =
+    "A conta de demonstração é só para olhar. Crie uma conta grátis para registrar as suas operações.";
+  const faixa = (page: Page) => page.getByText(/Você está na carteira de demonstração/);
+
+  test("a demo mostra a faixa e recusa registrar transação com a mensagem do servidor", async ({ page }) => {
+    // Cotação simulada (forma real de GET /quotes/:ticker): o formulário só
+    // libera o envio depois da busca, e o teste não pode depender do Yahoo.
+    await page.route("**/api/quotes/**", (route) =>
+      route.fulfill({ json: { ticker: "PETR4", nome: "Petrobras PN", preco: 30, tipo: "ACAO" } }),
+    );
+    await page.goto("/");
+    await page.getByRole("button", { name: "Ver a demonstração" }).first().click();
+    await expect(page).toHaveURL(/\/dashboard$/);
+    await expect(faixa(page)).toBeVisible();
+    await expect(page.getByRole("link", { name: "Criar minha conta" })).toHaveAttribute("href", "/registro");
+
+    // o layout continua montado entre as abas: a faixa acompanha
+    await abas(page).getByRole("link", { name: "Posições" }).click();
+    await expect(page).toHaveURL(/\/carteira$/);
+    await expect(faixa(page)).toBeVisible();
+    await page.getByRole("button", { name: "Nova transação" }).click();
+    // o formulário tem um select "Ativo" e o campo de texto do ticker: o rótulo
+    // sozinho casa com os dois, então o campo certo é o do texto
+    await page.getByRole("textbox", { name: /^Ativo/ }).fill("PETR4");
+    await page.getByLabel("Qtd.").fill("1");
+    await page.getByLabel("Preço (R$)").fill("30");
+    await expect(page.getByText("Petrobras PN")).toBeVisible();
+    await page.getByRole("button", { name: "Registrar compra" }).click();
+
+    await expect(page.getByRole("alert").filter({ hasText: MENSAGEM_DA_DEMO })).toBeVisible();
+  });
+
+  test("uma conta normal não vê a faixa", async ({ page }) => {
+    const email = `normal-${Date.now()}@portfoliolab.dev`;
+    const registro = await page.request.post("/api/auth/register", {
+      data: { name: "Conta normal", email, password: "senha-forte-123" },
+    });
+    expect(registro.ok(), `registro: ${registro.status()} ${await registro.text()}`).toBeTruthy();
+    // o cadastro não grava o cookie de sessão (só o login grava)
+    const login = await page.request.post("/api/auth/login", { data: { email, password: "senha-forte-123" } });
+    expect(login.ok(), `login: ${login.status()} ${await login.text()}`).toBeTruthy();
+
+    // espera a resposta de /auth/me ANTES de afirmar a ausência; senão a
+    // contagem 0 seria verdadeira no instante em que a página abre.
+    const me = page.waitForResponse((r) => r.url().includes("/api/auth/me"));
+    await page.goto("/dashboard");
+    const resposta = await me;
+    expect((await resposta.json()).demo).toBe(false);
+    await expect(page.getByRole("heading", { level: 1, name: "Resumo" })).toBeVisible();
+    await expect(faixa(page)).toHaveCount(0);
   });
 });

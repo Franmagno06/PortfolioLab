@@ -2,7 +2,8 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { ACOES, ETFS, FIIS } from "./ativos-catalogo";
-import { ABAS_DA_CARTEIRA, NAVEGACAO, RODAPE, ROTAS } from "./navegacao";
+import { SLUGS } from "./indices";
+import { ABAS_DA_CARTEIRA, comNext, destinoDepoisDoLogin, NAVEGACAO, RODAPE, ROTAS, type Destino } from "./navegacao";
 
 // "Nenhum link quebrado": cada href da navegação precisa ser uma rota de
 // ROTAS, e cada rota precisa ter uma página de verdade em src/app.
@@ -24,8 +25,7 @@ function todosOsHrefs(): string[] {
     for (const coluna of intencao.colunas ?? []) {
       for (const item of coluna.itens) if (item.href) hrefs.push(item.href);
     }
-    if (intencao.destaque?.link.href) hrefs.push(intencao.destaque.link.href);
-  }
+    if (intencao.destaque?.link.href) hrefs.push(intencao.destaque.link.href);  }
   for (const coluna of RODAPE) for (const link of coluna.links) hrefs.push(link.href);
   for (const aba of ABAS_DA_CARTEIRA) hrefs.push(aba.href);
   return hrefs;
@@ -73,20 +73,15 @@ describe("navegação do site", () => {
     for (const t of textos) expect(t.toLowerCase()).not.toMatch(/trilha|aula|curso/);
   });
 
-  it("os destinos que ainda não têm página seguem sem link", () => {
-    const itens = NAVEGACAO.flatMap((i) => i.colunas ?? []).flatMap((c) => c.itens);
-    expect(itens.filter((i) => !i.href).map((i) => i.rotulo)).toContain("Agenda de proventos");
-  });
-
-  it("Buscar ações e Buscar FIIs são links de verdade; ações por setor, agenda e ETFs seguem em breve", () => {
+  it("Buscar ações, Buscar FIIs e Buscar ETFs são links de verdade; ações por setor e agenda não existem mais", () => {
     const ativos = NAVEGACAO.find((i) => i.id === "ativos");
     const itens = (ativos?.colunas ?? []).flatMap((c) => c.itens);
     const porRotulo = Object.fromEntries(itens.map((i) => [i.rotulo, i.href]));
 
     expect(porRotulo["Buscar ações"]).toBe(ROTAS.acoes);
     expect(porRotulo["Buscar FIIs"]).toBe(ROTAS.fiis);
-    expect(porRotulo["Ações por setor"]).toBeUndefined();
-    expect(porRotulo["Agenda de proventos"]).toBeUndefined();
+    expect(porRotulo).not.toHaveProperty("Ações por setor");
+    expect(porRotulo).not.toHaveProperty("Agenda de proventos");
     expect(porRotulo["Buscar ETFs"]).toBe(ROTAS.etfs);
   });
 
@@ -113,10 +108,18 @@ describe("navegação do site", () => {
     for (const t of titulos) expect(t.toLowerCase()).not.toContain("principa");
   });
 
-  it("o rodapé aponta para as duas listagens", () => {
+  it("o rodapé aponta para as listagens de ações, FIIs e índices", () => {
     const hrefs = RODAPE.flatMap((c) => c.links.map((l) => l.href));
     expect(hrefs).toContain(ROTAS.acoes);
     expect(hrefs).toContain(ROTAS.fiis);
+    expect(hrefs).toContain(ROTAS.indices);
+  });
+
+  it("o menu Ativos tem uma coluna Índices que leva à listagem de índices, sem atalhos", () => {
+    const ativos = NAVEGACAO.find((i) => i.id === "ativos");
+    const coluna = ativos?.colunas?.find((c) => c.titulo === "Índices");
+    expect(coluna?.itens.map((i) => i.href)).toEqual([ROTAS.indices]);
+    expect(coluna?.itens.every((i) => !i.atalhos)).toBe(true);
   });
 
   it("não há mais 'Ações por setor' no menu", () => {
@@ -124,9 +127,151 @@ describe("navegação do site", () => {
     expect(rotulos).not.toContain("Ações por setor");
   });
 
+  /** Todo destino do menu, recursivamente: itens das colunas, atalhos e o link do destaque. */
+  function destinosDoMenu(): Destino[] {
+    const destinos: Destino[] = [];
+    for (const intencao of NAVEGACAO) {
+      if (intencao.href) destinos.push({ rotulo: intencao.rotulo, href: intencao.href });
+      for (const item of intencao.colunas?.flatMap((c) => c.itens) ?? []) {
+        destinos.push(item);
+        destinos.push(...(item.atalhos?.itens ?? []));
+      }
+      if (intencao.destaque) {
+        destinos.push(intencao.destaque.link);
+        if (intencao.destaque.tipo === "indices") destinos.push(...intencao.destaque.atalhos);
+      }
+    }
+    return destinos;
+  }
+
+  it("nenhum destino do menu fica sem href", () => {
+    expect(destinosDoMenu().filter((d) => !d.href).map((d) => d.rotulo)).toEqual([]);
+  });
+
+  it("o rodapé tem ETFs em Ativos", () => {
+    const ativos = RODAPE.find((c) => c.titulo === "Ativos");
+    expect(ativos?.links).toContainEqual({ rotulo: "ETFs", href: ROTAS.etfs });
+  });
+
+  it("o destaque de índices aponta para as fichas", () => {
+    const destaque = NAVEGACAO.find((i) => i.id === "ativos")?.destaque;
+    if (destaque?.tipo !== "indices") throw new Error("o menu Ativos deveria ter o destaque de índices");
+
+    expect(destaque.atalhos.map((a) => a.rotulo)).toEqual(["Selic", "IPCA", "Ibovespa", "IFIX"]);
+    for (const atalho of destaque.atalhos) {
+      expect(atalho.href.startsWith(`${ROTAS.indices}/`), atalho.href).toBe(true);
+      expect((SLUGS as readonly string[]).includes(atalho.href.slice(ROTAS.indices.length + 1)), atalho.href).toBe(true);
+    }
+    expect(destaque.link).toEqual({ rotulo: "Ver todos os índices", href: ROTAS.indices });
+  });
+
+  it("cada rótulo aparece uma vez por menu", () => {
+    for (const intencao of NAVEGACAO) {
+      // Dois itens com o mesmo destino são o mesmo item com dois nomes ("Metas da
+      // carteira" apontava para a própria simulação): conta o rótulo e o href.
+      const itens = (intencao.colunas ?? []).flatMap((c) => c.itens);
+      const repetidos = (valores: string[]) => valores.filter((v, i) => valores.indexOf(v) !== i);
+      expect(repetidos(itens.map((i) => i.rotulo)), `${intencao.rotulo}: rótulos`).toEqual([]);
+      expect(repetidos(itens.flatMap((i) => (i.href ? [i.href] : []))), `${intencao.rotulo}: destinos`).toEqual([]);
+    }
+  });
+
   it("as abas da carteira cobrem as seis telas da área logada, sem repetir rota", () => {
     const hrefs = ABAS_DA_CARTEIRA.map((a) => a.href);
     expect(new Set(hrefs).size).toBe(hrefs.length);
     expect(hrefs).toEqual([ROTAS.dashboard, ROTAS.carteira, ROTAS.simulacao, ROTAS.relatorios, ROTAS.indicadores, ROTAS.noticias]);
+  });
+});
+
+describe("destinoDepoisDoLogin", () => {
+  it.each([
+    [null, "/dashboard"],
+    ["/simulacao", "/simulacao"],
+    ["/carteira?aba=2", "/carteira?aba=2"],
+    ["//evil.com", "/dashboard"],
+    ["https://evil.com", "/dashboard"],
+    ["/\\evil.com", "/dashboard"],
+    ["/login", "/dashboard"],
+    ["/registro", "/dashboard"],
+    ["simulacao", "/dashboard"],
+  ])("destinoDepoisDoLogin(%s) → %s", (next, esperado) => expect(destinoDepoisDoLogin(next)).toBe(esperado));
+
+  // Além da tabela do plano: os truques conhecidos de open redirect e os limites.
+  it.each([
+    ["", "/dashboard"],
+    ["/", "/dashboard"],
+    ["///evil.com", "/dashboard"],
+    ["\\\\evil.com", "/dashboard"],
+    ["\\/evil.com", "/dashboard"],
+    ["/\\/evil.com", "/dashboard"],
+    ["javascript:alert(1)", "/dashboard"],
+    ["data:text/html,oi", "/dashboard"],
+    ["HTTPS://evil.com", "/dashboard"],
+    ["https:/evil.com", "/dashboard"],
+    [" /simulacao", "/dashboard"],
+    // o navegador apaga tab e quebra de linha dentro da URL: "/\t/evil.com" vira "//evil.com"
+    ["/\t/evil.com", "/dashboard"],
+    ["/\n/evil.com", "/dashboard"],
+    ["/\r/evil.com", "/dashboard"],
+    ["/simulacao\u0000", "/dashboard"],
+    ["/simulacao\u007f", "/dashboard"],
+    ["/carteira\\..\\evil", "/dashboard"],
+    // codificado: algum salto (proxy, servidor) pode decodificar antes do navegador
+    ["/%09/evil.com", "/dashboard"],
+    ["/%2f/evil.com", "/dashboard"],
+    ["/%2F%2Fevil.com", "/dashboard"],
+    ["/%5cevil.com", "/dashboard"],
+    ["/%252f/evil.com", "/dashboard"],
+    ["/%E0%A4%A", "/dashboard"],
+    // não volta para a própria tela de entrada, nem por caminho normalizado
+    ["/./login", "/dashboard"],
+    ["/carteira/../login", "/dashboard"],
+    ["/%6cogin", "/dashboard"],
+    ["/login?expirada=1&next=/simulacao", "/dashboard"],
+    ["/loginx", "/dashboard"],
+    ["/registro/qualquer", "/dashboard"],
+    ["/" + "a".repeat(3000), "/dashboard"],
+    // segmentos de ponto que, resolvidos, deixam "//evil.com" (protocolo-relativo)
+    ["/..//evil.com", "/dashboard"],
+    ["/a/..//evil.com", "/dashboard"],
+    ["/%2e%2e//evil.com", "/dashboard"],
+    ["/.//evil.com", "/dashboard"],
+    ["/a/../../..//evil.com", "/dashboard"],
+    ["/%2e//evil.com", "/dashboard"],
+    ["/..\\/evil.com", "/dashboard"],
+    // o que é legítimo passa intacto, ou só normalizado
+    ["/a/../simulacao", "/simulacao"],
+    ["/simulacao", "/simulacao"],
+    ["/carteira?aba=2", "/carteira?aba=2"],
+    ["/dashboard?x=1", "/dashboard?x=1"],
+    ["/dashboard#frag", "/dashboard#frag"],
+    ["/dashboard?x=1#frag", "/dashboard?x=1#frag"],
+    ["/ativos/acoes/PETR4", "/ativos/acoes/PETR4"],
+    ["/carteira?busca=a%20b", "/carteira?busca=a%20b"],
+    ["/javascript:alert(1)", "/javascript:alert(1)"],
+  ])("caso hostil ou limite: destinoDepoisDoLogin(%j) → %s", (next, esperado) =>
+    expect(destinoDepoisDoLogin(next)).toBe(esperado),
+  );
+});
+
+describe("comNext", () => {
+  it.each([
+    ["/registro", null, "/registro"],
+    ["/registro", "/simulacao", "/registro?next=%2Fsimulacao"],
+    ["/login", "/carteira?aba=2", "/login?next=%2Fcarteira%3Faba%3D2"],
+    ["/login?expirada=1", "/carteira", "/login?expirada=1&next=%2Fcarteira"],
+    ["/login?expirada=1", "/login", "/login?expirada=1"],
+    ["/registro", "//evil.com", "/registro"],
+    ["/registro", "https://evil.com", "/registro"],
+    ["/login", "/", "/login"],
+    // leva adiante a forma normalizada, não o texto cru
+    ["/registro", "/a/../simulacao", "/registro?next=%2Fsimulacao"],
+    ["/registro", "/..//evil.com", "/registro"],
+  ])("comNext(%s, %j) → %s", (rota, next, esperado) => expect(comNext(rota, next)).toBe(esperado));
+
+  it("o next que ele monta volta inteiro pelo validador", () => {
+    const url = new URL(comNext("/login?expirada=1", "/carteira?aba=2#x"), "http://localhost");
+    expect(url.searchParams.get("expirada")).toBe("1");
+    expect(destinoDepoisDoLogin(url.searchParams.get("next"))).toBe("/carteira?aba=2#x");
   });
 });

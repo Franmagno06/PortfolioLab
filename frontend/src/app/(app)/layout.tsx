@@ -1,4 +1,5 @@
 import { AbasDaCarteira } from "@/components/site/abas-da-carteira";
+import { AvisoDemo } from "@/components/site/aviso-demo";
 import { CabecalhoSite } from "@/components/site/cabecalho-site";
 
 // Área logada: parte do site, e não um painel à parte. O mesmo cabeçalho da
@@ -14,6 +15,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       </a>
       <CabecalhoSite area="carteira" />
       <AbasDaCarteira />
+      <AvisoDemo />
       <main
         id="conteudo"
         // O destino de um salto precisa poder receber foco; sem tabIndex o

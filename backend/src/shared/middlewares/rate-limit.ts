@@ -75,6 +75,19 @@ export const limitadorRelatorios = criarLimitador({
   pular: noTeste,
 });
 
+/**
+ * Camada 2b — POST /dividends/sync: cada chamada busca no Yahoo os proventos de todos os ativos da
+ * carteira (até alguns segundos por ativo). Por usuário, com folga para quem sincroniza de novo depois
+ * de lançar uma compra, mas sem deixar uma conta martelar o Yahoo e fazê-lo bloquear o IP do servidor.
+ */
+export const limitadorSyncDeProventos = criarLimitador({
+  janelaMs: 10 * 60 * 1000,
+  max: 3,
+  mensagem: "Você já sincronizou os proventos há pouco. Espere alguns minutos e tente de novo.",
+  porUsuario: true,
+  pular: noTeste,
+});
+
 /** Camada 3 — teto global folgado, só para conter abuso grosseiro. */
 export const limitadorGlobal = criarLimitador({
   janelaMs: 15 * 60 * 1000,

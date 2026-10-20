@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { env } from "../../config/env.js";
+import { ehEmailDaDemo } from "../../shared/conta-demo.js";
 import { AppError } from "../../shared/errors/AppError.js";
 import { authRepository } from "./auth.repository.js";
 import type { LoginInput, RegisterInput } from "./auth.schemas.js";
@@ -18,7 +19,10 @@ const CUSTO_BCRYPT = 12;
 // Regra de negócio pura — não conhece HTTP (nem req, nem res, nem cookie)
 export const authService = {
   async register(input: RegisterInput) {
-    const jaExiste = await authRepository.findByEmail(input.email);
+    // O e-mail da demo (e qualquer variação de caixa dele) nunca é cadastrável:
+    // a conta é do seed-demo, e uma "Carteira@..." viraria outra demo.
+    const jaExiste =
+      ehEmailDaDemo(input.email) || (await authRepository.findByEmail(input.email)) !== null;
     if (jaExiste) {
       throw new AppError("E-mail já cadastrado", 409);
     }
@@ -44,7 +48,10 @@ export const authService = {
       throw new AppError("E-mail ou senha incorretos", 401);
     }
 
-    const token = jwt.sign({ sub: user.id }, env.JWT_SECRET, { expiresIn: "7d" });
+    // A demo leva a claim demo: true (somente leitura, ver somente-leitura-na-demo.ts).
+    // As outras contas seguem com o token de antes, sem a claim.
+    const claims = ehEmailDaDemo(user.email) ? { sub: user.id, demo: true } : { sub: user.id };
+    const token = jwt.sign(claims, env.JWT_SECRET, { expiresIn: "7d" });
     return { token, user: { id: user.id, name: user.name, email: user.email } };
   },
 
@@ -53,6 +60,20 @@ export const authService = {
     if (!user) {
       throw new AppError("Usuário não encontrado", 404);
     }
-    return { id: user.id, name: user.name, email: user.email, createdAt: user.createdAt };
+    // demo vem do e-mail no banco, não do token: um token antigo, sem a claim,
+    // ainda mostra a flag certa.
+    return {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      createdAt: user.createdAt,
+      demo: ehEmailDaDemo(user.email),
+    };
+  },
+
+  /** Usado pelo middleware somenteLeituraNaDemo em escrita sem a claim. */
+  async ehContaDemo(userId: string): Promise<boolean> {
+    const user = await authRepository.findById(userId);
+    return user !== null && ehEmailDaDemo(user.email);
   },
 };

@@ -283,3 +283,16 @@ model Dividend {
   @@unique([userId, assetId, paidAt, source])
   @@map("dividends")
 }
+
+/// Fechamento diário dos índices que o Yahoo não entrega com histórico (IFIX, SMLL, IDIV).
+/// Um ponto por índice por dia de pregão, gravado na primeira leitura do dia em diante.
+model IndexPoint {
+  id        String   @id @default(uuid())
+  slug      String
+  date      DateTime @db.Date
+  value     Decimal  @db.Decimal(14, 4)
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([slug, date])
+  @@map("index_points")
+}

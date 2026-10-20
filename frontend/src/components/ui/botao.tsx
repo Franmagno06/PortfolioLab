@@ -1,9 +1,11 @@
-type Variante = "primario" | "secundario" | "acento";
+type Variante = "primario" | "secundario" | "acento" | "perigo";
 
 const variantes: Record<Variante, string> = {
   primario: "bg-ink text-white hover:bg-ink-lift",
   secundario: "border border-line bg-card hover:bg-paper",
   acento: "bg-gain-ink text-white hover:bg-ink",
+  // ação destrutiva e irreversível (apagar): cor de perda, nunca a do botão comum
+  perigo: "bg-loss-ink text-white hover:bg-ink",
 };
 
 // Um tamanho por linha, nunca sobrescrito por className: entre px-4 e px-3
@@ -14,7 +16,7 @@ const tamanhos = {
   bloco: "w-full px-4 py-2.5 text-sm",
 };
 
-type Props = React.ButtonHTMLAttributes<HTMLButtonElement> & {
+type Props = React.ComponentProps<"button"> & {
   variante?: Variante;
   tamanho?: keyof typeof tamanhos;
 };

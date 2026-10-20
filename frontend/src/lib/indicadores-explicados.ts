@@ -13,7 +13,8 @@ export type IdDaDica =
   | "especie"
   | "tipoFii" | "dyMensal" | "pvpFii" | "dyFii" | "patrimonioLiquido" | "cotistas"
   | "taxaAdministracao" | "gestao"
-  | "categoriaEtf" | "indiceEtf" | "retorno12m" | "dyEtf";
+  | "categoriaEtf" | "indiceEtf" | "retorno12m" | "dyEtf"
+  | "selicMeta" | "ipca12m" | "cdiHoje" | "pontosDoIndice";
 
 /** Cada dica tem o nome do indicador (para o leitor de tela) e uma explicação de uma frase ou duas. */
 export const DICAS: Record<IdDaDica, { rotulo: string; texto: string }> = {
@@ -103,6 +104,23 @@ export const DICAS: Record<IdDaDica, { rotulo: string; texto: string }> = {
   dyEtf: {
     rotulo: "DY 12m",
     texto: "DY 12m = proventos pagos nos últimos 12 meses ÷ preço da cota. A maioria dos ETFs não paga proventos: o resultado está na variação da cota.",
+  },
+  // As quatro abaixo são das páginas de índices (/ativos/indices).
+  selicMeta: {
+    rotulo: "Selic meta",
+    texto: "Selic meta = a taxa básica de juros, decidida pelo Copom. Serve de referência para os outros juros da economia.",
+  },
+  ipca12m: {
+    rotulo: "IPCA em 12 meses",
+    texto: "IPCA em 12 meses = quanto os preços subiram no último ano. É a inflação oficial do Brasil.",
+  },
+  cdiHoje: {
+    rotulo: "CDI",
+    texto: "CDI = a taxa dos empréstimos de um dia entre bancos. É a régua da renda fixa: CDB e LCI costumam pagar um % dele.",
+  },
+  pontosDoIndice: {
+    rotulo: "Pontos do índice",
+    texto: "Pontos = o valor do índice. Não são reais: o número só serve para comparar o índice com ele mesmo ao longo do tempo.",
   },
   gestao: {
     rotulo: "Tipo de gestão",

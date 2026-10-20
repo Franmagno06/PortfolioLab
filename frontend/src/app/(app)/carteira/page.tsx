@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { HistoricoTransacoes } from "@/components/historico-transacoes";
 import { NovaTransacao } from "@/components/nova-transacao";
 import { ProventosCard } from "@/components/proventos-card";
 import { Botao } from "@/components/ui/botao";
@@ -11,7 +12,7 @@ import { PageHeader, Pilula } from "@/components/ui/page-header";
 import { SkeletonPagina } from "@/components/ui/skeleton";
 import { CabecalhoTabela, CardTabela } from "@/components/ui/tabela";
 import { api, ApiError } from "@/lib/api";
-import { brl, coresClasse, pct } from "@/lib/format";
+import { brl, coresClasse, pct, quantidadeTexto } from "@/lib/format";
 
 type Posicao = {
   ticker: string;
@@ -44,13 +45,25 @@ export default function CarteiraPage() {
   const [disponiveis, setDisponiveis] = useState<Ativo[]>([]);
   const [erro, setErro] = useState<string | null>(null);
   const [registrando, setRegistrando] = useState(false);
+  // muda a cada transação nova: o histórico (que tem estado próprio) recarrega
+  const [versaoHistorico, setVersaoHistorico] = useState(0);
+
+  // Só a resposta da chamada mais recente vale: duas exclusões seguidas disparam
+  // dois GET /portfolio, e o primeiro pode chegar por último com posições velhas.
+  const ultimaChamada = useRef(0);
 
   const carregar = useCallback(() => {
+    const minha = ++ultimaChamada.current;
     api<Posicao[]>("/portfolio")
-      .then(setAtivos)
-      .catch((err) =>
-        setErro(err instanceof ApiError ? err.message : "Falha ao carregar a carteira"),
-      );
+      .then((dados) => {
+        if (minha !== ultimaChamada.current) return;
+        setAtivos(dados);
+        setErro(null);
+      })
+      .catch((err) => {
+        if (minha !== ultimaChamada.current) return;
+        setErro(err instanceof ApiError ? err.message : "Falha ao carregar a carteira");
+      });
   }, []);
 
   useEffect(() => {
@@ -60,7 +73,9 @@ export default function CarteiraPage() {
       .catch(() => setDisponiveis([]));
   }, [carregar]);
 
-  if (erro) return <MensagemErro>{erro}</MensagemErro>;
+  // Sem posições ainda, a falha ocupa a página. Com posições já na tela, ela vira
+  // um aviso na própria página (abaixo): o histórico e as posições não desmontam.
+  if (erro && !ativos) return <MensagemErro>{erro}</MensagemErro>;
   if (!ativos) return <SkeletonPagina blocos={2} />;
 
   const patrimonio = ativos.reduce((s, a) => s + a.valorAtual, 0);
@@ -95,10 +110,22 @@ export default function CarteiraPage() {
         }
       />
 
+      {erro && (
+        <div className="space-y-3">
+          <MensagemErro>{erro}</MensagemErro>
+          <Botao variante="secundario" className="min-h-11" onClick={carregar}>
+            Tentar de novo
+          </Botao>
+        </div>
+      )}
+
       <NovaTransacao
         aberto={registrando}
         aoFechar={() => setRegistrando(false)}
-        aoCriar={carregar}
+        aoCriar={() => {
+          carregar();
+          setVersaoHistorico((v) => v + 1);
+        }}
       />
 
       {ativos.length === 0 ? (
@@ -134,7 +161,7 @@ export default function CarteiraPage() {
                   <td className="px-3 py-3.5">
                     <EtiquetaClasse tipo={a.type} />
                   </td>
-                  <td className="tnum px-3 py-3.5 text-right">{a.quantidade}</td>
+                  <td className="tnum px-3 py-3.5 text-right">{quantidadeTexto(a.quantidade)}</td>
                   <td className="tnum px-3 py-3.5 text-right text-mute">
                     {brl(a.precoMedio)}
                   </td>
@@ -192,6 +219,8 @@ export default function CarteiraPage() {
       )}
 
       <ProventosCard ativos={disponiveis} />
+
+      <HistoricoTransacoes key={versaoHistorico} aoApagar={carregar} />
     </div>
   );
 }

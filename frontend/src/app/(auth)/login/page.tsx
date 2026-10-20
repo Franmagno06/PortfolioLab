@@ -1,13 +1,14 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 import { Botao } from "@/components/ui/botao";
 import { Campo } from "@/components/ui/campo";
 import { MensagemAviso, MensagemErro } from "@/components/ui/mensagem";
 import { api, ApiError } from "@/lib/api";
+import { destinoDepoisDoLogin } from "@/lib/navegacao";
 import { esquecerSimulacao } from "@/lib/simulacao-guardada";
+import { GuardarNext, LinkComNext } from "../proximo-destino";
 
 /**
  * Aviso para quem chegou aqui por sessão morta — lib/api.ts redireciona com
@@ -33,6 +34,8 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [erro, setErro] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
+  // a página que o visitante pediu antes de cair aqui (?next=), ainda sem validar
+  const [next, setNext] = useState<string | null>(null);
 
   async function entrar(e: React.FormEvent) {
     e.preventDefault();
@@ -45,7 +48,7 @@ export default function LoginPage() {
       });
       // conta nova na aba: nada da sessão anterior fica visível
       esquecerSimulacao();
-      router.push("/dashboard");
+      router.push(destinoDepoisDoLogin(next));
       router.refresh();
     } catch (err) {
       setErro(err instanceof ApiError ? err.message : "Falha ao conectar com o servidor");
@@ -64,6 +67,7 @@ export default function LoginPage() {
       <Suspense fallback={null}>
         <AvisoSessaoExpirada />
       </Suspense>
+      <GuardarNext aoLer={setNext} />
 
       <Campo
         rotulo="E-mail"
@@ -95,9 +99,9 @@ export default function LoginPage() {
 
       <p className="text-center text-sm text-mute-soft">
         Ainda não tem conta?{" "}
-        <Link href="/registro" className="rounded font-semibold text-gain-ink hover:underline">
+        <LinkComNext rota="/registro" className="rounded font-semibold text-gain-ink hover:underline">
           Criar conta
-        </Link>
+        </LinkComNext>
       </p>
     </form>
   );

@@ -35,6 +35,16 @@ export function numero(valor: number, casas = 0): string {
 }
 
 /**
+ * Quantidade de ativo: inteira sem casas ("10"), fracionária com as que tem ("0,5"), até 8.
+ * Aceita o Decimal que a API manda como string.
+ */
+export function quantidadeTexto(q: string | number): string {
+  const n = Number(q);
+  const casas = Math.min(8, (String(n).split(".")[1] ?? "").length);
+  return numero(n, casas);
+}
+
+/**
  * Percentual sem sinal, para taxa e indicador: percentual(7.02) → "7,0%";
  * percentual(13.75, 2) → "13,75%". Para variação, que precisa do sinal, use pct().
  */
@@ -93,6 +103,26 @@ export function mesCurto(anoMes: string): string {
 /** "2025-11" → "nov/2025". */
 export function mesAno(anoMes: string): string {
   return `${mesCurto(anoMes)}/${anoMes.slice(0, 4)}`;
+}
+
+const MESES_POR_EXTENSO = [
+  "janeiro", "fevereiro", "março", "abril", "maio", "junho",
+  "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
+];
+
+/** O mês de um "AAAA-MM", por extenso, para o meio de uma frase: "2026-09" → "setembro". */
+export function mesPorExtenso(anoMes: string): string {
+  return MESES_POR_EXTENSO[Number(anoMes.slice(5, 7)) - 1] ?? anoMes;
+}
+
+/** "2025-01" → "01/2025": o mês como aparece em tabela e em eixo de gráfico. */
+export function mesNumerico(anoMes: string): string {
+  return `${anoMes.slice(5, 7)}/${anoMes.slice(0, 4)}`;
+}
+
+/** Data ISO em dd/mm/aa, para o eixo de um gráfico diário: "2026-09-10" → "10/09/26". */
+export function dataDiaCurta(iso: string): string {
+  return `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(2, 4)}`;
 }
 
 /** Valor em bilhões de reais, como cabe numa frase: 3.2 → "R$ 3,2 bi"; 0.7 → "R$ 700 mi". */

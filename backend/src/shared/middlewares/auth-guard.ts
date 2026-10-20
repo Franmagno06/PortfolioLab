@@ -8,6 +8,8 @@ declare global {
   namespace Express {
     interface Request {
       userId?: string;
+      /** Token com a claim demo: true (conta de demonstração, somente leitura). */
+      ehDemo?: boolean;
     }
   }
 }
@@ -20,16 +22,19 @@ export function authGuard(req: Request, _res: Response, next: NextFunction): voi
   }
 
   let userId: string;
+  let ehDemo: boolean;
   try {
     const payload = jwt.verify(token, env.JWT_SECRET);
     if (typeof payload === "string" || typeof payload.sub !== "string") {
       throw new Error("payload sem sub");
     }
     userId = payload.sub;
+    ehDemo = payload["demo"] === true;
   } catch {
     throw new AppError("Sessão inválida ou expirada", 401);
   }
 
   req.userId = userId;
+  req.ehDemo = ehDemo;
   next();
 }
