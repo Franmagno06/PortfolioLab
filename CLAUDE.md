@@ -24,8 +24,8 @@ Nunca rode sem confirmar o banco de destino:
 - `npx prisma db push`
 
 **Todo teste que importa `src/database/prisma.js` escreve no banco apontado pela `DATABASE_URL`**
-— hoje são dezoito arquivos, entre eles todos os `*.api.test.ts`, `auth.test.ts`, `news.test.ts` e
-`src/database/integridade.test.ts`. Confira com:
+— hoje são 21 arquivos, entre eles todos os `*.api.test.ts`, `auth.test.ts`, `news.test.ts`,
+`indices.repository.test.ts` e `src/database/integridade.test.ts`. Confira com:
 
 ```bash
 grep -rl "database/prisma" backend/src --include=*.test.ts
@@ -37,8 +37,15 @@ contém: código novo contra um banco sem a coluna dá P2022 em toda leitura que
 (a coluna `divida_ebitda`, por exemplo, quebraria `/indicators` e a carteira). Só rode contra a produção
 com o pedido explícito de quem é dono do banco.
 
+**`index_points` é histórico que não se refaz.** A tabela guarda um ponto por dia de IFIX, SMLL e IDIV
+(o Yahoo não tem histórico deles), gravado de forma preguiçosa pelo `GET /indices/dados`
+(`modules/indices/indices.repository.ts`), e só cresce. Em produção, nunca apague, reseede nem recrie a
+tabela: o histórico perdido não volta. A migration `index_points` vai para o Supabase com
+`supabase:migrate` **antes** do push que a contém.
+
 **`backend/.env.supabase` não pode ser commitado** (tem a URL do banco de produção, `JWT_SECRET` e
-`GEMINI_API_KEY`). Confira com `git ls-files | grep "\.env"`: só `.env.example` deve aparecer.
+`GEMINI_API_KEY`). Confira com `git ls-files | grep "\.env"`: só `.env.example` e `.env.supabase.example` (modelo com
+valores de mentira) devem aparecer.
 
 Use a skill `deploy-producao` antes de qualquer `git push` para a `main`, de `supabase:migrate`, ou quando
 a branch tiver migration: ela confere segredos no commit, a ordem migration → push e o deploy no Render.
@@ -144,6 +151,7 @@ Para revisão e correção, use antes de fechar a mudança:
 | Google Gemini (análise de PDF) | `modules/reports/gemini.ts` | sem `GEMINI_API_KEY` → 503 com instrução |
 | RSS Money Times / Suno | `modules/news/rss.ts` | feed fora do ar → lista vazia daquela fonte |
 | CVM dados abertos (ITR, DFP, Informe Mensal de FII) | `modules/reports/cvm.provider.ts` | devolve `null`; o relatório cai na leitura do PDF inteiro |
+| Banco Central SGS (Selic 432, IPCA 433, CDI 4391 e 4389) | `modules/indices/indices.fontes.ts` | série vazia; a última série boa fica em memória e é a que sai. Uma fila serial (nunca duas chamadas ao BCB ao mesmo tempo) e prazo de 15 s para a resposta: o que não chegou segue na fila em segundo plano |
 
 Relatórios com ativo informado usam a CVM: o PDF só identifica o período (`reports/periodo.ts`),
 os números vêm da CVM e a IA escreve o resumo sobre eles. Esses relatórios não guardam o texto
@@ -170,7 +178,23 @@ ETFs: sem banco de indicadores. Preço, histórico e proventos vêm do Yahoo; o 
 O feed do Google Notícias **não** é usado: o próprio XML o restringe a leitor de feeds pessoal, de uso
 não comercial. As notícias de cada ficha vêm de feeds RSS públicos de vários portais (Money Times, Suno, InfoMoney, Valor Investe, Seu Dinheiro, Exame, Bora Investir; `FONTES_PARA_ATIVOS` em `news/rss.ts`), guardadas por 14 dias em `news_items` (`news/news.historico.ts`) e filtradas pelo ticker. A aba Notícias da carteira continua só com Money Times e Suno, sem banco.
 
-O front lê essa API no servidor (`frontend/src/lib/ativos-api.ts`, direto em `API_URL`, e não por `/api`), com as páginas em `revalidate = 0` e a resposta guardada 2 min pelo Next. `ativos-catalogo.ts` do front é uma cópia só de tickers e nomes, e um teste confere que não diverge do backend. O E2E das páginas (`npm run test:e2e:ativos`) é isolado: lê uma API de mentira (`e2e/ativos/stub-api.mjs`) em portas próprias, sem backend, Docker, Yahoo nem CVM. Mudou um campo do DTO de `/ativos`? Atualize `ativos-tipos.ts` e o stub.
+**Páginas de Índices** (`modules/indices/`, `GET /indices/dados`, sem login): Selic, IPCA e CDI do SGS, Ibovespa e
+S&P 500 com histórico do Yahoo, IFIX, SMLL e IDIV do último valor do Yahoo somado ao que `index_points`
+acumulou. O front lê em `frontend/src/lib/indices-api.ts` (20 s de prazo nas páginas de índices; 5 s na
+home, cuja seção "Os números de…" chega por streaming sob `<Suspense>` com os números fixos de
+`NUMEROS_DO_MES` enquanto carrega).
+
+O front lê essa API no servidor (`frontend/src/lib/ativos-api.ts`, direto em `API_URL`, e não por `/api`), com as páginas em `revalidate = 0` e a resposta guardada 2 min pelo Next. `ativos-catalogo.ts` do front é uma cópia só de tickers e nomes, e um teste confere que não diverge do backend. O E2E das páginas (`npm run test:e2e:ativos`) é isolado: lê uma API de mentira (`e2e/ativos/stub-api.mjs`) em portas próprias, sem backend, Docker, Yahoo nem CVM. Mudou um campo do DTO de `/ativos`? Atualize `ativos-tipos.ts` e o stub. O stub também responde `/indices/dados` com
+`frontend/e2e/ativos/indices-dados.json`, gerado de `DADOS_DE_EXEMPLO` (`cd frontend && npx tsx
+scripts/gerar-fixture-indices.ts`); `indices-contrato.test.ts` confere que as chaves batem com o tipo e com o
+backend. Já o E2E principal (`playwright.config.ts`) sobe o backend de verdade, e a home dele chama o Banco
+Central e o Yahoo ao vivo.
+
+**Conta de demonstração somente leitura.** O botão "Ver a demonstração" loga qualquer visitante na mesma
+conta (`EMAIL_DA_DEMO` em `backend/src/shared/conta-demo.ts`), então ela não escreve: o middleware
+`somenteLeituraNaDemo` (depois do `authGuard`) recusa com 403 toda escrita da demo, reconhecida pela claim
+`demo` do JWT ou, em token antigo sem a claim, pelo e-mail conferido no banco. A única escrita liberada é
+`POST /dividends/sync` (copia proventos do Yahoo), que tem limitador próprio por usuário.
 
 ## Qual modelo usar em cada tarefa
 

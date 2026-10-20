@@ -194,7 +194,7 @@ chama a API: é conteúdo estático.
 | CVM (dados abertos) | ITR, DFP, informe mensal de FII, cadastro de classes | devolve `null`; o relatório cai na leitura do PDF |
 | Google Gemini | resumo e chat dos relatórios | sem `GEMINI_API_KEY`, `503` com a instrução |
 | Feeds RSS (Money Times, Suno, InfoMoney, Valor Investe, Seu Dinheiro, Exame, Bora Investir) | notícias | a fonte fora do ar some da lista, sem derrubar a rota |
-| API do Banco Central (SGS) | conferência manual de Selic, CDI e IPCA para os textos | não é chamada em tempo de execução |
+| API do Banco Central (SGS) | Selic, IPCA e CDI das páginas de índices e da home (`GET /indices/dados`) | série vazia na falha; a última série boa fica em memória e é a que sai. As chamadas passam por uma fila serial, e a resposta espera no máximo 15 s |
 
 O feed do Google Notícias **não** é usado: os próprios termos do XML o restringem a uso pessoal e não comercial.
 
@@ -428,8 +428,10 @@ Luiz Barsi, e os FIIs estão entre os mais líquidos do IFIX. **As quantidades, 
 inventados**: ninguém publica a posição de outra pessoa. Nada ali é recomendação de investimento.
 
 Diferente de `npm run db:seed`, este script apaga apenas a conta de demonstração e recria; o resto do banco fica
-intacto. Por isso ele também pode rodar no Supabase, com `npm run supabase:demo`. Lá a conta é compartilhada: o que
-um visitante lançar, todos veem. Rode o comando de novo para devolvê-la ao estado original.
+intacto. Por isso ele também pode rodar no Supabase, com `npm run supabase:demo`. Lá a conta é compartilhada (qualquer
+visitante entra nela pelo botão da página inicial) e, por isso, em qualquer banco ela é somente leitura: a API recusa com `403` toda escrita dela (transação, provento manual, meta, relatório),
+exceto `POST /dividends/sync`, que só copia proventos do Yahoo. Rode o comando de novo para devolvê-la ao estado
+original, se a sincronização de proventos tiver mudado algo.
 
 ## Problemas comuns
 
