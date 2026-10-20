@@ -149,6 +149,19 @@ test.describe("no celular", () => {
 });
 
 // Depende da conta carteira@portfoliolab.dev, que `npm run db:local` cria.
+test("sair leva à página inicial", async ({ page }) => {
+  const resposta = await page.request.post("/api/auth/login", {
+    data: { email: "carteira@portfoliolab.dev", password: "demo123456" },
+  });
+  expect(resposta.ok(), `login da conta demo: ${resposta.status()}`).toBeTruthy();
+
+  await page.goto("/dashboard");
+  await page.getByRole("banner").getByRole("button", { name: "Sair" }).click();
+
+  await expect.poll(() => new URL(page.url()).pathname, { timeout: 20_000 }).toBe("/");
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("Invista aprendendo");
+});
+
 test("ver a demonstração entra no dashboard da conta demo", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("main").getByRole("button", { name: "Ver a demonstração" }).first().click();

@@ -56,7 +56,7 @@ export type Coluna = {
 
 export type Destaque =
   | { tipo: "desafio"; titulo: string; texto: string; link: Destino }
-  | { tipo: "indices"; titulo: string; link: Destino };
+  | { tipo: "indices"; titulo: string; atalhos: Atalho[]; link: Destino };
 
 export type Intencao = {
   id: "aprender" | "ativos" | "planejar" | "noticias";
@@ -145,7 +145,6 @@ export const NAVEGACAO: Intencao[] = [
               })),
             },
           },
-          { rotulo: "Agenda de proventos", descricao: "Quem paga, quanto e quando, com a data-com." },
         ],
       },
       {
@@ -180,7 +179,15 @@ export const NAVEGACAO: Intencao[] = [
     destaque: {
       tipo: "indices",
       titulo: "Índices de referência",
-      link: { rotulo: "Indicadores da minha carteira", href: ROTAS.indicadores },
+      // Sem número aqui: um valor no menu ficaria velho. A ficha mostra o dado, com fonte e data.
+      // Os caminhos saem de ROTAS.indices + slug (e não de rotaDoIndice) porque indices.ts importa este arquivo.
+      atalhos: [
+        { rotulo: "Selic", descricao: "A taxa básica de juros da economia.", href: `${ROTAS.indices}/selic` },
+        { rotulo: "IPCA", descricao: "A inflação oficial do país.", href: `${ROTAS.indices}/ipca` },
+        { rotulo: "Ibovespa", descricao: "O principal índice de ações da bolsa.", href: `${ROTAS.indices}/ibovespa` },
+        { rotulo: "IFIX", descricao: "O índice dos fundos imobiliários.", href: `${ROTAS.indices}/ifix` },
+      ],
+      link: { rotulo: "Ver todos os índices", href: ROTAS.indices },
     },
   },
   {
@@ -194,12 +201,6 @@ export const NAVEGACAO: Intencao[] = [
             descricao: "Quantas cotas comprar de cada ativo para chegar às metas.",
             href: ROTAS.simulacao,
           },
-          {
-            // as metas são editadas na própria tela de simulação
-            rotulo: "Metas da carteira",
-            descricao: "Defina quanto cada ativo deve pesar.",
-            href: ROTAS.simulacao,
-          },
         ],
       },
       {
@@ -209,7 +210,6 @@ export const NAVEGACAO: Intencao[] = [
             descricao: "Envie o PDF de um fundo ou de uma empresa e entenda o que mudou.",
             href: ROTAS.relatorios,
           },
-          { rotulo: "Calculadoras", descricao: "Juros compostos, inflação e renda fixa." },
         ],
       },
     ],
@@ -250,6 +250,7 @@ export const RODAPE: { titulo: string; links: { rotulo: string; href: string }[]
     links: [
       { rotulo: "Ações", href: ROTAS.acoes },
       { rotulo: "Fundos imobiliários", href: ROTAS.fiis },
+      { rotulo: "ETFs", href: ROTAS.etfs },
       { rotulo: "Índices", href: ROTAS.indices },
     ],
   },

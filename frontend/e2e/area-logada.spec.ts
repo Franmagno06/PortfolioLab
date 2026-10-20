@@ -60,7 +60,7 @@ test.describe("área logada", () => {
 
     await page.getByRole("banner").getByRole("button", { name: "Sair" }).click();
 
-    await expect(page).toHaveURL(/\/login/);
+    await expect(page).toHaveURL("/");
     await page.goto("/dashboard");
     await expect(page).toHaveURL(/\/login/);
   });

@@ -2,7 +2,8 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { ACOES, ETFS, FIIS } from "./ativos-catalogo";
-import { ABAS_DA_CARTEIRA, comNext, destinoDepoisDoLogin, NAVEGACAO, RODAPE, ROTAS } from "./navegacao";
+import { SLUGS } from "./indices";
+import { ABAS_DA_CARTEIRA, comNext, destinoDepoisDoLogin, NAVEGACAO, RODAPE, ROTAS, type Destino } from "./navegacao";
 
 // "Nenhum link quebrado": cada href da navegação precisa ser uma rota de
 // ROTAS, e cada rota precisa ter uma página de verdade em src/app.
@@ -24,8 +25,7 @@ function todosOsHrefs(): string[] {
     for (const coluna of intencao.colunas ?? []) {
       for (const item of coluna.itens) if (item.href) hrefs.push(item.href);
     }
-    if (intencao.destaque?.link.href) hrefs.push(intencao.destaque.link.href);
-  }
+    if (intencao.destaque?.link.href) hrefs.push(intencao.destaque.link.href);  }
   for (const coluna of RODAPE) for (const link of coluna.links) hrefs.push(link.href);
   for (const aba of ABAS_DA_CARTEIRA) hrefs.push(aba.href);
   return hrefs;
@@ -73,20 +73,15 @@ describe("navegação do site", () => {
     for (const t of textos) expect(t.toLowerCase()).not.toMatch(/trilha|aula|curso/);
   });
 
-  it("os destinos que ainda não têm página seguem sem link", () => {
-    const itens = NAVEGACAO.flatMap((i) => i.colunas ?? []).flatMap((c) => c.itens);
-    expect(itens.filter((i) => !i.href).map((i) => i.rotulo)).toContain("Agenda de proventos");
-  });
-
-  it("Buscar ações e Buscar FIIs são links de verdade; ações por setor, agenda e ETFs seguem em breve", () => {
+  it("Buscar ações, Buscar FIIs e Buscar ETFs são links de verdade; ações por setor e agenda não existem mais", () => {
     const ativos = NAVEGACAO.find((i) => i.id === "ativos");
     const itens = (ativos?.colunas ?? []).flatMap((c) => c.itens);
     const porRotulo = Object.fromEntries(itens.map((i) => [i.rotulo, i.href]));
 
     expect(porRotulo["Buscar ações"]).toBe(ROTAS.acoes);
     expect(porRotulo["Buscar FIIs"]).toBe(ROTAS.fiis);
-    expect(porRotulo["Ações por setor"]).toBeUndefined();
-    expect(porRotulo["Agenda de proventos"]).toBeUndefined();
+    expect(porRotulo).not.toHaveProperty("Ações por setor");
+    expect(porRotulo).not.toHaveProperty("Agenda de proventos");
     expect(porRotulo["Buscar ETFs"]).toBe(ROTAS.etfs);
   });
 
@@ -130,6 +125,55 @@ describe("navegação do site", () => {
   it("não há mais 'Ações por setor' no menu", () => {
     const rotulos = NAVEGACAO.flatMap((i) => i.colunas ?? []).flatMap((c) => c.itens).map((i) => i.rotulo);
     expect(rotulos).not.toContain("Ações por setor");
+  });
+
+  /** Todo destino do menu, recursivamente: itens das colunas, atalhos e o link do destaque. */
+  function destinosDoMenu(): Destino[] {
+    const destinos: Destino[] = [];
+    for (const intencao of NAVEGACAO) {
+      if (intencao.href) destinos.push({ rotulo: intencao.rotulo, href: intencao.href });
+      for (const item of intencao.colunas?.flatMap((c) => c.itens) ?? []) {
+        destinos.push(item);
+        destinos.push(...(item.atalhos?.itens ?? []));
+      }
+      if (intencao.destaque) {
+        destinos.push(intencao.destaque.link);
+        if (intencao.destaque.tipo === "indices") destinos.push(...intencao.destaque.atalhos);
+      }
+    }
+    return destinos;
+  }
+
+  it("nenhum destino do menu fica sem href", () => {
+    expect(destinosDoMenu().filter((d) => !d.href).map((d) => d.rotulo)).toEqual([]);
+  });
+
+  it("o rodapé tem ETFs em Ativos", () => {
+    const ativos = RODAPE.find((c) => c.titulo === "Ativos");
+    expect(ativos?.links).toContainEqual({ rotulo: "ETFs", href: ROTAS.etfs });
+  });
+
+  it("o destaque de índices aponta para as fichas", () => {
+    const destaque = NAVEGACAO.find((i) => i.id === "ativos")?.destaque;
+    if (destaque?.tipo !== "indices") throw new Error("o menu Ativos deveria ter o destaque de índices");
+
+    expect(destaque.atalhos.map((a) => a.rotulo)).toEqual(["Selic", "IPCA", "Ibovespa", "IFIX"]);
+    for (const atalho of destaque.atalhos) {
+      expect(atalho.href.startsWith(`${ROTAS.indices}/`), atalho.href).toBe(true);
+      expect((SLUGS as readonly string[]).includes(atalho.href.slice(ROTAS.indices.length + 1)), atalho.href).toBe(true);
+    }
+    expect(destaque.link).toEqual({ rotulo: "Ver todos os índices", href: ROTAS.indices });
+  });
+
+  it("cada rótulo aparece uma vez por menu", () => {
+    for (const intencao of NAVEGACAO) {
+      // Dois itens com o mesmo destino são o mesmo item com dois nomes ("Metas da
+      // carteira" apontava para a própria simulação): conta o rótulo e o href.
+      const itens = (intencao.colunas ?? []).flatMap((c) => c.itens);
+      const repetidos = (valores: string[]) => valores.filter((v, i) => valores.indexOf(v) !== i);
+      expect(repetidos(itens.map((i) => i.rotulo)), `${intencao.rotulo}: rótulos`).toEqual([]);
+      expect(repetidos(itens.flatMap((i) => (i.href ? [i.href] : []))), `${intencao.rotulo}: destinos`).toEqual([]);
+    }
   });
 
   it("as abas da carteira cobrem as seis telas da área logada, sem repetir rota", () => {
