@@ -5,6 +5,7 @@ import {
   ATIVO_DE_EXEMPLO,
   atende,
   CRITERIOS_DE_EXEMPLO,
+  fraseDoJuroReal,
   juroReal,
   NUMEROS_DO_MES,
   numerosDoMes,
@@ -133,5 +134,93 @@ describe("numerosDoMes", () => {
     expect(n.aoVivo).toBe(false);
     expect(n.selic).toBe(13.75);
     expect(n.fechamento).toBe(NUMEROS_DO_MES.fechamento);
+  });
+});
+
+describe("numerosDoMes: pregão em andamento", () => {
+  const comIbov = (hoje: string, ibovespa: { data: string; valor: number }[]): DadosDosIndices => ({
+    ...DADOS_DE_EXEMPLO,
+    hoje,
+    pontos: { ...DADOS_DE_EXEMPLO.pontos, ibovespa },
+  });
+
+  it("último ponto com a data de hoje: intradiário (não é fechamento)", () => {
+    const n = numerosDoMes(
+      comIbov("2026-10-19", [
+        { data: "2026-09-30", valor: 190000 },
+        { data: "2026-10-16", valor: 195000 },
+        { data: "2026-10-19", valor: 196000 },
+      ]),
+    );
+
+    expect(n.aoVivo).toBe(true);
+    expect(n.intradiario).toBe(true);
+    expect(n.fechamento).toBe("19 de outubro");
+    // a conta da variação continua contra o último ponto de setembro
+    expect(n.ibovespa.variacaoNoMes).toBe(3.16);
+  });
+
+  it("último ponto de ontem: fechamento", () => {
+    const n = numerosDoMes(
+      comIbov("2026-10-20", [
+        { data: "2026-09-30", valor: 190000 },
+        { data: "2026-10-19", valor: 196000 },
+      ]),
+    );
+
+    expect(n.intradiario).toBe(false);
+    expect(n.fechamento).toBe("19 de outubro");
+  });
+
+  it("sábado com o último pregão na sexta: fechamento", () => {
+    const n = numerosDoMes(
+      comIbov("2026-10-24", [
+        { data: "2026-09-30", valor: 190000 },
+        { data: "2026-10-23", valor: 197000 },
+      ]),
+    );
+
+    expect(n.intradiario).toBe(false);
+    expect(n.fechamento).toBe("23 de outubro");
+  });
+
+  it("o conjunto fixo nunca é intradiário", () => {
+    expect(numerosDoMes(null).intradiario).toBe(false);
+  });
+});
+
+describe("fraseDoJuroReal", () => {
+  const juntar = (f: { antes: string; destaque: string; depois: string }) => f.antes + f.destaque + f.depois;
+
+  it("juro real positivo (13,75% e 4,58%): rende perto de 9% e é a régua", () => {
+    const f = fraseDoJuroReal(13.75, 4.58);
+    expect(f.destaque).toBe("perto de 9% ao ano");
+    expect(juntar(f)).toBe(
+      "Descontada a inflação, a renda fixa rende perto de 9% ao ano. É a régua que qualquer outro investimento precisa superar.",
+    );
+  });
+
+  it("juro real zero: não cobre a inflação, sem '-0'", () => {
+    const f = fraseDoJuroReal(5, 5);
+    expect(f.destaque).toBe("não cobre a inflação");
+    expect(juntar(f)).not.toContain("-0");
+    expect(f.depois).toBe(": o juro real está em 0,0% ao ano.");
+  });
+
+  it("juro real negativo: não cobre a inflação e mostra o número negativo", () => {
+    const f = fraseDoJuroReal(4, 6);
+    expect(f.destaque).toBe("não cobre a inflação");
+    expect(f.depois).toBe(": o juro real está em -1,9% ao ano.");
+    expect(juntar(f)).not.toContain("régua");
+  });
+
+  it("negativo pequeno que arredonda para zero não vira '-0,0%'", () => {
+    const f = fraseDoJuroReal(5, 5.02);
+    expect(f.depois).toBe(": o juro real está em 0,0% ao ano.");
+  });
+
+  it("positivo abaixo de meio ponto: não diz 'perto de 0%'", () => {
+    const f = fraseDoJuroReal(5.3, 5);
+    expect(f.destaque).toBe("menos de 1% ao ano");
   });
 });

@@ -1,4 +1,4 @@
-import { mesPorExtenso } from "./format";
+import { mesPorExtenso, percentual } from "./format";
 import { ipcaEm12Meses, variacaoPct, type DadosDosIndices } from "./indices";
 
 /**
@@ -39,6 +39,11 @@ export type NumerosDoMes = {
   ibovespa: { pontos: number; variacaoNoMes: number | null };
   ifix: { pontos: number };
   aoVivo: boolean;
+  /**
+   * O último ponto do Ibovespa é do próprio dia (`dados.hoje`): com o pregão aberto, o Yahoo devolve a
+   * barra em andamento, e a home não pode chamá-la de fechamento. Sempre false no conjunto fixo.
+   */
+  intradiario: boolean;
 };
 
 const arredondar2 = (v: number) => Math.round(v * 100) / 100;
@@ -52,7 +57,7 @@ const arredondar2 = (v: number) => Math.round(v * 100) / 100;
  * confiável no mês anterior (ausente ou zero), a variação do Ibovespa vira `null` e o resto segue ao vivo.
  */
 export function numerosDoMes(dados: DadosDosIndices | null): NumerosDoMes {
-  const fixo: NumerosDoMes = { ...NUMEROS_DO_MES, ibovespa: { ...NUMEROS_DO_MES.ibovespa }, ifix: { ...NUMEROS_DO_MES.ifix }, aoVivo: false };
+  const fixo: NumerosDoMes = { ...NUMEROS_DO_MES, ibovespa: { ...NUMEROS_DO_MES.ibovespa }, ifix: { ...NUMEROS_DO_MES.ifix }, aoVivo: false, intradiario: false };
   if (!dados) return fixo;
 
   const selic = dados.selicMensal.at(-1);
@@ -86,12 +91,43 @@ export function numerosDoMes(dados: DadosDosIndices | null): NumerosDoMes {
     ibovespa: { pontos: ultimoIbov.valor, variacaoNoMes: variacao === null ? null : arredondar2(variacao) },
     ifix: { pontos: ifix.valor },
     aoVivo: true,
+    intradiario: ultimoIbov.data === dados.hoje,
   };
 }
 
 /** Juro real pela fórmula de Fisher, em % ao ano. */
 export function juroReal(selicPct: number, ipcaPct: number): number {
   return ((1 + selicPct / 100) / (1 + ipcaPct / 100) - 1) * 100;
+}
+
+/**
+ * A frase do juro real na home, em três pedaços (o do meio vai em negrito). Só diz que a renda fixa
+ * "rende" quando o juro real é positivo; com ele zerado ou negativo, diz que ela não cobre a inflação,
+ * em vez de chamar um número negativo de régua a superar. O `+ 0` tira o "-0" do arredondamento.
+ */
+export function fraseDoJuroReal(selicPct: number, ipcaPct: number): { antes: string; destaque: string; depois: string } {
+  const real = juroReal(selicPct, ipcaPct);
+  const inteiro = Math.round(real) + 0;
+  if (real > 0 && inteiro >= 1) {
+    return {
+      antes: "Descontada a inflação, a renda fixa rende ",
+      destaque: `perto de ${percentual(inteiro, 0)} ao ano`,
+      depois: ". É a régua que qualquer outro investimento precisa superar.",
+    };
+  }
+  if (real > 0) {
+    return {
+      antes: "Descontada a inflação, a renda fixa rende ",
+      destaque: "menos de 1% ao ano",
+      depois: ": sobra pouco acima da inflação.",
+    };
+  }
+  const umaCasa = Math.round(real * 10) / 10 + 0;
+  return {
+    antes: "Com esses números, a renda fixa atrelada à Selic ",
+    destaque: "não cobre a inflação",
+    depois: `: o juro real está em ${percentual(umaCasa, 1)} ao ano.`,
+  };
 }
 
 /** TAEE11 no fechamento de 2/10/2026, Yahoo Finance, calculado como o job de indicadores calcula. */
