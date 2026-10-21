@@ -1,5 +1,5 @@
 import { razaoPct } from "@/lib/aprender/exemplos";
-import { numero, percentual } from "@/lib/format";
+import { brlComCasas, numero, percentual } from "@/lib/format";
 import type { IdDaDica } from "@/lib/indicadores-explicados";
 import { ATIVO_DE_EXEMPLO } from "@/lib/site-dados";
 
@@ -53,7 +53,7 @@ export const INDICADORES: IndicadorExplicado[] = [
     comoLer: "Quanto você recebeu em proventos para cada R$ 100 investidos.",
     armadilha: "DY alto pode ser o preço caindo, não o provento subindo.",
     exemploRotulo: NO_EXEMPLO,
-    exemplo: `${percentual(ATIVO_DE_EXEMPLO.dy12m, 2)} (R$ ${numero(ATIVO_DE_EXEMPLO.proventos12m.porUnidade, 4)} em ${ATIVO_DE_EXEMPLO.proventos12m.pagamentos} pagamentos)`,
+    exemplo: `${percentual(ATIVO_DE_EXEMPLO.dy12m, 2)} (${brlComCasas(ATIVO_DE_EXEMPLO.proventos12m.porUnidade, 4)} em ${ATIVO_DE_EXEMPLO.proventos12m.pagamentos} pagamentos)`,
   },
   {
     id: "roe",

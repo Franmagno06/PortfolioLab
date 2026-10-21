@@ -30,17 +30,33 @@ export function artigosParaComecar<T extends ArtigoParaComecar>(artigos: T[], de
  * O minigráfico é o último fechamento de cada um dos 12 últimos meses da série do Ibovespa na MESMA resposta.
  * É `null` quando os números caíram no conjunto fixo (nunca misturar uma linha ao vivo com números fixos de
  * outra data) e quando há menos de 2 meses (um ponto só não é linha).
+ *
+ * Ponto com valor não finito (NaN, Infinity) é DESCARTADO antes de tudo: o último fechamento válido do mês
+ * fica no lugar. Buraco de mês dentro da janela (ex.: falta março entre fevereiro e abril) devolve `null`:
+ * uma linha que liga fevereiro direto a abril pareceria mensal e mentiria sobre o intervalo.
  */
 export function numerosDoBento(dados: DadosDosIndices | null): { numeros: NumerosDoMes; minigraficoIbovespa: number[] | null } {
   const numeros = numerosDoMes(dados);
   if (!dados || !numeros.aoVivo) return { numeros, minigraficoIbovespa: null };
 
-  // a série vem em ordem de data: o último ponto de cada mês sobrescreve os anteriores
+  // ordena por data e deixa o último ponto válido de cada mês sobrescrever os anteriores
+  const pontos = dados.pontos.ibovespa.filter((p) => Number.isFinite(p.valor)).sort((a, b) => a.data.localeCompare(b.data));
   const ultimoDoMes = new Map<string, number>();
-  for (const p of dados.pontos.ibovespa) ultimoDoMes.set(p.data.slice(0, 7), p.valor);
-  const meses = [...ultimoDoMes.entries()].sort(([a], [b]) => a.localeCompare(b)).slice(-12);
+  for (const p of pontos) ultimoDoMes.set(p.data.slice(0, 7), p.valor);
+  const meses = [...ultimoDoMes.entries()].slice(-12);
+  if (meses.length < 2) return { numeros, minigraficoIbovespa: null };
 
-  return { numeros, minigraficoIbovespa: meses.length < 2 ? null : meses.map(([, valor]) => valor) };
+  for (let i = 1; i < meses.length; i++) {
+    if (meses[i]![0] !== mesSeguinte(meses[i - 1]![0])) return { numeros, minigraficoIbovespa: null };
+  }
+  return { numeros, minigraficoIbovespa: meses.map(([, valor]) => valor) };
+}
+
+/** "2026-12" → "2027-01". */
+function mesSeguinte(anoMes: string): string {
+  const ano = Number(anoMes.slice(0, 4));
+  const mes = Number(anoMes.slice(5, 7));
+  return mes === 12 ? `${ano + 1}-01` : `${ano}-${String(mes + 1).padStart(2, "0")}`;
 }
 
 /** Quantas fichas cada lista de Ativos tem: o catálogo curado do front (o teste confere com o do backend). */

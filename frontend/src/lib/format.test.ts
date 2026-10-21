@@ -3,6 +3,7 @@ import {
   quantidadeTexto,
   brlOuTraco,
   brl,
+  brlComCasas,
   brlSemCentavos,
   contagemCompacta,
   dataCurta,
@@ -33,6 +34,18 @@ describe("brl", () => {
 
   it("formata negativo", () => {
     expect(semEspacosEspeciais(brl(-42))).toBe("-R$ 42,00");
+  });
+});
+
+describe("brlComCasas", () => {
+  it("fixa as casas decimais, no mesmo estilo do brl", () => {
+    expect(semEspacosEspeciais(brlComCasas(3.0065, 4))).toBe("R$ 3,0065");
+    expect(semEspacosEspeciais(brlComCasas(3, 4))).toBe("R$ 3,0000");
+    expect(semEspacosEspeciais(brlComCasas(1234.5, 2))).toBe(semEspacosEspeciais(brl(1234.5)));
+  });
+
+  it("usa o mesmo espaço que não separa do brl", () => {
+    expect(brlComCasas(1, 2)).toBe(brl(1));
   });
 });
 

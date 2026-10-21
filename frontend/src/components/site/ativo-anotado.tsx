@@ -1,6 +1,6 @@
 import { Fragment } from "react";
 import Link from "next/link";
-import { brl, indicadorOuTraco, numero, pct, percentual, vezesPorExtenso } from "@/lib/format";
+import { brl, brlComCasas, indicadorOuTraco, numero, pct, percentual, vezesPorExtenso } from "@/lib/format";
 import { ROTAS } from "@/lib/navegacao";
 import { ATIVO_DE_EXEMPLO as ativo, atende, CRITERIOS_DE_EXEMPLO } from "@/lib/site-dados";
 
@@ -27,12 +27,12 @@ const INDICADORES = [
   },
   {
     nome: "Dividend yield em 12 meses",
-    valor: percentual(ativo.dy12m),
-    nota: `Pagou ${brl(ativo.proventos12m.porUnidade)} por unidade nos últimos 12 meses, em ${vezesPorExtenso(ativo.proventos12m.pagamentos)}.`,
+    valor: percentual(ativo.dy12m, 2),
+    nota: `Pagou ${brlComCasas(ativo.proventos12m.porUnidade, 4)} por unidade nos últimos 12 meses, em ${vezesPorExtenso(ativo.proventos12m.pagamentos)}.`,
   },
   {
     nome: "Retorno sobre o patrimônio (ROE)",
-    valor: percentual(ativo.roe),
+    valor: percentual(ativo.roe, 2),
     nota: `Gerou ${brl(ativo.roe)} de lucro para cada R$ 100 de patrimônio.`,
   },
 ];

@@ -34,6 +34,19 @@ describe("artigosParaComecar", () => {
     expect(artigosParaComecar(artigos, undefined, 2).map((a) => a.slug)).toEqual(["destaque", "novo"]);
   });
 
+  it("empate na data: ordem alfabética do título, em pt-BR", () => {
+    const empatados = [artigo("Índice", "2026-10-15"), artigo("Zebra", "2026-10-15"), artigo("Ação", "2026-10-15")];
+    expect(artigosParaComecar(empatados, undefined).map((a) => a.slug)).toEqual(["Ação", "Índice", "Zebra"]);
+  });
+
+  it("com menos artigos que `quantos`, devolve os que há", () => {
+    expect(artigosParaComecar([artigo("a", "2026-10-01"), artigo("b", "2026-10-02")], "a", 3).map((a) => a.slug)).toEqual(["b"]);
+  });
+
+  it("destaque que não está na lista não tira ninguém", () => {
+    expect(artigosParaComecar(artigos, "nao-existe", 5)).toHaveLength(5);
+  });
+
   it("não mexe na lista que recebeu", () => {
     const copia = [...artigos];
     artigosParaComecar(artigos, "destaque");
@@ -96,6 +109,52 @@ describe("numerosDoBento", () => {
     };
 
     expect(numerosDoBento(doisMeses).minigraficoIbovespa).toEqual([190000, 192000]);
+  });
+
+  const comIbov = (ibovespa: { data: string; valor: number }[]): DadosDosIndices => ({
+    ...DADOS_DE_EXEMPLO,
+    pontos: { ...DADOS_DE_EXEMPLO.pontos, ibovespa },
+  });
+
+  it("valor não finito é descartado: fica o último fechamento válido do mês", () => {
+    const r = numerosDoBento(
+      comIbov([
+        { data: "2026-08-31", valor: 180000 },
+        { data: "2026-09-29", valor: 189000 },
+        { data: "2026-09-30", valor: Number.NaN },
+        { data: "2026-10-14", valor: 192000 },
+        { data: "2026-10-15", valor: Number.POSITIVE_INFINITY },
+        { data: "2026-10-16", valor: 192115 },
+      ]),
+    );
+
+    expect(r.minigraficoIbovespa).toEqual([180000, 189000, 192115]);
+    expect(r.minigraficoIbovespa!.every(Number.isFinite)).toBe(true);
+  });
+
+  it("mês faltando no meio da janela: sem minigráfico", () => {
+    const r = numerosDoBento(
+      comIbov([
+        { data: "2026-07-31", valor: 178000 },
+        { data: "2026-08-31", valor: 180000 },
+        // setembro não veio
+        { data: "2026-10-16", valor: 192115 },
+      ]),
+    );
+
+    expect(r.numeros.aoVivo).toBe(true);
+    expect(r.minigraficoIbovespa).toBeNull();
+  });
+
+  it("a virada de ano conta como meses seguidos", () => {
+    expect(
+      numerosDoBento(
+        comIbov([
+          { data: "2025-12-30", valor: 160000 },
+          { data: "2026-01-15", valor: 165000 },
+        ]),
+      ).minigraficoIbovespa,
+    ).toEqual([160000, 165000]);
   });
 
   it("caindo no conjunto fixo (uma série vazia), não mostra minigráfico mesmo com Ibovespa", () => {
