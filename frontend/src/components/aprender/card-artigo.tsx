@@ -10,7 +10,7 @@ export type ResumoDeArtigo = Pick<Artigo, "slug" | "titulo" | "subtitulo" | "cat
  */
 export function CardArtigo({ artigo }: { artigo: ResumoDeArtigo }) {
   return (
-    <article className="group relative flex flex-col gap-2.5 rounded-xl border border-pauta bg-card p-6 transition-colors focus-within:border-ink hover:border-ink">
+    <article className="interativo group relative flex flex-col gap-2.5 rounded-xl border border-pauta bg-card p-6">
       <p className="text-xs leading-4 font-medium tracking-wide text-anotacao">{caixaAlta(rotuloDaCategoria(artigo.categoria))}</p>
       <h3 className="font-leitura text-xl leading-[26px] font-semibold text-balance text-ink">
         <Link href={`/aprender/${artigo.slug}`} className="rounded after:absolute after:inset-0 after:rounded-xl after:content-['']">
@@ -18,7 +18,9 @@ export function CardArtigo({ artigo }: { artigo: ResumoDeArtigo }) {
         </Link>
       </h3>
       <p className="text-[15px] leading-[22px] text-ink-2">{artigo.subtitulo}</p>
-      <p className="artigo-meta mt-auto pt-1 text-mute">{artigo.tempoLeitura} min de leitura</p>
+      <p className="artigo-meta mt-auto pt-1 text-mute">
+        {artigo.tempoLeitura} min de leitura<span aria-hidden className="seta">&nbsp;→</span>
+      </p>
     </article>
   );
 }

@@ -187,13 +187,5 @@ export function atende(ativo: typeof ATIVO_DE_EXEMPLO, c: Criterio): boolean {
   return c.comparacao === "acima" ? v > c.limite : v < c.limite;
 }
 
-export const TRILHAS = [
-  { numero: 1, titulo: "Antes de investir: reserva e orçamento", aulas: 5, descricao: "Por que a reserva de emergência vem antes da primeira ação." },
-  { numero: 2, titulo: "Renda fixa sem mistério", aulas: 5, descricao: "Selic, CDI, Tesouro Direto e CDB, com as contas feitas em reais." },
-  { numero: 3, titulo: "Como reconhecer um ativo sólido", aulas: 6, descricao: "Lucro constante, dívida sob controle e um histórico de proventos que se sustenta." },
-  { numero: 4, titulo: "Do primeiro aporte à primeira carteira", aulas: 7, descricao: "Quanto colocar em cada classe de ativo e por que a ordem importa." },
-  { numero: 5, titulo: "Rebalancear sem vender", aulas: 4, descricao: "Usar cada aporte para levar a carteira de volta às metas." },
-] as const;
-
 /** A conta de demonstração que `npm run db:local` cria (backend/prisma/seed-demo.ts). */
 export const CONTA_DEMO = { ativos: 16, transacoes: 27 } as const;

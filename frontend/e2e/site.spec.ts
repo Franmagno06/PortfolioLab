@@ -22,7 +22,7 @@ test.describe("site público", () => {
     await page.goto("/");
 
     await expect(page).toHaveURL("/");
-    await expect(page.getByRole("heading", { level: 1 })).toContainText("Invista aprendendo");
+    await expect(page.getByRole("heading", { level: 1 })).toContainText("Entenda o que você compra");
 
     const principal = page.getByRole("navigation", { name: "Principal" });
     for (const nome of ["Aprender", "Ativos", "Planejar"]) {
@@ -51,14 +51,27 @@ test.describe("site público", () => {
     await expect(page).toHaveURL(/\/login/);
   });
 
-  test("a folha do topo mostra o aporte de outubro calculado pelo algoritmo", async ({ page }) => {
+  test("o topo leva aos artigos", async ({ page }) => {
     await page.goto("/");
-    const folha = page.getByRole("table", { name: "Aporte de outubro da carteira de exemplo" });
 
-    // os mesmos números que rebalance.exemplo.test.ts fixa no backend
-    await expect(folha.getByRole("row").filter({ hasText: "TAEE11" }).first()).toContainText("16");
-    await expect(folha).toContainText("R$ 20,96");
-    await expect(page.getByText("de 20,8 para 15,1 pontos")).toBeVisible();
+    await expect(page.getByRole("link", { name: /Começar pelos artigos/ })).toHaveAttribute("href", "/aprender");
+
+    // movimento contínuo precisa de pausa (WCAG 2.2.2): o rótulo alterna
+    await page.getByRole("button", { name: "Pausar animação" }).click();
+    await expect(page.getByRole("button", { name: "Retomar animação" })).toBeVisible();
+  });
+
+  test("comece por aqui mostra artigos reais", async ({ page }) => {
+    await page.goto("/");
+    const secao = page.locator("#comece-por-aqui");
+    await secao.scrollIntoViewIfNeeded();
+
+    const cartoes = secao.getByRole("article");
+    await expect(cartoes).toHaveCount(3);
+    for (let i = 0; i < 3; i++) {
+      await expect(cartoes.nth(i).getByRole("link")).toHaveAttribute("href", /^\/aprender\/[a-z0-9-]+$/);
+    }
+    await expect(secao.getByRole("link", { name: "Ver todos os artigos" })).toHaveAttribute("href", "/aprender");
   });
 });
 
@@ -159,7 +172,7 @@ test("sair leva à página inicial", async ({ page }) => {
   await page.getByRole("banner").getByRole("button", { name: "Sair" }).click();
 
   await expect.poll(() => new URL(page.url()).pathname, { timeout: 20_000 }).toBe("/");
-  await expect(page.getByRole("heading", { level: 1 })).toContainText("Invista aprendendo");
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("Entenda o que você compra");
 });
 
 test("ver a demonstração entra no dashboard da conta demo", async ({ page }) => {

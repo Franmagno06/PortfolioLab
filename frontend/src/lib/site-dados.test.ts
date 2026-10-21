@@ -9,7 +9,6 @@ import {
   juroReal,
   NUMEROS_DO_MES,
   numerosDoMes,
-  TRILHAS,
 } from "./site-dados";
 
 describe("juroReal", () => {
@@ -93,12 +92,6 @@ describe("ATIVO_DE_EXEMPLO: uma data só e contas que fecham", () => {
     ].map((m) => m[0]);
     expect(datas.length).toBeGreaterThan(0);
     for (const d of datas) expect(["20 de outubro de 2026", "20/10/2026", "2026-10-20"]).toContain(d);
-  });
-});
-
-describe("TRILHAS", () => {
-  it("é uma sequência numerada de 1 em diante, sem buraco", () => {
-    expect(TRILHAS.map((t) => t.numero)).toEqual([1, 2, 3, 4, 5]);
   });
 });
 

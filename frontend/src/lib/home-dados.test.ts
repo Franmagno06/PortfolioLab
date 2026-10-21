@@ -3,11 +3,11 @@ import type { DadosDosIndices } from "./indices";
 import { DADOS_DE_EXEMPLO } from "./indices-exemplo";
 import { artigosParaComecar, numerosDoBento, QUANTIDADE_DE_FICHAS, type ArtigoParaComecar } from "./home-dados";
 
-const artigo = (slug: string, atualizadoEm: string): ArtigoParaComecar => ({
+const artigo = (slug: string, atualizadoEm: string, categoria: ArtigoParaComecar["categoria"] = "acoes-e-fiis"): ArtigoParaComecar => ({
   slug,
   titulo: slug,
   subtitulo: "",
-  categoria: "acoes-e-fiis",
+  categoria,
   tempoLeitura: 2,
   atualizadoEm,
 });
@@ -45,6 +45,28 @@ describe("artigosParaComecar", () => {
 
   it("destaque que não está na lista não tira ninguém", () => {
     expect(artigosParaComecar(artigos, "nao-existe", 5)).toHaveLength(5);
+  });
+
+  it("categorias de iniciante vêm primeiro, mesmo com data mais antiga", () => {
+    const lista = [
+      artigo("acoes-novo", "2026-10-20"),
+      artigo("acoes-novo-2", "2026-10-19"),
+      artigo("reserva", "2026-09-01", "antes-de-investir"),
+      artigo("tesouro", "2026-08-01", "renda-fixa"),
+      artigo("cdb", "2026-07-01", "renda-fixa"),
+      artigo("destaque", "2026-10-21", "antes-de-investir"),
+    ];
+    expect(artigosParaComecar(lista, "destaque").map((a) => a.slug)).toEqual(["reserva", "tesouro", "cdb"]);
+  });
+
+  it("completa com as outras categorias, por data, quando faltam iniciantes", () => {
+    const lista = [
+      artigo("acoes-velho", "2026-09-01"),
+      artigo("acoes-novo", "2026-10-20"),
+      artigo("reserva", "2026-08-01", "antes-de-investir"),
+      artigo("carteira", "2026-10-10", "montar-a-carteira"),
+    ];
+    expect(artigosParaComecar(lista, undefined).map((a) => a.slug)).toEqual(["reserva", "acoes-novo", "carteira"]);
   });
 
   it("não mexe na lista que recebeu", () => {

@@ -1,5 +1,5 @@
 import type { ResumoDeArtigo } from "@/components/aprender/card-artigo";
-import type { Artigo } from "./aprender/tipos";
+import type { Artigo, IdDeCategoria } from "./aprender/tipos";
 import { ACOES, ETFS, FIIS } from "./ativos-catalogo";
 import type { DadosDosIndices } from "./indices";
 import { numerosDoMes, type NumerosDoMes } from "./site-dados";
@@ -13,14 +13,25 @@ import { numerosDoMes, type NumerosDoMes } from "./site-dados";
 /** O que o cartão de artigo precisa, mais a data que decide a ordem. */
 export type ArtigoParaComecar = ResumoDeArtigo & Pick<Artigo, "atualizadoEm">;
 
+/** Os temas de quem está começando: uma data recente em análise de ações não pode abrir a seção só com ações. */
+const CATEGORIAS_DE_INICIANTE: readonly IdDeCategoria[] = ["antes-de-investir", "renda-fixa"];
+
 /**
- * Os `quantos` artigos mais recentes por `atualizadoEm` (empate: título em ordem alfabética, como em
- * listarArtigos), sem o artigo em destaque, que a seção já mostra à parte. Não altera a lista recebida.
+ * Os `quantos` artigos de "Comece por aqui", sem o artigo em destaque, que a seção já mostra à parte.
+ * Primeiro os das categorias de iniciante (Antes de investir, Renda fixa), depois, se faltar, os das outras;
+ * dentro de cada grupo, o mais recente por `atualizadoEm` (empate: título em ordem alfabética, como em
+ * listarArtigos). Não altera a lista recebida.
  */
 export function artigosParaComecar<T extends ArtigoParaComecar>(artigos: T[], destaque: string | undefined, quantos = 3): T[] {
+  const doIniciante = (a: T) => (CATEGORIAS_DE_INICIANTE.includes(a.categoria) ? 0 : 1);
   return artigos
     .filter((a) => a.slug !== destaque)
-    .sort((a, b) => b.atualizadoEm.localeCompare(a.atualizadoEm) || a.titulo.localeCompare(b.titulo, "pt-BR"))
+    .sort(
+      (a, b) =>
+        doIniciante(a) - doIniciante(b) ||
+        b.atualizadoEm.localeCompare(a.atualizadoEm) ||
+        a.titulo.localeCompare(b.titulo, "pt-BR"),
+    )
     .slice(0, quantos);
 }
 
