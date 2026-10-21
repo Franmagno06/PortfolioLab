@@ -2,6 +2,7 @@
 import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { artigoEmDestaque } from "@/lib/aprender/artigos";
+import { ArtigoEmDestaque } from "@/components/aprender/artigo-em-destaque";
 import SitePage from "./page";
 
 // As seções de baixo dependem de rede, roteador e streaming; aqui só importa o topo e o "Comece por aqui".
@@ -26,10 +27,13 @@ describe("topo da página inicial", () => {
     expect(within(topo).getByRole("button", { name: "Pausar animação" })).toBeTruthy();
   });
 
-  it("não usa linguagem de recomendação", () => {
+  it("topo e Comece por aqui não usam linguagem de recomendação", () => {
     const { container } = render(<SitePage />);
-    const topo = container.querySelector("#titulo-topo")!.closest("section")!;
-    expect(topo.textContent).not.toMatch(/compre|melhores|oportunidade/i);
+    const secoes = [container.querySelector("#titulo-topo")!.closest("section")!, container.querySelector("#comece-por-aqui")!];
+    for (const sec of secoes) {
+      const texto = (sec.textContent ?? "").replace("Nada aqui é recomendação de investimento.", "");
+      expect(texto).not.toMatch(/compre|melhores|oportunidade|barato|caro|recomend/i);
+    }
   });
 });
 
@@ -53,5 +57,22 @@ describe("Comece por aqui", () => {
     expect(doDestaque.getAttribute("href")).toBe(`/aprender/${destaque.slug}`);
     expect(within(secao).getByRole("link", { name: "Ver todos os artigos" }).getAttribute("href")).toBe("/aprender");
     expect(within(secao).getByRole("link", { name: "Glossário" }).getAttribute("href")).toBe("/aprender/glossario");
+  });
+
+  it("a hierarquia de títulos: h1, h2 da seção, h3 do destaque e dos cartões", () => {
+    const { container } = render(<SitePage />);
+    const secao = container.querySelector("#comece-por-aqui") as HTMLElement;
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+    expect(within(secao).getAllByRole("heading", { level: 2 }).map((h) => h.textContent)).toEqual(["Comece por aqui"]);
+    const h3 = within(secao).getAllByRole("heading", { level: 3 });
+    expect(h3).toHaveLength(4);
+    expect(h3[0]!.id).toBe("titulo-destaque");
+  });
+});
+
+describe("ArtigoEmDestaque", () => {
+  it("sem nivelDoTitulo mantém o h2 (como em /aprender)", () => {
+    render(<ArtigoEmDestaque artigo={artigoEmDestaque()!} />);
+    expect(screen.getByRole("heading", { level: 2 }).id).toBe("titulo-destaque");
   });
 });

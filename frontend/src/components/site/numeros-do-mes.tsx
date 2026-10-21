@@ -32,7 +32,7 @@ function SecaoNumerosDoMes({ numeros }: { numeros: NumerosDoMes }) {
   return (
     <section aria-labelledby="titulo-numeros" className="bg-card">
       <div
-        className={`${recipiente} grid gap-8 pt-16 pb-20 lg:grid-cols-[232px_1fr] lg:gap-16 lg:pt-[168px] lg:pb-[104px]`}
+        className={`${recipiente} grid gap-8 pt-16 pb-20 lg:grid-cols-[232px_1fr] lg:gap-16 lg:pt-[104px] lg:pb-[104px]`}
       >
         <div>
           {/* h2 com cara de legenda: mantém a ordem dos títulos sem virar título grande */}

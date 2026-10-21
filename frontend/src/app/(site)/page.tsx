@@ -134,7 +134,7 @@ export default function SitePage() {
                     Comece por aqui
                   </h2>
                   <p className={`mt-[18px] ${apoioDeSecao}`}>
-                    Leituras curtas, sem jargão e sem recomendação. Escolha o assunto que está mais perto da sua
+                    Leituras curtas e sem jargão. Escolha o assunto que está mais perto da sua
                     dúvida de hoje.
                   </p>
                 </div>
@@ -152,7 +152,7 @@ export default function SitePage() {
             {destaque && (
               <div className="mt-10">
                 <Revelar>
-                  <ArtigoEmDestaque artigo={destaque} />
+                  <ArtigoEmDestaque artigo={destaque} nivelDoTitulo="h3" />
                 </Revelar>
               </div>
             )}
