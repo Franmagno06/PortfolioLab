@@ -149,7 +149,7 @@ export const ATIVO_DE_EXEMPLO = {
   descricao: "transmissão de energia elétrica",
   fechamento: "20 de outubro de 2026",
   fechamentoIso: "2026-10-20",
-  fonte: "Yahoo Finance, calculado como o job de indicadores calcula",
+  fonte: "Yahoo Finance; indicadores calculados pelo PortfolioLab",
   preco: 45.87,
   /** Derivado: % de 41,81 (fim de setembro) a 45,87. */
   variacaoNoMes: 9.71,

@@ -14,6 +14,7 @@ import { RodapeSite } from "@/components/site/rodape-site";
 import { artigoEmDestaque, listarArtigos } from "@/lib/aprender/artigos";
 import { APORTE_DO_DESAFIO, CARTEIRA_DE_NOVEMBRO } from "@/lib/carteira-exemplo";
 import { brlSemCentavos } from "@/lib/format";
+import { DICAS } from "@/lib/indicadores-explicados";
 import { artigosParaComecar } from "@/lib/home-dados";
 import { ROTAS } from "@/lib/navegacao";
 import { ATIVO_DE_EXEMPLO, CONTA_DEMO, NUMEROS_DO_MES } from "@/lib/site-dados";
@@ -207,8 +208,8 @@ export default function SitePage() {
                   {ATIVO_DE_EXEMPLO.ticker}, o que ela quer dizer e o erro mais comum de leitura.
                 </p>
                 <p className="mt-3 text-sm leading-[21px] text-mute">
-                  Exemplo de {ATIVO_DE_EXEMPLO.fechamento}, tudo da mesma data. Fonte: {ATIVO_DE_EXEMPLO.fonte}. Sem
-                  nota e sem ranking: quem julga o ativo são os seus critérios.
+                  Exemplo de {ATIVO_DE_EXEMPLO.fechamento}, tudo da mesma data. Fonte: {ATIVO_DE_EXEMPLO.fonte}. {DICAS.especie.texto}{" "}
+                  Sem nota e sem ranking: quem julga o ativo são os seus critérios.
                 </p>
               </div>
             </Revelar>

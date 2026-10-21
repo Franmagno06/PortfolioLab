@@ -27,6 +27,8 @@ export function ExplicacaoQueAbre({
     <div>
       <button
         type="button"
+        // o nome é montado aqui porque o texto de dois <span> seguidos se cola ("P/L9,66") no nome acessível
+        aria-label={valor !== undefined ? `${rotulo} ${valor}` : undefined}
         aria-expanded={aberta}
         aria-controls={id}
         onClick={() => setAberta((a) => !a)}
@@ -35,7 +37,9 @@ export function ExplicacaoQueAbre({
       >
         <span className="font-semibold text-ink">{rotulo}</span>
         <span className="ml-auto flex items-center gap-2">
-          {valor !== undefined && <span className="tnum font-semibold text-ink">{valor}</span>}
+          {valor !== undefined && (
+            <span className="tnum font-semibold text-ink">{valor}</span>
+          )}
           <svg
             aria-hidden="true"
             focusable="false"

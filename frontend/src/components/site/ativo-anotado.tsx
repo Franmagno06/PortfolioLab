@@ -28,6 +28,7 @@ import { ReguaPvp } from "./regua-pvp";
  * "barato" ou "caro".
  */
 
+const linkDoCard = "inline-flex min-h-11 items-center text-sm font-medium text-ink underline decoration-1 underline-offset-4";
 const conta = "tnum text-[15px] font-semibold text-ink";
 
 function Conta({ formula, numeros }: { formula: string; numeros: string }) {
@@ -39,12 +40,13 @@ function Conta({ formula, numeros }: { formula: string; numeros: string }) {
   );
 }
 
-function Corpo({ conta: c, explicacao, armadilha, extra }: { conta: ReactNode; explicacao: string; armadilha?: string; extra?: ReactNode }) {
+function Corpo({ conta: c, explicacao, armadilha, extra, nota }: { conta: ReactNode; explicacao: string; armadilha?: string; extra?: ReactNode; nota?: string }) {
   return (
     <div className="flex flex-col gap-3 pb-4">
       {c}
       {extra}
       <p className="text-sm leading-[21px] text-ink-2">{explicacao}</p>
+      {nota && <p className="text-sm leading-[21px] text-ink-2">{nota}</p>}
       {armadilha && (
         <p className="border-l-[1.5px] border-anotacao-margem pl-3 font-leitura text-sm leading-[21px] italic text-anotacao">
           Armadilha: {armadilha}
@@ -88,7 +90,7 @@ export function AtivoAnotado() {
             resumo={leituraPl(ativo.pl)}
           >
             <Corpo
-              conta={<Conta formula="preço ÷ lucro por ação = P/L" numeros={`${brl(ativo.preco)} ÷ ${brl(ativo.lucroPorAcao)} = ${indicadorOuTraco(ativo.pl)}`} />}
+              conta={<Conta formula="preço ÷ lucro por Unit = P/L" numeros={`${brl(ativo.preco)} ÷ ${brl(ativo.lucroPorAcao)} = ${indicadorOuTraco(ativo.pl)}`} />}
               explicacao={DICAS.pl.texto}
               armadilha={ARMADILHAS.pl}
             />
@@ -103,7 +105,7 @@ export function AtivoAnotado() {
             resumo={leituraPvpAcao(ativo.pvp)}
           >
             <Corpo
-              conta={<Conta formula="preço ÷ patrimônio por ação = P/VP" numeros={`${brl(ativo.preco)} ÷ ${brl(ativo.valorPatrimonialPorAcao)} = ${indicadorOuTraco(ativo.pvp)}`} />}
+              conta={<Conta formula="preço ÷ patrimônio por Unit = P/VP" numeros={`${brl(ativo.preco)} ÷ ${brl(ativo.valorPatrimonialPorAcao)} = ${indicadorOuTraco(ativo.pvp)}`} />}
               extra={<ReguaPvp pvp={ativo.pvp} />}
               explicacao={DICAS.pvp.texto}
             />
@@ -135,6 +137,7 @@ export function AtivoAnotado() {
             <Corpo
               conta={<Conta formula="lucro líquido ÷ patrimônio líquido = ROE" numeros={`ROE = ${percentual(ativo.roe, 2)}`} />}
               explicacao={DICAS.roe.texto}
+              nota="O ROE vem pronto do Yahoo Finance, com a base de cálculo dele; por isso não coincide exatamente com a razão dos valores por Unit mostrados acima."
             />
           </ExplicacaoQueAbre>
         </div>
@@ -155,10 +158,13 @@ export function AtivoAnotado() {
         </div>
       </div>
 
-      <div className="border-t border-pauta px-6 pt-4 pb-[18px]">
-        <p className="text-xs text-mute">
-          Dados de {ativo.fechamento}. Fonte: {ativo.fonte}.
-        </p>
+      <div className="flex flex-wrap items-center gap-x-6 border-t border-pauta px-6 py-2">
+        <Link href={`${ROTAS.acoes}/${ativo.ticker}`} className={linkDoCard}>
+          Ver a ficha do {ativo.ticker}
+        </Link>
+        <Link href={ROTAS.indicadoresExplicados} className={linkDoCard}>
+          Indicadores explicados
+        </Link>
       </div>
     </article>
   );

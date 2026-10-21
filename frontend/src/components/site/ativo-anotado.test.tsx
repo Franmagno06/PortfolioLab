@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { brl, brlComCasas, indicadorOuTraco, numero, percentual } from "@/lib/format";
 import { ATIVO_DE_EXEMPLO as ativo } from "@/lib/site-dados";
 import { AtivoAnotado, PainelDeCriterios } from "./ativo-anotado";
-import { ESCALA_MAXIMA_PVP, posicaoNaReguaPvp } from "./regua-pvp";
+import { ESCALA_MAXIMA_PVP, posicaoNaReguaPvp, ReguaPvp } from "./regua-pvp";
 
 afterEach(cleanup);
 
@@ -17,9 +17,12 @@ describe("AtivoAnotado", () => {
   it("mostra o cabeçalho do exemplo numa data só, com fonte", () => {
     render(<AtivoAnotado />);
     const texto = textoDoCard();
-    for (const t of [brl(ativo.preco), ativo.fechamento, ativo.fonte, ativo.ticker]) {
+    for (const t of [brl(ativo.preco), ativo.ticker]) {
       expect(texto, t).toContain(limpo(t));
     }
+    // a fonte e a data aparecem uma vez só, no cabeçalho da seção da home, e não no card
+    expect(texto).not.toContain(ativo.fonte);
+    expect(ativo.fonte).not.toMatch(/job/i);
   });
 
   it("mostra os cinco indicadores com valor e frase sempre visíveis", () => {
@@ -54,7 +57,7 @@ describe("AtivoAnotado", () => {
     fireEvent.click(botao);
     const corpo = document.getElementById(botao.getAttribute("aria-controls")!)!;
     const texto = limpo(corpo.textContent);
-    expect(texto).toContain("preço ÷ lucro por ação = P/L");
+    expect(texto).toContain("preço ÷ lucro por Unit = P/L");
     expect(texto).toContain(`${brl(ativo.preco)} ÷ ${brl(ativo.lucroPorAcao)} = ${indicadorOuTraco(ativo.pl)}`);
     expect(texto).toContain("Lucro pontual");
     // a conta bate com o P/L do próprio exemplo
@@ -96,7 +99,7 @@ describe("AtivoAnotado", () => {
     const texto = limpo(reguas[0]!.textContent);
     expect(texto).toContain("abaixo do patrimônio contábil");
     expect(texto).toContain("acima do patrimônio contábil");
-    expect(screen.getByRole("img", { name: /Régua do P\/VP: 1,96, acima do patrimônio contábil/ })).toBeTruthy();
+    expect(screen.getByRole("img", { name: /Régua do P\/VP, de 0 a 3 ou mais: 1,96, acima do patrimônio contábil/ })).toBeTruthy();
   });
 
   it("o marcador da régua fica na posição proporcional ao P/VP do exemplo", () => {
@@ -105,6 +108,36 @@ describe("AtivoAnotado", () => {
     const esperado = (ativo.pvp / ESCALA_MAXIMA_PVP) * 100;
     expect(parseFloat(marcador.style.left)).toBeCloseTo(esperado, 5);
     expect(esperado).toBeGreaterThan(50); // acima de 1,0 (33,3%)
+  });
+
+  it("a régua tem escala 0, 1,0 e 3+ e rótulos que não se cruzam", () => {
+    const { container } = render(<AtivoAnotado />);
+    const t = limpo(container.querySelector("[data-regua]")!.textContent);
+    for (const x of ["0", "1,0", "3+", "abaixo do patrimônio contábil", "acima do patrimônio contábil"]) expect(t).toContain(x);
+  });
+
+  it("P/VP zero, negativo ou ausente não desenha a régua", () => {
+    for (const v of [0, -1.2, null, Number.NaN]) {
+      const { container, unmount } = render(<ReguaPvp pvp={v} />);
+      expect(container.querySelector("[data-regua]"), String(v)).toBeNull();
+      unmount();
+    }
+  });
+
+  it("o corpo do ROE explica de onde vem o número e os outros não", () => {
+    render(<AtivoAnotado />);
+    const frase = "O ROE vem pronto do Yahoo Finance, com a base de cálculo dele; por isso não coincide exatamente com a razão dos valores por Unit mostrados acima.";
+    for (const b of screen.getAllByRole("button")) fireEvent.click(b);
+    const corpos = screen.getAllByRole("button").map((b) => limpo(document.getElementById(b.getAttribute("aria-controls")!)!.textContent));
+    const com = corpos.filter((c) => c.includes(frase));
+    expect(com).toHaveLength(1);
+    expect(com[0]).toContain("ROE = ");
+  });
+
+  it("tem os links da ficha e dos indicadores explicados", () => {
+    render(<AtivoAnotado />);
+    expect(screen.getByRole("link", { name: `Ver a ficha do ${ativo.ticker}` }).getAttribute("href")).toBe(`/ativos/acoes/${ativo.ticker}`);
+    expect(screen.getByRole("link", { name: "Indicadores explicados" }).getAttribute("href")).toBe("/aprender/indicadores");
   });
 
   it("posicaoNaReguaPvp prende o marcador dentro da barra", () => {

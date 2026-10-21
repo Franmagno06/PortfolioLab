@@ -57,7 +57,7 @@ describe("ATIVO_DE_EXEMPLO: uma data só e contas que fecham", () => {
   it("é o fechamento de 20/10/2026, com a fonte", () => {
     expect(a.fechamento).toBe("20 de outubro de 2026");
     expect(a.fechamentoIso).toBe("2026-10-20");
-    expect(a.fonte).toBe("Yahoo Finance, calculado como o job de indicadores calcula");
+    expect(a.fonte).toBe("Yahoo Finance; indicadores calculados pelo PortfolioLab");
   });
 
   it("preço ÷ lucro por ação dá o P/L", () => {

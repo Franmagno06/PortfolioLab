@@ -18,6 +18,11 @@ function corpo() {
 }
 
 describe("ExplicacaoQueAbre", () => {
+  it("o nome do botão separa o rótulo do valor", () => {
+    montar();
+    expect(screen.getByRole("button", { name: "P/L 8,4" })).toBeTruthy();
+  });
+
   it("fechada, o corpo é inert e aria-hidden e o resumo aparece", () => {
     montar();
     expect(corpo().hasAttribute("inert")).toBe(true);
