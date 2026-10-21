@@ -2,7 +2,7 @@ import { Fragment } from "react";
 import Link from "next/link";
 import { brl, indicadorOuTraco, numero, pct, percentual, vezesPorExtenso } from "@/lib/format";
 import { ROTAS } from "@/lib/navegacao";
-import { ATIVO_DE_EXEMPLO as ativo, atende, CRITERIOS_DE_EXEMPLO, NUMEROS_DO_MES } from "@/lib/site-dados";
+import { ATIVO_DE_EXEMPLO as ativo, atende, CRITERIOS_DE_EXEMPLO } from "@/lib/site-dados";
 
 /*
  * "Cada número vem com a explicação ao lado": a folha de um ativo real com a
@@ -60,7 +60,7 @@ export function AtivoAnotado() {
           <p className="tnum text-[30px] leading-tight font-semibold tracking-[-0.005em]">{brl(ativo.preco)}</p>
           {/* com sinal, além da cor */}
           <p className={`tnum mt-1 text-sm font-medium ${subiu ? "text-gain-ink" : "text-loss-ink"}`}>
-            {pct(ativo.variacaoNoMes)} em {NUMEROS_DO_MES.mes}
+            {pct(ativo.variacaoNoMes)} em {ativo.mesDaVariacao}
           </p>
         </div>
       </div>

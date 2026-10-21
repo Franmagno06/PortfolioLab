@@ -281,8 +281,8 @@ test.describe("artigo", () => {
     const resumo = page.getByRole("region", { name: "Em resumo" });
     await expect(resumo.getByRole("listitem")).toHaveCount(3);
 
-    await expect(page.getByRole("group", { name: "Cálculo do P/L" })).toContainText("9,02");
-    await expect(page.getByRole("group", { name: "Cálculo do P/VP" })).toContainText("1,83");
+    await expect(page.getByRole("group", { name: "Cálculo do P/L" })).toContainText("9,66");
+    await expect(page.getByRole("group", { name: "Cálculo do P/VP" })).toContainText("1,96");
     await expect(page.getByRole("note")).toHaveCount(2);
 
     const veja = page.getByRole("region", { name: "Veja no site" });
@@ -407,8 +407,8 @@ test.describe("indicadores explicados", () => {
     await expect(pl).toContainText("Preço ÷ Lucro por ação");
     await expect(pl).toContainText("Como ler");
     await expect(pl.getByRole("note")).toBeVisible();
-    await expect(pl).toContainText("9,02");
-    await expect(page.getByRole("region", { name: "Dividend yield (DY)" })).toContainText("7,02% (R$ 3,01 em 4 pagamentos)");
+    await expect(pl).toContainText("9,66");
+    await expect(page.getByRole("region", { name: "Dividend yield (DY)" })).toContainText("6,55% (R$ 3,0065 em 4 pagamentos)");
   });
 
   test("os exemplos hipotéticos dizem que são hipotéticos", async ({ page }) => {
@@ -445,7 +445,7 @@ test.describe("como o site calcula", () => {
     await expect(pm.getByRole("row", { name: /Venda 5 — — R\$ 25,20 15/ })).toBeVisible();
     await expect(page.getByText("(R$ 202,00 + R$ 302,00) ÷ 20 = R$ 25,20")).toBeVisible();
 
-    await expect(page.getByRole("group", { name: /dividend yield da TAEE11/ })).toContainText("7,02%");
+    await expect(page.getByRole("group", { name: /dividend yield da TAEE11/ })).toContainText("6,55%");
 
     const aporte = page.getByRole("table", { name: /aporte de R\$ 200,00/ });
     await expect(aporte.getByRole("row", { name: /MXRF11 60% R\$ 120,00 R\$ 10,85 11 R\$ 119,35/ })).toBeVisible();

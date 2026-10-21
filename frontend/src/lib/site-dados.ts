@@ -130,19 +130,43 @@ export function fraseDoJuroReal(selicPct: number, ipcaPct: number): { antes: str
   };
 }
 
-/** TAEE11 no fechamento de 2/10/2026, Yahoo Finance, calculado como o job de indicadores calcula. */
+/**
+ * TAEE11 no fechamento de 20/10/2026: tudo de UMA resposta de GET /ativos/acoes/TAEE11 (a mesma fonte da
+ * ficha do ativo: Yahoo Finance, com os indicadores calculados pelo job), lida nesse dia depois do pregão.
+ * Nenhum número de outra data. Campos lidos da resposta: `preco`, `fechamentoEm`, `indicadores.dados`
+ * (pl, pvp, dy12m, roe, margemLiquida, dividaEbitda), `historico.dados` e `proventos.dados`.
+ *
+ * Três campos são derivados, com conta exata a partir da mesma resposta (o teste em site-dados.test.ts
+ * confere cada uma):
+ * - `lucroPorAcao` = preço ÷ P/L (45,87 ÷ 9,66 = 4,748…), arredondado ao centavo;
+ * - `valorPatrimonialPorAcao` = preço ÷ P/VP (45,87 ÷ 1,96 = 23,403…), arredondado ao centavo;
+ * - `variacaoNoMes` = fechamento de outubro (45,87) ÷ fechamento de setembro (41,81) − 1, do `historico`.
+ * Os proventos ficam com as 4 casas que o Yahoo dá: arredondar para R$ 3,01 mudaria o DY para 6,56%.
+ */
 export const ATIVO_DE_EXEMPLO = {
   ticker: "TAEE11",
   nome: "Taesa",
   descricao: "transmissão de energia elétrica",
-  fechamento: "2 de outubro de 2026",
-  preco: 42.85,
-  variacaoNoMes: 2.49,
-  pl: 9.02,
-  pvp: 1.83,
-  dy12m: 7.02,
-  proventos12m: { porUnidade: 3.01, pagamentos: 4 },
-  roe: 20.9,
+  fechamento: "20 de outubro de 2026",
+  fechamentoIso: "2026-10-20",
+  fonte: "Yahoo Finance, calculado como o job de indicadores calcula",
+  preco: 45.87,
+  /** Derivado: % de 41,81 (fim de setembro) a 45,87. */
+  variacaoNoMes: 9.71,
+  mesDaVariacao: "outubro",
+  pl: 9.66,
+  pvp: 1.96,
+  dy12m: 6.55,
+  /** Proventos com data-ex nos 12 meses até o fechamento, por unidade. */
+  proventos12m: { porUnidade: 3.0065, pagamentos: 4, valores: [0.9384, 0.9089, 0.559, 0.6002] },
+  roe: 20.86,
+  margemLiquida: 36.48,
+  /** `null` quando a ficha não trouxer o dado. */
+  dividaEbitda: 4.36 as number | null,
+  /** Derivado: preço ÷ P/L. */
+  lucroPorAcao: 4.75,
+  /** Derivado: preço ÷ P/VP. */
+  valorPatrimonialPorAcao: 23.4,
 } as const;
 
 export type Criterio = {

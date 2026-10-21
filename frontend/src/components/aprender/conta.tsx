@@ -1,7 +1,7 @@
 /**
  * A conta de um artigo, "A ÷ B = resultado", em caixas. Cada parte é uma <Parcela>; entre elas, um
  * <Sinal>. Lado a lado a partir do tablet; no celular as caixas empilham e o sinal fica entre elas,
- * porque três caixas de 90 px lado a lado não comportam "R$ 42,85".
+ * porque três caixas de 90 px lado a lado não comportam "R$ 45,87".
  */
 export function Conta({ children, rotulo }: { children: React.ReactNode; rotulo?: string }) {
   return (

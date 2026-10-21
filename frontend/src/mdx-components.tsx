@@ -13,8 +13,8 @@ import { slugify } from "@/lib/aprender/texto";
  * artigo pode usar.
  */
 /**
- * "R$ 42,85" não pode quebrar entre o "R$" e o número: o texto corrido vira "se a ação custa R$" numa
- * linha e "42,85" na seguinte. Troca o espaço depois de "R$" por um espaço que não separa.
+ * "R$ 45,87" não pode quebrar entre o "R$" e o número: o texto corrido vira "se a ação custa R$" numa
+ * linha e "45,87" na seguinte. Troca o espaço depois de "R$" por um espaço que não separa.
  */
 function moedaSemQuebra(filhos: React.ReactNode): React.ReactNode {
   return Children.map(filhos, (f) => (typeof f === "string" ? f.replace(/R\$ (?=\d)/g, "R$\u00a0") : f));
