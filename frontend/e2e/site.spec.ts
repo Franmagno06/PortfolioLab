@@ -75,6 +75,27 @@ test.describe("site público", () => {
   });
 });
 
+test.describe("bento Ativos e índices", () => {
+  test("os quadros levam às fichas e aos índices, e a explicação sobe no foco", async ({ page }) => {
+    await page.goto("/");
+    const bento = page.locator("#ativos-e-indices");
+    await bento.scrollIntoViewIfNeeded();
+
+    await expect(bento.getByRole("heading", { level: 2, name: "Ativos e índices" })).toBeVisible();
+    await expect(bento.getByRole("link", { name: /^Ações/ })).toHaveAttribute("href", "/ativos/acoes");
+    await expect(bento.getByRole("link", { name: /^FIIs/ })).toHaveAttribute("href", "/ativos/fiis");
+    await expect(bento.getByRole("link", { name: /^ETFs/ })).toHaveAttribute("href", "/ativos/etfs");
+    await expect(bento.getByRole("link", { name: /^Selic/ })).toHaveAttribute("href", "/ativos/indices/selic");
+    await expect(bento.getByRole("link", { name: /Ibovespa/ })).toHaveAttribute("href", "/ativos/indices/ibovespa");
+
+    // no desktop a frase fica escondida até o foco (ou o mouse) chegar ao quadro
+    const selic = bento.getByRole("link", { name: /^Selic/ });
+    await expect(selic.locator("[data-explicacao]")).toHaveCSS("opacity", "0");
+    await selic.focus();
+    await expect(selic.locator("[data-explicacao]")).toHaveCSS("opacity", "1");
+  });
+});
+
 test.describe("desafio do aporte de novembro", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/#desafio");
@@ -141,6 +162,24 @@ test.describe("no celular", () => {
       janela: window.innerWidth,
     }));
     expect(largura.pagina).toBeLessThanOrEqual(largura.janela);
+  });
+
+  test("o bento a 390px não rola para o lado e mostra a explicação sem hover", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/");
+    const bento = page.locator("#ativos-e-indices");
+    await bento.scrollIntoViewIfNeeded();
+
+    const medidas = await bento.evaluate((el) => ({ scroll: el.scrollWidth, cliente: el.clientWidth }));
+    expect(medidas.scroll).toBeLessThanOrEqual(medidas.cliente);
+
+    // celular não tem hover: a frase de cada quadro precisa estar à vista de partida
+    const explicacoes = bento.locator("[data-explicacao]");
+    await expect(explicacoes).toHaveCount(8);
+    for (let i = 0; i < 8; i++) {
+      await explicacoes.nth(i).scrollIntoViewIfNeeded();
+      await expect(explicacoes.nth(i)).toHaveCSS("opacity", "1");
+    }
   });
 
   test("o menu abre a gaveta, a página atrás não rola e Esc fecha", async ({ page }) => {

@@ -117,7 +117,7 @@ export default function SitePage() {
           </div>
         </section>
 
-        {/* ── 2. Os números do mês ───────────────────────────────────── */}
+        {/* ── 2. Ativos e índices (bento com os números do mês) ────────────────────────────────────── */}
         <Suspense fallback={<NumerosDoMesFixos />}>
           <NumerosDoMesAoVivo />
         </Suspense>

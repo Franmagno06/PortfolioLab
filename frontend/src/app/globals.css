@@ -225,6 +225,25 @@ html {
   transform: translateX(4px);
 }
 
+/* Padrão D — explicação do bento: onde há mouse e tela larga, fica escondida e sobe 6px
+   ao passar o mouse ou focar o quadro; no celular (toque não tem hover) fica sempre à vista. */
+.explicacao-bento {
+  transition:
+    opacity var(--duracao-media) var(--curva),
+    transform var(--duracao-media) var(--curva);
+}
+@media (hover: hover) and (min-width: 48rem) {
+  .explicacao-bento {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  .interativo:hover .explicacao-bento,
+  .interativo:focus-visible .explicacao-bento {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 /* Padrão C — revelar ao rolar: o elemento entra quando recebe .visivel.
    O atraso escalonado vem de --atraso (ex.: style={{ "--atraso": "80ms" }}). */
 .revelar {
