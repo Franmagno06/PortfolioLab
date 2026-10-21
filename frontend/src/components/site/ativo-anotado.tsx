@@ -1,44 +1,58 @@
-import { Fragment } from "react";
+import type { ReactNode } from "react";
 import Link from "next/link";
-import { brl, brlComCasas, indicadorOuTraco, numero, pct, percentual, vezesPorExtenso } from "@/lib/format";
+import { ExplicacaoQueAbre } from "@/components/movimento/explicacao-que-abre";
+import { brl, brlComCasas, indicadorOuTraco, pct, percentual } from "@/lib/format";
+import {
+  ARMADILHAS,
+  DICAS,
+  leituraDy,
+  leituraMargem,
+  leituraPl,
+  leituraPvpAcao,
+  leituraRoe,
+} from "@/lib/indicadores-explicados";
 import { ROTAS } from "@/lib/navegacao";
 import { ATIVO_DE_EXEMPLO as ativo, atende, CRITERIOS_DE_EXEMPLO } from "@/lib/site-dados";
+import { ReguaPvp } from "./regua-pvp";
 
 /*
- * "Cada número vem com a explicação ao lado": a folha de um ativo real com a
- * anotação de cada indicador na margem, e o painel dos critérios do usuário.
+ * "Como ler um ativo": a folha do TAEE11 com uma explicação que se abre por indicador.
  *
- * Sem nota, ranking ou selo, de propósito. Pela Resolução CVM 20, texto sobre
- * um ativo específico que possa influenciar a decisão de investir é relatório
- * de análise, e um aviso de "não é recomendação" não basta. A página explica o
- * que o número mede; quem julga o ativo são os critérios do próprio usuário.
+ * Por que existe: o número e a frase de leitura ficam sempre à vista; a conta com os números do
+ * exemplo, a explicação e a armadilha abrem sob demanda, para quem quer entender de verdade.
+ *
+ * Sem nota, ranking ou selo, de propósito. Pela Resolução CVM 20, texto sobre um ativo específico que
+ * possa influenciar a decisão de investir é relatório de análise, e um aviso de "não é recomendação"
+ * não basta. A página explica o que o número mede; quem julga o ativo são os critérios do usuário.
+ * Por isso só o P/VP tem régua (referência neutra: 1,0 = o patrimônio contábil) e nenhuma diz
+ * "barato" ou "caro".
  */
 
-const INDICADORES = [
-  {
-    nome: "Preço/lucro (P/L)",
-    valor: indicadorOuTraco(ativo.pl),
-    nota: `Pelo preço de hoje, o lucro dos últimos 12 meses levaria cerca de ${numero(Math.round(ativo.pl))} anos para pagar a empresa.`,
-  },
-  {
-    nome: "Preço/valor patrimonial (P/VP)",
-    valor: indicadorOuTraco(ativo.pvp),
-    nota: `O mercado paga ${brl(ativo.pvp)} por cada R$ 1 de patrimônio da ${ativo.nome}.`,
-  },
-  {
-    nome: "Dividend yield em 12 meses",
-    valor: percentual(ativo.dy12m, 2),
-    nota: `Pagou ${brlComCasas(ativo.proventos12m.porUnidade, 4)} por unidade nos últimos 12 meses, em ${vezesPorExtenso(ativo.proventos12m.pagamentos)}.`,
-  },
-  {
-    nome: "Retorno sobre o patrimônio (ROE)",
-    valor: percentual(ativo.roe, 2),
-    nota: `Gerou ${brl(ativo.roe)} de lucro para cada R$ 100 de patrimônio.`,
-  },
-];
+const conta = "tnum text-[15px] font-semibold text-ink";
 
-const margem = "border-l-[1.5px] border-anotacao-margem";
-const textoAnotacao = "font-leitura text-[15px] leading-[22px] italic text-anotacao";
+function Conta({ formula, numeros }: { formula: string; numeros: string }) {
+  return (
+    <div className="rounded-md bg-caderno px-4 py-3">
+      <p className="text-sm text-ink-2">{formula}</p>
+      <p className={`mt-1 ${conta}`}>{numeros}</p>
+    </div>
+  );
+}
+
+function Corpo({ conta: c, explicacao, armadilha, extra }: { conta: ReactNode; explicacao: string; armadilha?: string; extra?: ReactNode }) {
+  return (
+    <div className="flex flex-col gap-3 pb-4">
+      {c}
+      {extra}
+      <p className="text-sm leading-[21px] text-ink-2">{explicacao}</p>
+      {armadilha && (
+        <p className="border-l-[1.5px] border-anotacao-margem pl-3 font-leitura text-sm leading-[21px] italic text-anotacao">
+          Armadilha: {armadilha}
+        </p>
+      )}
+    </div>
+  );
+}
 
 export function AtivoAnotado() {
   const subiu = ativo.variacaoNoMes >= 0;
@@ -65,48 +79,86 @@ export function AtivoAnotado() {
         </div>
       </div>
 
-      <table className="w-full md:table-fixed">
-        <caption className="sr-only">Indicadores da {ativo.ticker}, com a explicação de cada um</caption>
-        {/* Larguras no colgroup: no layout fixo, o Chrome não as lê da primeira linha do tbody */}
-        <colgroup>
-          <col className="md:w-[352px]" />
-          <col className="md:w-[104px]" />
-          <col className="md:w-[304px]" />
-        </colgroup>
-        <tbody>
-          {INDICADORES.map((i) => (
-            <Fragment key={i.nome}>
-              <tr className="md:border-b md:border-pauta">
-                <th scope="row" className="py-3.5 pr-4 pl-6 text-left text-[15px] font-normal text-ink-2">
-                  {i.nome}
-                </th>
-                <td className="tnum py-3.5 pr-5 text-right text-[19px] font-semibold whitespace-nowrap">
-                  {i.valor}
-                </td>
-                <td className={`hidden py-3 pr-2.5 pl-[18px] md:table-cell ${margem} ${textoAnotacao}`}>
-                  {i.nota}
-                </td>
-              </tr>
-              <tr className="border-b border-pauta md:hidden">
-                <td colSpan={2} className="pt-0 pr-5 pb-3.5 pl-6">
-                  <p className={`pl-3 ${margem} ${textoAnotacao}`}>{i.nota}</p>
-                </td>
-              </tr>
-            </Fragment>
-          ))}
-        </tbody>
-      </table>
+      <div className="divide-y divide-pauta px-6">
+        <div className="py-2">
+          <ExplicacaoQueAbre
+            id="conta-pl"
+            rotulo="Preço/lucro (P/L)"
+            valor={indicadorOuTraco(ativo.pl)}
+            resumo={leituraPl(ativo.pl)}
+          >
+            <Corpo
+              conta={<Conta formula="preço ÷ lucro por ação = P/L" numeros={`${brl(ativo.preco)} ÷ ${brl(ativo.lucroPorAcao)} = ${indicadorOuTraco(ativo.pl)}`} />}
+              explicacao={DICAS.pl.texto}
+              armadilha={ARMADILHAS.pl}
+            />
+          </ExplicacaoQueAbre>
+        </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 px-6 pt-4 pb-[18px]">
+        <div className="py-2">
+          <ExplicacaoQueAbre
+            id="conta-pvp"
+            rotulo="Preço/valor patrimonial (P/VP)"
+            valor={indicadorOuTraco(ativo.pvp)}
+            resumo={leituraPvpAcao(ativo.pvp)}
+          >
+            <Corpo
+              conta={<Conta formula="preço ÷ patrimônio por ação = P/VP" numeros={`${brl(ativo.preco)} ÷ ${brl(ativo.valorPatrimonialPorAcao)} = ${indicadorOuTraco(ativo.pvp)}`} />}
+              extra={<ReguaPvp pvp={ativo.pvp} />}
+              explicacao={DICAS.pvp.texto}
+            />
+          </ExplicacaoQueAbre>
+        </div>
+
+        <div className="py-2">
+          <ExplicacaoQueAbre
+            id="conta-dy"
+            rotulo="Dividend yield em 12 meses"
+            valor={percentual(ativo.dy12m, 2)}
+            resumo={leituraDy(ativo.dy12m)}
+          >
+            <Corpo
+              conta={<Conta formula="proventos pagos em 12 meses ÷ preço = DY" numeros={`${brlComCasas(ativo.proventos12m.porUnidade, 4)} ÷ ${brl(ativo.preco)} = ${percentual(ativo.dy12m, 2)}`} />}
+              explicacao={DICAS.dy12m.texto}
+              armadilha={ARMADILHAS.dyAcao}
+            />
+          </ExplicacaoQueAbre>
+        </div>
+
+        <div className="py-2">
+          <ExplicacaoQueAbre
+            id="conta-roe"
+            rotulo="Retorno sobre o patrimônio (ROE)"
+            valor={percentual(ativo.roe, 2)}
+            resumo={leituraRoe(ativo.roe)}
+          >
+            <Corpo
+              conta={<Conta formula="lucro líquido ÷ patrimônio líquido = ROE" numeros={`ROE = ${percentual(ativo.roe, 2)}`} />}
+              explicacao={DICAS.roe.texto}
+            />
+          </ExplicacaoQueAbre>
+        </div>
+
+        {/* a margem do exemplo é fixa e não é nula; se um dia vier null, troque por leituraDivida/DICAS.dividaEbitda */}
+        <div className="py-2">
+          <ExplicacaoQueAbre
+            id="conta-margem"
+            rotulo="Margem líquida"
+            valor={percentual(ativo.margemLiquida, 2)}
+            resumo={leituraMargem(ativo.margemLiquida)}
+          >
+            <Corpo
+              conta={<Conta formula="lucro líquido ÷ receita = margem líquida" numeros={`margem líquida = ${percentual(ativo.margemLiquida, 2)}`} />}
+              explicacao={DICAS.margemLiquida.texto}
+            />
+          </ExplicacaoQueAbre>
+        </div>
+      </div>
+
+      <div className="border-t border-pauta px-6 pt-4 pb-[18px]">
         <p className="text-xs text-mute">
-          Dados de {ativo.fechamento}, calculados a partir do Yahoo Finance.
+          Dados de {ativo.fechamento}. Fonte: {ativo.fonte}.
         </p>
-        <Link
-          href={ROTAS.indicadores}
-          className="text-sm font-medium text-ink underline decoration-1 underline-offset-4"
-        >
-          Ver os indicadores da minha carteira
-        </Link>
       </div>
     </article>
   );
@@ -137,6 +189,12 @@ export function PainelDeCriterios() {
         Atender aos seus critérios não transforma o ativo em recomendação: é a sua régua, aplicada aos números
         dele.
       </p>
+      <Link
+        href={ROTAS.indicadores}
+        className="inline-flex min-h-11 items-center text-sm font-medium text-ink underline decoration-1 underline-offset-4"
+      >
+        Ver os indicadores da minha carteira
+      </Link>
     </div>
   );
 }

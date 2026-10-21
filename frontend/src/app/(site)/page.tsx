@@ -16,7 +16,7 @@ import { APORTE_DO_DESAFIO, CARTEIRA_DE_NOVEMBRO } from "@/lib/carteira-exemplo"
 import { brlSemCentavos } from "@/lib/format";
 import { artigosParaComecar } from "@/lib/home-dados";
 import { ROTAS } from "@/lib/navegacao";
-import { CONTA_DEMO, NUMEROS_DO_MES } from "@/lib/site-dados";
+import { ATIVO_DE_EXEMPLO, CONTA_DEMO, NUMEROS_DO_MES } from "@/lib/site-dados";
 
 /**
  * Os números do mês vêm do Banco Central e do Yahoo a cada visita (a leitura guarda a resposta por 2 min).
@@ -192,21 +192,33 @@ export default function SitePage() {
           </div>
         </section>
 
-        {/* ── 5. Cada número vem com a explicação ao lado ────────────── */}
+        {/* ── 5. Como ler um ativo ──────────────────────────────────────
+            Por que assim: o número e a frase ficam à vista; a conta, a explicação e a armadilha abrem
+            sob demanda. Sem nota nem ranking: o julgamento é dos critérios de quem lê. */}
         <section id="como-ler-um-ativo" aria-labelledby="titulo-como-ler" className="bg-caderno">
           <div className={`${recipiente} py-20 lg:py-28`}>
-            <div className="max-w-[680px]">
-              <h2 id="titulo-como-ler" className={tituloDeSecao}>
-                Cada número vem com a explicação ao lado
-              </h2>
-              <p className={`mt-[18px] ${apoioDeSecao}`}>
-                Sem nota e sem ranking de “melhores”. Você aprende o que cada indicador mede, compara com o setor
-                e decide com os seus próprios critérios.
-              </p>
-            </div>
+            <Revelar>
+              <div className="max-w-[680px]">
+                <h2 id="titulo-como-ler" className={tituloDeSecao}>
+                  Como ler um ativo
+                </h2>
+                <p className={`mt-[18px] ${apoioDeSecao}`}>
+                  Cada número vem com a frase que o traduz. Abra uma linha para ver a conta feita com os números do{" "}
+                  {ATIVO_DE_EXEMPLO.ticker}, o que ela quer dizer e o erro mais comum de leitura.
+                </p>
+                <p className="mt-3 text-sm leading-[21px] text-mute">
+                  Exemplo de {ATIVO_DE_EXEMPLO.fechamento}, tudo da mesma data. Fonte: {ATIVO_DE_EXEMPLO.fonte}. Sem
+                  nota e sem ranking: quem julga o ativo são os seus critérios.
+                </p>
+              </div>
+            </Revelar>
             <div className="mt-12 grid items-start gap-8 lg:grid-cols-[760px_1fr]">
-              <AtivoAnotado />
-              <PainelDeCriterios />
+              <Revelar>
+                <AtivoAnotado />
+              </Revelar>
+              <Revelar atrasoMs={90}>
+                <PainelDeCriterios />
+              </Revelar>
             </div>
           </div>
         </section>

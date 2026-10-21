@@ -61,6 +61,19 @@ test.describe("site público", () => {
     await expect(page.getByRole("button", { name: "Retomar animação" })).toBeVisible();
   });
 
+  test("abrir o P/L mostra a conta", async ({ page }) => {
+    await page.goto("/");
+    const secao = page.locator("#como-ler-um-ativo");
+    await secao.scrollIntoViewIfNeeded();
+
+    const linha = secao.getByRole("button", { name: /Preço\/lucro/ });
+    await expect(linha).toHaveAttribute("aria-expanded", "false");
+    await linha.click();
+    await expect(linha).toHaveAttribute("aria-expanded", "true");
+    await expect(secao.getByText("preço ÷ lucro por ação = P/L")).toBeVisible();
+    await expect(secao.getByText(/R\$\s45,87\s÷\sR\$\s4,75\s=\s9,66/)).toBeVisible();
+  });
+
   test("comece por aqui mostra artigos reais", async ({ page }) => {
     await page.goto("/");
     const secao = page.locator("#comece-por-aqui");
