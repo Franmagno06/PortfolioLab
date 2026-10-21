@@ -174,7 +174,13 @@ describe("FRASE_DA_UNIT", () => {
   it("diz que o TAEE11 é uma Unit e reusa a explicação do repositório", () => {
     expect(FRASE_DA_UNIT.startsWith("O TAEE11 é uma Unit. ")).toBe(true);
     expect(FRASE_DA_UNIT).toContain("Unit = pacote de ações.");
-    expect(FRASE_DA_UNIT).not.toMatch(/d+ ações/);
+    expect(FRASE_DA_UNIT).not.toMatch(/\d+ ações/);
+  });
+});
+
+describe("guarda da frase da Unit", () => {
+  it("a regex pega um número de ações escrito na mão", () => {
+    expect("Unit = 3 ações").toMatch(/\d+ ações/);
   });
 });
 
