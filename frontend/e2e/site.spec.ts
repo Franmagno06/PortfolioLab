@@ -70,7 +70,7 @@ test.describe("site público", () => {
     await expect(linha).toHaveAttribute("aria-expanded", "false");
     await linha.click();
     await expect(linha).toHaveAttribute("aria-expanded", "true");
-    await expect(secao.getByText("preço ÷ lucro por ação = P/L")).toBeVisible();
+    await expect(secao.getByText("preço ÷ lucro por Unit = P/L")).toBeVisible();
     await expect(secao.getByText(/R\$\s45,87\s÷\sR\$\s4,75\s=\s9,66/)).toBeVisible();
   });
 

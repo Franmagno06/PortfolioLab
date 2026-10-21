@@ -137,7 +137,7 @@ export function AtivoAnotado() {
             <Corpo
               conta={<Conta formula="lucro líquido ÷ patrimônio líquido = ROE" numeros={`ROE = ${percentual(ativo.roe, 2)}`} />}
               explicacao={DICAS.roe.texto}
-              nota="O ROE vem pronto do Yahoo Finance, com a base de cálculo dele; por isso não coincide exatamente com a razão dos valores por Unit mostrados acima."
+              nota="O ROE vem pronto do Yahoo Finance, com a base de cálculo dele; por isso não coincide exatamente com a razão dos valores por Unit mostrados nas contas do P/L e do P/VP."
             />
           </ExplicacaoQueAbre>
         </div>

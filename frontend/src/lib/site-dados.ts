@@ -1,4 +1,5 @@
 import { mesPorExtenso, percentual } from "./format";
+import { DICAS } from "./indicadores-explicados";
 import { ipcaEm12Meses, variacaoPct, type DadosDosIndices } from "./indices";
 
 /**
@@ -168,6 +169,9 @@ export const ATIVO_DE_EXEMPLO = {
   /** Derivado: preço ÷ P/VP. */
   valorPatrimonialPorAcao: 23.4,
 } as const;
+
+/** A linha da home que diz que o TAEE11 é uma Unit; o resto é o texto de DICAS, sem número inventado. */
+export const FRASE_DA_UNIT = `O ${ATIVO_DE_EXEMPLO.ticker} é uma Unit. ${DICAS.especie.texto}`;
 
 export type Criterio = {
   rotulo: string;

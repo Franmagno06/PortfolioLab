@@ -2,7 +2,7 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { brl, brlComCasas, indicadorOuTraco, numero, percentual } from "@/lib/format";
-import { ATIVO_DE_EXEMPLO as ativo } from "@/lib/site-dados";
+import { ATIVO_DE_EXEMPLO as ativo, FRASE_DA_UNIT } from "@/lib/site-dados";
 import { AtivoAnotado, PainelDeCriterios } from "./ativo-anotado";
 import { ESCALA_MAXIMA_PVP, posicaoNaReguaPvp, ReguaPvp } from "./regua-pvp";
 
@@ -51,7 +51,7 @@ describe("AtivoAnotado", () => {
     expect(corpo.hasAttribute("inert")).toBe(false);
   });
 
-  it("abrir o P/L mostra a conta preço ÷ lucro por ação com os números do exemplo", () => {
+  it("abrir o P/L mostra a conta preço ÷ lucro por Unit com os números do exemplo", () => {
     render(<AtivoAnotado />);
     const botao = linha(/Preço\/lucro/);
     fireEvent.click(botao);
@@ -126,7 +126,7 @@ describe("AtivoAnotado", () => {
 
   it("o corpo do ROE explica de onde vem o número e os outros não", () => {
     render(<AtivoAnotado />);
-    const frase = "O ROE vem pronto do Yahoo Finance, com a base de cálculo dele; por isso não coincide exatamente com a razão dos valores por Unit mostrados acima.";
+    const frase = "O ROE vem pronto do Yahoo Finance, com a base de cálculo dele; por isso não coincide exatamente com a razão dos valores por Unit mostrados nas contas do P/L e do P/VP.";
     for (const b of screen.getAllByRole("button")) fireEvent.click(b);
     const corpos = screen.getAllByRole("button").map((b) => limpo(document.getElementById(b.getAttribute("aria-controls")!)!.textContent));
     const com = corpos.filter((c) => c.includes(frase));
@@ -167,6 +167,14 @@ describe("AtivoAnotado", () => {
       expect(texto, t).not.toContain(t);
     }
     expect(numero(ativo.pl, 2)).toBe("9,66");
+  });
+});
+
+describe("FRASE_DA_UNIT", () => {
+  it("diz que o TAEE11 é uma Unit e reusa a explicação do repositório", () => {
+    expect(FRASE_DA_UNIT.startsWith("O TAEE11 é uma Unit. ")).toBe(true);
+    expect(FRASE_DA_UNIT).toContain("Unit = pacote de ações.");
+    expect(FRASE_DA_UNIT).not.toMatch(/d+ ações/);
   });
 });
 
