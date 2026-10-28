@@ -227,6 +227,18 @@ html {
     border-color: color-mix(in srgb, var(--color-line) 70%, var(--color-ink));
   }
 }
+/* O cartão levantado vira contexto de empilhamento: sobe um degrau para o balão da Dica
+   (z-40, dentro dele) não ficar sob o cartão seguinte. */
+.interativo:focus-visible,
+.interativo:has(:focus-visible),
+.interativo:active {
+  z-index: 1;
+}
+@media (hover: hover) and (pointer: fine) {
+  .interativo:hover {
+    z-index: 1;
+  }
+}
 .interativo:active {
   transform: translateY(-1px) scale(.995);
   transition-duration: var(--duracao-rapida);
@@ -253,8 +265,20 @@ html {
     border-color var(--duracao-rapida) var(--curva),
     color var(--duracao-rapida) var(--curva);
 }
-.toque:active:not(:disabled) {
+.toque:active:not(:disabled):not([aria-disabled="true"]) {
   transform: scale(.98);
+}
+.toque .seta {
+  display: inline-block;
+  transition: transform var(--duracao-media) var(--curva);
+}
+.toque:focus-visible .seta {
+  transform: translateX(4px);
+}
+@media (hover: hover) and (pointer: fine) {
+  .toque:hover .seta {
+    transform: translateX(4px);
+  }
 }
 
 /* Barra que cresce da esquerda: o valor entra como scaleX inline e a transição usa os tokens. */

@@ -93,7 +93,7 @@ function Chip({ ativo, destino, children }: { ativo: boolean; destino: string; c
       scroll={false}
       aria-current={ativo ? "true" : undefined}
       className={`inline-flex min-h-11 items-center rounded-full border px-4 text-[15px] leading-[22px] font-semibold toque ${
-        ativo ? "border-ink bg-ink text-white" : "border-pauta bg-card text-ink hover:border-ink"
+        ativo ? "border-ink bg-ink text-white" : "border-pauta bg-card text-ink hover:border-ink focus-visible:border-ink"
       }`}
     >
       {children}

@@ -79,6 +79,16 @@ describe("globals.css: movimento", () => {
     expect(css).not.toMatch(/transition:\s*(top|left|right|bottom|width|height)\b/);
   });
 
+  it(".toque afunda ao toque (só se for clicável) e transita nos tokens rápidos", () => {
+    expect(css).toMatch(/\.toque:active:not\(:disabled\):not\(\[aria-disabled="true"\]\)\s*\{[^}]*scale\(\.98\)/);
+    expect(css).toMatch(/\.toque\s*\{[^}]*transform var\(--duracao-rapida\) var\(--curva\)/);
+  });
+
+  it(".interativo levantado sobe de camada para não cobrir o balão da Dica do cartão vizinho", () => {
+    expect(css).toMatch(/\.interativo:active\s*\{[^}]*z-index:\s*1/);
+    expect(css).toMatch(/\.interativo:focus-visible,[^{]*\{[^}]*z-index:\s*1/);
+  });
+
   it(".revelar transita; só .revelar-espera esconde e desloca (o servidor entrega o conteúdo visível)", () => {
     const base = css.match(/\n\.revelar\s*\{([^}]*)\}/);
     expect(base?.[1]).not.toContain("opacity: 0");

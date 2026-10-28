@@ -10,6 +10,8 @@ import { Botao } from "@/components/ui/botao";
 import { INDICES } from "@/lib/indices";
 import { destaqueDoIndice } from "@/lib/indices-dados";
 import { DADOS_DE_EXEMPLO } from "@/lib/indices-exemplo";
+import { ListaDeAcoes } from "@/components/ativos/lista-de-ativos";
+import type { AcaoResumo } from "@/lib/ativos-tipos";
 import type { Artigo } from "@/lib/aprender/tipos";
 
 afterEach(cleanup);
@@ -55,8 +57,17 @@ describe("a mesma microinteração em todo o site público", () => {
     expect(botao.className).not.toContain("transition-colors");
   });
 
-  it("lista de ativos (cards do celular), consulta rápida, chips e letras usam .interativo ou .toque", () => {
-    expect(fonte("components/ativos/lista-de-ativos.tsx")).toMatch(/<li[^>]*className="[^"]*\binterativo\b/);
+  it("lista de ativos: cada card do celular é um <li> .interativo com o link da ficha", () => {
+    const acao = {
+      ticker: "TAEE11", nome: "Taesa", setor: "Energia", especie: "UNIT", preco: 38.5, variacaoDia: 0.5,
+      pl: 10, pvp: 1.2, dy12m: 8, roe: 12,
+    } as unknown as AcaoResumo;
+    const { container } = render(<ListaDeAcoes itens={[acao]} />);
+    expect(container.querySelector('li.interativo a[href$="/TAEE11"]')).not.toBeNull();
+  });
+
+  it("consulta rápida, chips, categorias e letras usam .interativo ou .toque", () => {
+    expect(fonte("app/(site)/ativos/indices/page.tsx")).toMatch(/className=\{`toque /);
     expect(fonte("app/(site)/aprender/page.tsx")).toMatch(/className="[^"]*\binterativo\b[^"]*"/);
     expect(fonte("app/(site)/aprender/page.tsx")).toContain('className="seta"');
     expect(fonte("components/aprender/lista-de-artigos.tsx")).toMatch(/\btoque\b/);
