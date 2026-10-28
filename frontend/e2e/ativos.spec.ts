@@ -19,6 +19,19 @@ function falharEmErroNoConsole(page: Page) {
 const migalhas = (page: Page) => page.getByRole("navigation", { name: "Você está em" });
 const dica = (page: Page, nome: string) => page.getByRole("button", { name: `O que é ${nome}?` });
 
+/**
+ * Abre todas as explicações "Entender melhor" da ficha. Clica até o aria-expanded virar true: um clique
+ * antes da hidratação não faz nada, e clicar de novo num botão já aberto o fecharia.
+ */
+async function abrirExplicacoes(page: Page) {
+  for (const botao of await page.getByRole("button", { name: /^Entender melhor/ }).all()) {
+    await expect(async () => {
+      if ((await botao.getAttribute("aria-expanded")) !== "true") await botao.click();
+      await expect(botao).toHaveAttribute("aria-expanded", "true", { timeout: 500 });
+    }).toPass();
+  }
+}
+
 test.describe("listagem de ações", () => {
   test("mostra 5, expande para 15 e volta para 5", async ({ page }) => {
     const semErros = falharEmErroNoConsole(page);
@@ -209,7 +222,7 @@ test.describe("ficha da ação", () => {
 
     // fechada, a nota não é lida nem focada
     await expect(page.getByRole("note")).toHaveCount(0);
-    for (const botao of await page.getByRole("button", { name: "Entender melhor" }).all()) await botao.click();
+    await abrirExplicacoes(page);
 
     await expect(page.getByRole("note").filter({ hasText: "Lucro pontual" })).toBeVisible();
     await expect(page.getByRole("note").filter({ hasText: "distorcer o P/L" })).toBeVisible();
@@ -334,7 +347,7 @@ test.describe("ficha do FII", () => {
     await page.goto("/ativos/fiis/MXRF11");
 
     await expect(page.getByRole("note")).toHaveCount(0);
-    for (const botao of await page.getByRole("button", { name: "Entender melhor" }).all()) await botao.click();
+    await abrirExplicacoes(page);
 
     await expect(page.getByRole("note").filter({ hasText: "DY muito acima da média do segmento" })).toBeVisible();
     await expect(page.getByRole("note").filter({ hasText: "P/VP abaixo de 1 com DY muito alto exige cuidado" })).toBeVisible();
