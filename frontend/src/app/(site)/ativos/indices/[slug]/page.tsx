@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Migalhas, Voltar } from "@/components/ativos/pecas";
+import { Revelar } from "@/components/movimento/revelar";
 import { BotoesDaFicha } from "@/components/indices/botoes-da-ficha";
 import { PainelDoIndice } from "@/components/indices/painel-do-indice";
 import {
@@ -156,7 +157,7 @@ export default async function FichaDoIndice({ params }: Props) {
         <div className="flex min-w-0 flex-col gap-4 lg:col-start-1 lg:row-start-1">
           <CabecalhoDaFicha
             indice={indice}
-            direita={ehTaxa ? <ValorDeHoje indice={indice} valor={destaque.valorFormatado} atualizadoEm={dados.atualizadoEm} /> : <BotoesDaFicha nome={indice.nome} />}
+            direita={ehTaxa ? <ValorDeHoje indice={indice} valor={destaque.semDados ? null : destaque.valor} atualizadoEm={dados.atualizadoEm} /> : <BotoesDaFicha nome={indice.nome} />}
           />
           {!ehTaxa && (
             <>
@@ -208,7 +209,12 @@ export default async function FichaDoIndice({ params }: Props) {
             )}
             <LinkDoArtigo indice={indice} />
           </BlocoDeArtigo>
-          {tabela && <TabelaDaTaxa tabela={tabela} />}
+          {/* o texto longo nunca entra com animação; só a tabela, que é um bloco curto e separado */}
+          {tabela && (
+            <Revelar>
+              <TabelaDaTaxa tabela={tabela} />
+            </Revelar>
+          )}
         </div>
       </div>
 

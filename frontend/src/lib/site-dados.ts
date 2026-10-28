@@ -1,4 +1,5 @@
 import { mesPorExtenso, percentual } from "./format";
+import { DICAS } from "./indicadores-explicados";
 import { ipcaEm12Meses, variacaoPct, type DadosDosIndices } from "./indices";
 
 /**
@@ -130,20 +131,47 @@ export function fraseDoJuroReal(selicPct: number, ipcaPct: number): { antes: str
   };
 }
 
-/** TAEE11 no fechamento de 2/10/2026, Yahoo Finance, calculado como o job de indicadores calcula. */
+/**
+ * TAEE11 no fechamento de 20/10/2026: tudo de UMA resposta de GET /ativos/acoes/TAEE11 (a mesma fonte da
+ * ficha do ativo: Yahoo Finance, com os indicadores calculados pelo job), lida nesse dia depois do pregão.
+ * Nenhum número de outra data. Campos lidos da resposta: `preco`, `fechamentoEm`, `indicadores.dados`
+ * (pl, pvp, dy12m, roe, margemLiquida, dividaEbitda), `historico.dados` e `proventos.dados`.
+ *
+ * Três campos são derivados, com conta exata a partir da mesma resposta (o teste em site-dados.test.ts
+ * confere cada uma):
+ * - `lucroPorAcao` = preço ÷ P/L (45,87 ÷ 9,66 = 4,748…), arredondado ao centavo;
+ * - `valorPatrimonialPorAcao` = preço ÷ P/VP (45,87 ÷ 1,96 = 23,403…), arredondado ao centavo;
+ * - `variacaoNoMes` = fechamento de outubro (45,87) ÷ fechamento de setembro (41,81) − 1, do `historico`.
+ * Os proventos ficam com as 4 casas que o Yahoo dá: arredondar para R$ 3,01 mudaria o DY para 6,56%.
+ */
 export const ATIVO_DE_EXEMPLO = {
   ticker: "TAEE11",
   nome: "Taesa",
   descricao: "transmissão de energia elétrica",
-  fechamento: "2 de outubro de 2026",
-  preco: 42.85,
-  variacaoNoMes: 2.49,
-  pl: 9.02,
-  pvp: 1.83,
-  dy12m: 7.02,
-  proventos12m: { porUnidade: 3.01, pagamentos: 4 },
-  roe: 20.9,
+  fechamento: "20 de outubro de 2026",
+  fechamentoIso: "2026-10-20",
+  fonte: "Yahoo Finance; indicadores calculados pelo PortfolioLab",
+  preco: 45.87,
+  /** Derivado: % de 41,81 (fim de setembro) a 45,87. */
+  variacaoNoMes: 9.71,
+  mesDaVariacao: "outubro",
+  pl: 9.66,
+  pvp: 1.96,
+  dy12m: 6.55,
+  /** Proventos com data-ex nos 12 meses até o fechamento, por unidade. */
+  proventos12m: { porUnidade: 3.0065, pagamentos: 4, valores: [0.9384, 0.9089, 0.559, 0.6002] },
+  roe: 20.86,
+  margemLiquida: 36.48,
+  /** `null` quando a ficha não trouxer o dado. */
+  dividaEbitda: 4.36 as number | null,
+  /** Derivado: preço ÷ P/L. */
+  lucroPorAcao: 4.75,
+  /** Derivado: preço ÷ P/VP. */
+  valorPatrimonialPorAcao: 23.4,
 } as const;
+
+/** A linha da home que diz que o TAEE11 é uma Unit; o resto é o texto de DICAS, sem número inventado. */
+export const FRASE_DA_UNIT = `O ${ATIVO_DE_EXEMPLO.ticker} é uma Unit. ${DICAS.especie.texto}`;
 
 export type Criterio = {
   rotulo: string;
@@ -162,14 +190,6 @@ export function atende(ativo: typeof ATIVO_DE_EXEMPLO, c: Criterio): boolean {
   const v = ativo[c.campo];
   return c.comparacao === "acima" ? v > c.limite : v < c.limite;
 }
-
-export const TRILHAS = [
-  { numero: 1, titulo: "Antes de investir: reserva e orçamento", aulas: 5, descricao: "Por que a reserva de emergência vem antes da primeira ação." },
-  { numero: 2, titulo: "Renda fixa sem mistério", aulas: 5, descricao: "Selic, CDI, Tesouro Direto e CDB, com as contas feitas em reais." },
-  { numero: 3, titulo: "Como reconhecer um ativo sólido", aulas: 6, descricao: "Lucro constante, dívida sob controle e um histórico de proventos que se sustenta." },
-  { numero: 4, titulo: "Do primeiro aporte à primeira carteira", aulas: 7, descricao: "Quanto colocar em cada classe de ativo e por que a ordem importa." },
-  { numero: 5, titulo: "Rebalancear sem vender", aulas: 4, descricao: "Usar cada aporte para levar a carteira de volta às metas." },
-] as const;
 
 /** A conta de demonstração que `npm run db:local` cria (backend/prisma/seed-demo.ts). */
 export const CONTA_DEMO = { ativos: 16, transacoes: 27 } as const;

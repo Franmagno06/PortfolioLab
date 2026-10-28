@@ -279,7 +279,7 @@ export function HistoricoTransacoes({ aoApagar }: Props) {
               {itens.map((t) => (
                 <li
                   key={t.id}
-                  className="grid grid-cols-2 items-center gap-x-3 gap-y-1.5 px-4 py-3.5 text-sm md:grid-cols-[minmax(0,1.6fr)_5rem_6.5rem_5rem_7rem_6rem_7.5rem] md:px-5"
+                  className="linha-de-tabela grid grid-cols-2 items-center gap-x-3 gap-y-1.5 px-4 py-3.5 text-sm hover:bg-paper has-[:focus-visible]:bg-paper md:grid-cols-[minmax(0,1.6fr)_5rem_6.5rem_5rem_7rem_6rem_7.5rem] md:px-5"
                 >
                   <div className="min-w-0">
                     <p className="tnum font-semibold">{t.asset.ticker}</p>

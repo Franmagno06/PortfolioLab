@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Armadilha } from "@/components/aprender/armadilha";
 import { TopoDaPagina, TituloDaPagina } from "@/components/aprender/cabecalho-da-pagina";
+import { ExplicacaoQueAbre } from "@/components/movimento/explicacao-que-abre";
 import { INDICADORES } from "@/content/aprender/indicadores";
 import { ROTAS } from "@/lib/navegacao";
 import { ATIVO_DE_EXEMPLO } from "@/lib/site-dados";
@@ -54,11 +55,6 @@ export default function IndicadoresPage() {
                 </a>
               </div>
 
-              <div className="flex flex-col gap-1 rounded-lg bg-marca-texto p-3.5 text-anotacao">
-                <p className="text-xs leading-4 font-medium tracking-wide uppercase">Fórmula</p>
-                <p className="text-[19px] leading-[26px] font-semibold">{i.formula}</p>
-              </div>
-
               <div className="flex flex-col gap-1">
                 <p className="text-xs leading-4 font-medium tracking-wide text-anotacao uppercase">Como ler</p>
                 <p className="text-[15px] leading-[22px] text-ink">{i.comoLer}</p>
@@ -66,10 +62,20 @@ export default function IndicadoresPage() {
 
               <Armadilha>{i.armadilha}</Armadilha>
 
-              <p className="flex flex-wrap items-center gap-2.5 border-t border-pauta pt-3">
-                <span className="text-[13px] leading-[19px] text-ink-2">{i.exemploRotulo}:</span>
-                <strong className="tnum text-[15px] leading-[22px] font-semibold text-ink">{i.exemplo}</strong>
-              </p>
+              <div className="border-t border-pauta pt-1">
+                <ExplicacaoQueAbre id={`conta-do-indicador-${i.id}`} rotulo="Ver a fórmula e o exemplo" nomeAcessivel={`Ver a fórmula e o exemplo de ${i.nome}`}>
+                  <div className="flex flex-col gap-3">
+                    <div className="flex flex-col gap-1 rounded-lg bg-marca-texto p-3.5 text-anotacao">
+                      <p className="text-xs leading-4 font-medium tracking-wide uppercase">Fórmula</p>
+                      <p className="text-[19px] leading-[26px] font-semibold">{i.formula}</p>
+                    </div>
+                    <p className="flex flex-wrap items-center gap-2.5">
+                      <span className="text-[13px] leading-[19px] text-ink-2">{i.exemploRotulo}:</span>
+                      <strong className="tnum text-[15px] leading-[22px] font-semibold text-ink">{i.exemplo}</strong>
+                    </p>
+                  </div>
+                </ExplicacaoQueAbre>
+              </div>
             </section>
           ))}
 

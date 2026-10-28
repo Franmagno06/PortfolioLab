@@ -4,6 +4,11 @@ export function brl(valor: number): string {
   return valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
+/** Como `brl` (mesmo espaço que não separa depois do "R$"), mas com `casas` decimais fixas: provento por unidade vem com 4. */
+export function brlComCasas(valor: number, casas: number): string {
+  return valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: casas, maximumFractionDigits: casas });
+}
+
 /** Valor em reais, ou "—" quando a fonte não informou. */
 export function brlOuTraco(valor: number | null): string {
   return valor === null ? "—" : brl(valor);

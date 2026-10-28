@@ -197,10 +197,11 @@ describe("indicadores explicados", () => {
 
   it("o exemplo de ação vem do ativo da página inicial; o resto é hipotético e diz isso", () => {
     const porId = Object.fromEntries(INDICADORES.map((i) => [i.id, i]));
-    expect(porId.pl?.exemplo).toBe("9,02");
-    expect(porId.pvp?.exemplo).toBe("1,83");
-    expect(porId.dy?.exemplo).toBe("7,02% (R$ 3,01 em 4 pagamentos)");
-    expect(porId.roe?.exemplo).toBe("20,9%");
+    expect(porId.pl?.exemplo).toBe("9,66");
+    expect(porId.pvp?.exemplo).toBe("1,96");
+    // o brlComCasas põe um espaço que não separa depois do "R$"
+    expect(porId.dy?.exemplo?.replace(/\u00a0/g, " ")).toBe("6,55% (R$ 3,0065 em 4 pagamentos)");
+    expect(porId.roe?.exemplo).toBe("20,86%");
     for (const id of ["pl", "pvp", "dy", "roe"]) expect(porId[id]?.exemploRotulo).toBe("No exemplo (TAEE11)");
     for (const id of ["roa", "margem", "divida", "vacancia", "fii"]) expect(porId[id]?.exemploRotulo, id).toBe("Exemplo hipotético");
     expect(porId.roa?.exemplo).toMatch(/^2,0%/);

@@ -111,6 +111,14 @@ async sozinho — controllers **não** levam try/catch. O `errorHandler` (`share
 memorizou. Antes de escrever código de framework, consulte `node_modules/next/dist/docs/`.
 Em particular, a proteção de rota vive em `src/proxy.ts` (ex-`middleware.ts`).
 
+**Movimento** só com o kit: tokens `--duracao-*` e `--curva` em `globals.css`, `src/lib/movimento.ts` e
+`src/components/movimento/` (`Revelar`, `NumeroQueConta`, `Minigrafico`, `ExplicacaoQueAbre`, `GraficoDeFundo`) mais as
+classes `.interativo`, `.toque` e `.linha-de-tabela`. Nada de curva ou duração escrita à mão, nada de animar propriedade de
+layout (a única exceção é `grid-template-rows` do `ExplicacaoQueAbre`), e **sem `prefers-reduced-motion`**,
+`motion-reduce:` ou `motion-safe:` (decisão do dono; o teste `app/movimento-css.test.ts` barra). Movimento contínuo
+tem sempre o botão de pausa. A primeira dobra nunca espera animação (exceto o `.reveal` legado do dashboard, mantido por decisão do plano): `Revelar` só esconde o que o observador viu fora da
+tela, e número e minigráfico só animam se foram vistos fora antes.
+
 **Aba Aprender** (`/aprender`, artigos, glossário, indicadores, como-calculamos; pública, sem backend). O conteúdo é
 `.mdx` e `.ts` em `frontend/src/content/aprender/`, e as regras de escrita estão em `docs/aprender-conteudo.md`:
 nada de recomendação, número que muda sempre com fonte oficial e data, e todo exemplo numérico conferido em

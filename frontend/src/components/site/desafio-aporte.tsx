@@ -173,9 +173,12 @@ export function DesafioAporte({ carteira }: { carteira: readonly AtivoExemplo[] 
                     />
                   </div>
                   <div className="h-2 overflow-hidden rounded-full bg-caderno">
+                    {/* scaleX em vez de width: só transform anima, sem refazer o layout a cada clique;
+                        o arredondamento vem do trilho (overflow-hidden), não da barra esticada. */}
                     <div
-                      className="h-full rounded-full transition-[width] duration-300 motion-reduce:transition-none"
-                      style={{ width: `${Math.min((pctDepois / ESCALA_PCT) * 100, 100)}%`, background: cor }}
+                      data-barra="depois"
+                      className="barra-escala h-full w-full"
+                      style={{ transform: `scaleX(${Math.min(pctDepois / ESCALA_PCT, 1)})`, background: cor }}
                     />
                   </div>
                   <span

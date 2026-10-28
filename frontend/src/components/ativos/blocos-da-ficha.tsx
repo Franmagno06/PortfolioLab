@@ -3,6 +3,7 @@ import { Dica } from "@/components/ativos/dica";
 import { Anotacao, Avatar, VariacaoDoDia } from "@/components/ativos/pecas";
 import { Secao, type EstadoDaSecao } from "@/components/ativos/secao";
 import type { Bloco, ComposicaoDoFundo as Composicao, FiiFicha, ResultadoTrimestral, TipoFii } from "@/lib/ativos-tipos";
+import { NumeroQueConta } from "@/components/movimento/numero-que-conta";
 import { brl, brlOuTraco, dataCurta, dataDeLeitura, mesAno, numero } from "@/lib/format";
 import type { IdDaDica } from "@/lib/indicadores-explicados";
 import { ROTAS } from "@/lib/navegacao";
@@ -85,7 +86,7 @@ export function CabecalhoDoAtivo({
         </div>
       </div>
       <div className="mt-4 md:mt-0 md:text-right">
-        <p className="tnum text-[32px] leading-10 font-semibold tracking-[-0.01em] text-ink">{brlOuTraco(preco)}</p>
+        <p className="tnum text-[32px] leading-10 font-semibold tracking-[-0.01em] text-ink">{preco === null ? brlOuTraco(preco) : <NumeroQueConta valor={preco} formato="brl" />}</p>
         <p className="mt-1 text-sm text-mute">
           {preco === null ? (
             "O Yahoo Finance não informou o preço agora."

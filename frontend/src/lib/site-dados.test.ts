@@ -9,7 +9,6 @@ import {
   juroReal,
   NUMEROS_DO_MES,
   numerosDoMes,
-  TRILHAS,
 } from "./site-dados";
 
 describe("juroReal", () => {
@@ -39,20 +38,60 @@ describe("atende", () => {
   it("confere os três critérios de exemplo contra a TAEE11", () => {
     const resultados = CRITERIOS_DE_EXEMPLO.map((c) => atende(ATIVO_DE_EXEMPLO, c));
 
-    // ROE 20,9 > 15; DY 7,02 > 6; P/VP 1,83 não é < 1,5
+    // ROE 20,86 > 15; DY 6,55 > 6; P/VP 1,96 não é < 1,5
     expect(resultados).toEqual([true, true, false]);
   });
 
   it("o limite exato não atende: acima é estritamente acima", () => {
     expect(
-      atende(ATIVO_DE_EXEMPLO, { rotulo: "x", campo: "roe", comparacao: "acima", limite: 20.9 }),
+      atende(ATIVO_DE_EXEMPLO, { rotulo: "x", campo: "roe", comparacao: "acima", limite: 20.86 }),
     ).toBe(false);
   });
 });
 
-describe("TRILHAS", () => {
-  it("é uma sequência numerada de 1 em diante, sem buraco", () => {
-    expect(TRILHAS.map((t) => t.numero)).toEqual([1, 2, 3, 4, 5]);
+describe("ATIVO_DE_EXEMPLO: uma data só e contas que fecham", () => {
+  const a = ATIVO_DE_EXEMPLO;
+  // tolerância do arredondamento: os indicadores vêm com 2 casas
+  const perto = (valor: number, esperado: number) => expect(Math.abs(valor - esperado)).toBeLessThan(0.005);
+
+  it("é o fechamento de 20/10/2026, com a fonte", () => {
+    expect(a.fechamento).toBe("20 de outubro de 2026");
+    expect(a.fechamentoIso).toBe("2026-10-20");
+    expect(a.fonte).toBe("Yahoo Finance; indicadores calculados pelo PortfolioLab");
+  });
+
+  it("preço ÷ lucro por ação dá o P/L", () => {
+    perto(a.preco / a.lucroPorAcao, a.pl);
+  });
+
+  it("preço ÷ valor patrimonial por ação dá o P/VP", () => {
+    perto(a.preco / a.valorPatrimonialPorAcao, a.pvp);
+  });
+
+  it("os proventos de 12 meses somam o valor por unidade e dão o DY", () => {
+    const soma = a.proventos12m.valores.reduce((s, v) => s + v, 0);
+    expect(soma).toBeCloseTo(a.proventos12m.porUnidade, 9);
+    expect(a.proventos12m.valores).toHaveLength(a.proventos12m.pagamentos);
+    perto((a.proventos12m.porUnidade / a.preco) * 100, a.dy12m);
+  });
+
+  it("traz um indicador de margem e um de endividamento (null quando a ficha não tiver)", () => {
+    expect(a.margemLiquida).toBe(36.48);
+    expect(a.dividaEbitda).toBe(4.36);
+  });
+
+  it("a variação no mês é contra o fechamento de setembro da mesma resposta", () => {
+    perto(((a.preco / 41.81) - 1) * 100, a.variacaoNoMes);
+    expect(a.mesDaVariacao).toBe("outubro");
+  });
+
+  it("nenhum texto do exemplo cita outra data", () => {
+    const textos = JSON.stringify(a);
+    const datas = [
+      ...textos.matchAll(/\d{1,2} de [a-zç]+ de \d{4}|\d{2}\/\d{2}\/\d{4}|\d{4}-\d{2}-\d{2}/g),
+    ].map((m) => m[0]);
+    expect(datas.length).toBeGreaterThan(0);
+    for (const d of datas) expect(["20 de outubro de 2026", "20/10/2026", "2026-10-20"]).toContain(d);
   });
 });
 

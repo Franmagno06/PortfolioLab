@@ -1,16 +1,17 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import { Area, AreaChart, CartesianGrid, ReferenceDot, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { PontoDePreco } from "@/lib/ativos-tipos";
 import { escalaDoEixo } from "@/lib/escala-do-grafico";
 import { brl, mesAno, mesCurto } from "@/lib/format";
+import { CURVA, DURACAO_GRAFICO_MS } from "@/lib/movimento";
 
 /*
  * O preço no fechamento de cada mês, nos últimos 12. Linha e área na cor da
  * classe do ativo (verde para ação, azul para FII), com o último ponto
  * marcado. Hex direto, e não var(): o Recharts pinta SVG com estes valores.
- * Sem animação de entrada: o gráfico não precisa chamar atenção para si, e
- * assim não há o que reduzir para quem pediu menos movimento.
+ * A linha e a área se desenham uma vez, na duração do kit de movimento.
  */
 
 const COR_DA_PAUTA = "#dce3ee";
@@ -21,28 +22,34 @@ type Props = { ticker: string; historico: PontoDePreco[]; cor: string };
 /** Os 12 valores em texto: o tooltip do gráfico só aparece para quem usa o mouse. */
 function TabelaParaLeitorDeTela({ ticker, historico }: Omit<Props, "cor">) {
   return (
-    <table className="sr-only">
-      <caption>Fechamento de {ticker} em cada um dos últimos 12 meses</caption>
-      <thead>
-        <tr>
-          <th scope="col">Mês</th>
-          <th scope="col">Fechamento</th>
-        </tr>
-      </thead>
-      <tbody>
-        {historico.map((p) => (
-          <tr key={p.mes}>
-            <th scope="row">{mesAno(p.mes)}</th>
-            <td>{brl(p.fechamento)}</td>
+    // relative + overflow-hidden: a tabela sr-only é absolute e, sem este recipiente, alarga a página no celular
+    <div className="relative overflow-hidden">
+      <table className="sr-only">
+        <caption>Fechamento de {ticker} em cada um dos últimos 12 meses</caption>
+        <thead>
+          <tr>
+            <th scope="col">Mês</th>
+            <th scope="col">Fechamento</th>
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {historico.map((p) => (
+            <tr key={p.mes}>
+              <th scope="row">{mesAno(p.mes)}</th>
+              <td>{brl(p.fechamento)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
 export function GraficoDePreco({ ticker, historico, cor }: Props) {
-  const dados = historico.map((p) => ({ ...p, rotulo: mesCurto(p.mes) }));
+  // o ponto do último fechamento só surge quando a linha termina de se desenhar
+  const [desenhou, setDesenhou] = useState(false);
+  // referência estável: o Recharts reanima sempre que a referência dos dados muda
+  const dados = useMemo(() => historico.map((p) => ({ ...p, rotulo: mesCurto(p.mes) })), [historico]);
   const primeiro = historico[0];
   const ultimo = historico[historico.length - 1];
   if (!primeiro || !ultimo) return null;
@@ -98,10 +105,13 @@ export function GraficoDePreco({ ticker, historico, cor }: Props) {
               stroke={cor}
               strokeWidth={2}
               fill={`url(#${idDoGradiente})`}
-              isAnimationActive={false}
+              isAnimationActive
+              animationDuration={DURACAO_GRAFICO_MS}
+              animationEasing={CURVA}
+              onAnimationEnd={() => setDesenhou(true)}
               activeDot={{ r: 5, stroke: "#fff", strokeWidth: 2 }}
             />
-            <ReferenceDot x={mesCurto(ultimo.mes)} y={ultimo.fechamento} r={5} fill={cor} stroke="#fff" strokeWidth={2} />
+            {desenhou && <ReferenceDot x={mesCurto(ultimo.mes)} y={ultimo.fechamento} r={5} fill={cor} stroke="#fff" strokeWidth={2} />}
           </AreaChart>
         </ResponsiveContainer>
       </div>

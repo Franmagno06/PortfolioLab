@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { CATEGORIAS, rotuloDaCategoria, type IdDeCategoria } from "@/lib/aprender/tipos";
+import { Revelar } from "@/components/movimento/revelar";
 import { CardArtigo, type ResumoDeArtigo } from "./card-artigo";
 
 /** Quantos cards aparecem antes de "Ver todos": duas linhas de três. */
@@ -15,7 +16,7 @@ function href(tema: IdDeCategoria | null, todos = false): string {
 }
 
 const botaoSecundario =
-  "inline-flex min-h-11 w-fit items-center rounded border border-ink bg-card px-[18px] text-[15px] font-semibold text-ink hover:bg-paper";
+  "toque inline-flex min-h-11 w-fit items-center rounded border border-ink bg-card px-[18px] text-[15px] font-semibold text-ink hover:bg-paper";
 
 /**
  * O filtro por tema e a grade de artigos, tudo no servidor: tema e expansão vivem na URL
@@ -69,9 +70,15 @@ export function ListaDeArtigos({
         </div>
       ) : (
         <ul className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {visiveis.map((a) => (
-            <li key={a.slug} className="flex [&>article]:flex-1">
-              <CardArtigo artigo={a} />
+          {visiveis.map((a, i) => (
+            <li key={a.slug} className="flex">
+              {/* cascata de 90 ms por coluna: .cascata escolhe 1, 2 ou 3 colunas conforme a largura */}
+              <Revelar
+                className="cascata flex flex-1 [&>article]:flex-1"
+                style={{ "--c2": i % 2, "--c3": i % 3 } as React.CSSProperties}
+              >
+                <CardArtigo artigo={a} />
+              </Revelar>
             </li>
           ))}
         </ul>
@@ -92,8 +99,8 @@ function Chip({ ativo, destino, children }: { ativo: boolean; destino: string; c
       href={destino}
       scroll={false}
       aria-current={ativo ? "true" : undefined}
-      className={`inline-flex min-h-11 items-center rounded-full border px-4 text-[15px] leading-[22px] font-semibold transition-colors ${
-        ativo ? "border-ink bg-ink text-white" : "border-pauta bg-card text-ink hover:border-ink"
+      className={`inline-flex min-h-11 items-center rounded-full border px-4 text-[15px] leading-[22px] font-semibold toque ${
+        ativo ? "border-ink bg-ink text-white" : "border-pauta bg-card text-ink hover:border-ink focus-visible:border-ink"
       }`}
     >
       {children}

@@ -204,8 +204,12 @@ test.describe("ficha da ação", () => {
     }
   });
 
-  test("as duas armadilhas da ação estão sempre visíveis", async ({ page }) => {
+  test("as armadilhas da ação ficam dentro da explicação e aparecem ao abri-la", async ({ page }) => {
     await page.goto("/ativos/acoes/VALE3");
+
+    // fechada, a nota não é lida nem focada
+    await expect(page.getByRole("note")).toHaveCount(0);
+    for (const botao of await page.getByRole("button", { name: "Entender melhor" }).all()) await botao.click();
 
     await expect(page.getByRole("note").filter({ hasText: "Lucro pontual" })).toBeVisible();
     await expect(page.getByRole("note").filter({ hasText: "distorcer o P/L" })).toBeVisible();
@@ -263,6 +267,50 @@ test.describe("ficha da ação", () => {
   });
 });
 
+test.describe("fichas no celular", () => {
+  test("a 390px nenhuma ficha rola para o lado (a tabela do leitor de tela não vaza)", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    for (const rota of ["/ativos/acoes/VALE3", "/ativos/fiis/MXRF11", "/ativos/etfs/BOVA11"]) {
+      await page.goto(rota);
+      await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+      const medidas = await page.evaluate(() => ({ pagina: document.documentElement.scrollWidth, janela: window.innerWidth }));
+      expect(medidas.pagina, rota).toBeLessThanOrEqual(medidas.janela);
+    }
+  });
+});
+
+test.describe("ficha da ação: revelar ao rolar", () => {
+  test("o cabeçalho e o bloco do preço nunca ficam dentro de um Revelar", async ({ page }) => {
+    await page.goto("/ativos/acoes/VALE3");
+    await expect(page.getByRole("heading", { level: 1, name: "VALE3" })).toBeVisible();
+    const dentroDeRevelar = await page.evaluate(() =>
+      ["h1", "#preco-titulo"].map((seletor) => document.querySelector(seletor)?.closest(".revelar") !== null),
+    );
+    expect(dentroDeRevelar).toEqual([false, false]);
+  });
+
+  test("sem JavaScript o HTML do servidor já traz os blocos visíveis (nada começa escondido)", async ({ browser }) => {
+    const contexto = await browser.newContext({ javaScriptEnabled: false });
+    const page = await contexto.newPage();
+    await page.goto("/ativos/acoes/VALE3");
+    const escondidos = await page.evaluate(() => document.querySelectorAll(".revelar-espera").length);
+    expect(escondidos).toBe(0);
+    await expect(page.locator("#indicadores-titulo")).toHaveCSS("opacity", "1");
+    await contexto.close();
+  });
+
+  test("o bloco de indicadores espera fora da tela e aparece ao rolar até ele", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 700 });
+    await page.goto("/ativos/acoes/VALE3");
+    const bloco = page.locator("#indicadores-titulo").locator("xpath=ancestor::*[contains(@class,'revelar')][1]");
+    // visto fora da tela na primeira leitura do observador: fica à espera
+    await expect(bloco).toHaveClass(/revelar-espera/);
+    await bloco.scrollIntoViewIfNeeded();
+    await expect(bloco).not.toHaveClass(/revelar-espera/);
+    await expect(bloco).toHaveCSS("opacity", "1");
+  });
+});
+
 test.describe("ficha do FII", () => {
   test("mostra rendimento, patrimônio, gestão, composição e agenda de proventos", async ({ page }) => {
     const semErros = falharEmErroNoConsole(page);
@@ -282,8 +330,11 @@ test.describe("ficha do FII", () => {
     semErros();
   });
 
-  test("as armadilhas do FII estão sempre visíveis", async ({ page }) => {
+  test("as armadilhas do FII ficam dentro da explicação e aparecem ao abri-la", async ({ page }) => {
     await page.goto("/ativos/fiis/MXRF11");
+
+    await expect(page.getByRole("note")).toHaveCount(0);
+    for (const botao of await page.getByRole("button", { name: "Entender melhor" }).all()) await botao.click();
 
     await expect(page.getByRole("note").filter({ hasText: "DY muito acima da média do segmento" })).toBeVisible();
     await expect(page.getByRole("note").filter({ hasText: "P/VP abaixo de 1 com DY muito alto exige cuidado" })).toBeVisible();

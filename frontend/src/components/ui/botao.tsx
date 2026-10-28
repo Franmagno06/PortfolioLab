@@ -1,11 +1,11 @@
 type Variante = "primario" | "secundario" | "acento" | "perigo";
 
 const variantes: Record<Variante, string> = {
-  primario: "bg-ink text-white hover:bg-ink-lift",
-  secundario: "border border-line bg-card hover:bg-paper",
-  acento: "bg-gain-ink text-white hover:bg-ink",
+  primario: "bg-ink text-white hover:bg-ink-lift focus-visible:bg-ink-lift",
+  secundario: "border border-line bg-card hover:bg-paper focus-visible:bg-paper",
+  acento: "bg-gain-ink text-white hover:bg-ink focus-visible:bg-ink",
   // ação destrutiva e irreversível (apagar): cor de perda, nunca a do botão comum
-  perigo: "bg-loss-ink text-white hover:bg-ink",
+  perigo: "bg-loss-ink text-white hover:bg-ink focus-visible:bg-ink",
 };
 
 // Um tamanho por linha, nunca sobrescrito por className: entre px-4 e px-3
@@ -30,7 +30,7 @@ export function Botao({
   return (
     <button
       {...props}
-      className={`rounded font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${variantes[variante]} ${tamanhos[tamanho]} ${className}`}
+      className={`rounded font-semibold toque disabled:cursor-not-allowed disabled:opacity-60 ${variantes[variante]} ${tamanhos[tamanho]} ${className}`}
     />
   );
 }

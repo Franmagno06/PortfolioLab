@@ -19,17 +19,17 @@ const comIbov = (hoje: string, ibovespa: { data: string; valor: number }[]): Dad
   pontos: { ...DADOS_DE_EXEMPLO.pontos, ibovespa },
 });
 
-const textoDaSecao = () => screen.getByRole("region", { name: /Os números de/ }).textContent ?? "";
+const textoDaSecao = () => screen.getByRole("region", { name: "Ativos e índices" }).textContent ?? "";
 
-describe("seção dos números do mês", () => {
-  it("o fallback mostra a referência fixa, dita como fixa, com o mesmo título e id", () => {
+describe("seção dos números do mês (bento Ativos e índices)", () => {
+  it("o fallback mostra a referência fixa, dita como fixa, com o id e o título do bento", () => {
     render(<NumerosDoMesFixos />);
 
-    const titulo = screen.getByRole("heading", { level: 2, name: "Os números de outubro de 2026" });
-    expect(titulo.id).toBe("titulo-numeros");
+    const titulo = screen.getByRole("heading", { level: 2, name: "Ativos e índices" });
+    expect(titulo.id).toBe("titulo-ativos-indices");
     expect(textoDaSecao()).toContain("Referência fixa de 2 de outubro, não atualizada ao vivo");
-    expect(textoDaSecao()).toContain("o Ibovespa fechou em 192.115 pontos");
-    expect(textoDaSecao()).toContain("perto de 9% ao ano");
+    expect(textoDaSecao()).toContain("192.115");
+    expect(textoDaSecao()).toContain("8,77%"); // juro real da referência fixa (Fisher)
   });
 
   it("ao vivo lê a API com prazo de 5 s", async () => {
@@ -40,7 +40,7 @@ describe("seção dos números do mês", () => {
     expect(textoDaSecao()).toContain("Referência fixa"); // falhou: cai no fixo
   });
 
-  it("pregão em andamento: 'está em' e 'Cotação de', nunca 'fechou'", async () => {
+  it("pregão em andamento: 'Cotação de', nunca 'Fechamento'", async () => {
     lerDadosDosIndices.mockResolvedValue(
       comIbov("2026-10-19", [
         { data: "2026-09-30", valor: 190000 },
@@ -51,13 +51,13 @@ describe("seção dos números do mês", () => {
 
     const texto = textoDaSecao();
     expect(texto).toContain("Cotação de 19 de outubro;");
-    expect(texto).toContain("o Ibovespa está em 196.000 pontos (cotação de hoje, com atraso de cerca de 15 minutos)");
-    expect(texto).toContain("3,16% acima do fim de setembro");
-    expect(texto).not.toContain("fechou");
+    expect(texto).toContain("atraso de cerca de 15 minutos");
+    expect(texto).toContain("196.000");
+    expect(texto).toContain("+3,2%");
     expect(texto).not.toContain("Fechamento");
   });
 
-  it("pregão encerrado: 'Fechamento de' e 'fechou em'", async () => {
+  it("pregão encerrado: 'Fechamento de'", async () => {
     lerDadosDosIndices.mockResolvedValue(
       comIbov("2026-10-24", [
         { data: "2026-09-30", valor: 190000 },
@@ -68,6 +68,7 @@ describe("seção dos números do mês", () => {
 
     const texto = textoDaSecao();
     expect(texto).toContain("Fechamento de 23 de outubro;");
-    expect(texto).toContain("o Ibovespa fechou em 197.000 pontos");
+    expect(texto).toContain("197.000");
+    expect(texto).not.toContain("Cotação de");
   });
 });

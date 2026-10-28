@@ -44,6 +44,29 @@ test.describe("área logada", () => {
     await expect(abas(page).getByRole("link", { name: "Resumo" })).not.toHaveAttribute("aria-current", "page");
   });
 
+  test("a aba não sobe nem ganha sombra no hover e no foco (só a cor do traço muda)", async ({ page }) => {
+    await page.goto("/dashboard");
+    const aba = abas(page).getByRole("link", { name: "Simular aporte" });
+
+    const estilo = () => aba.evaluate((el) => ({ transform: getComputedStyle(el).transform, sombra: getComputedStyle(el).boxShadow }));
+
+    const corDoTraco = () => aba.evaluate((el) => getComputedStyle(el).borderBottomColor);
+    const emRepouso = await corDoTraco();
+
+    await aba.hover();
+    // o traço ganha cor (muda do repouso) enquanto a aba não sobe nem ganha sombra
+    await expect.poll(corDoTraco).not.toBe(emRepouso);
+    expect(await estilo()).toEqual({ transform: "none", sombra: "none" });
+
+    await page.mouse.move(0, 0);
+    await aba.focus();
+    await page.keyboard.press("Shift+Tab");
+    await page.keyboard.press("Tab");
+    await expect(aba).toBeFocused();
+    await expect.poll(corDoTraco).not.toBe(emRepouso);
+    expect(await estilo()).toEqual({ transform: "none", sombra: "none" });
+  });
+
   test("o menu Planejar do cabeçalho leva à simulação", async ({ page }) => {
     await page.goto("/carteira");
     const principal = page.getByRole("navigation", { name: "Principal" });
@@ -114,6 +137,32 @@ test.describe("área logada no celular", () => {
     expect(largura.pagina).toBeLessThanOrEqual(largura.janela);
     // a aba da página atual entra na tela sozinha, mesmo sendo a última
     await expect(abas(page).getByRole("link", { name: "Notícias" })).toBeInViewport();
+  });
+
+  test("resumo, posições e indicadores não rolam para o lado", async ({ page }) => {
+    for (const [rota, titulo] of [
+      ["/dashboard", "Resumo"],
+      ["/carteira", "Posições"],
+      ["/indicadores", "Indicadores"],
+    ] as const) {
+      await page.goto(rota);
+      await expect(page.getByRole("heading", { level: 1, name: titulo })).toBeVisible();
+      const largura = await page.evaluate(() => ({
+        pagina: document.documentElement.scrollWidth,
+        janela: window.innerWidth,
+      }));
+      expect(largura.pagina, rota).toBeLessThanOrEqual(largura.janela);
+    }
+  });
+
+  test("indicadores: a explicação abre ao tocar e mostra a armadilha", async ({ page }) => {
+    await page.goto("/indicadores");
+    const secao = page.getByRole("region", { name: "O que cada indicador mede" });
+    const botao = secao.getByRole("button", { name: "P/L: onde a leitura engana" });
+    await expect(botao).toHaveAttribute("aria-expanded", "false");
+    await botao.click();
+    await expect(botao).toHaveAttribute("aria-expanded", "true");
+    await expect(secao.getByRole("link", { name: "Saiba mais sobre P/L" })).toBeVisible();
   });
 
   test("a gaveta do cabeçalho termina em Sair", async ({ page }) => {

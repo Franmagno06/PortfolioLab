@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { dataCurta } from "../format";
 import { ATIVO_DE_EXEMPLO, juroReal } from "../site-dados";
 import {
   aliquotaDeIrNaRendaFixa,
@@ -39,26 +40,38 @@ describe("preço médio (regra da Receita Federal)", () => {
   });
 });
 
-describe("os números do ativo de exemplo (TAEE11, 02/10/2026)", () => {
+describe("os números do ativo de exemplo (TAEE11, 20/10/2026)", () => {
   it("P/L = preço ÷ lucro por ação", () => {
-    expect(ATIVO_DE_EXEMPLO.preco / 4.75).toBeCloseTo(9.02, 2);
-    expect(ATIVO_DE_EXEMPLO.pl).toBe(9.02);
+    expect(ATIVO_DE_EXEMPLO.preco / 4.75).toBeCloseTo(9.66, 2);
+    expect(ATIVO_DE_EXEMPLO.lucroPorAcao).toBe(4.75);
+    expect(ATIVO_DE_EXEMPLO.pl).toBe(9.66);
   });
 
   it("P/VP = preço ÷ patrimônio por ação", () => {
-    expect(ATIVO_DE_EXEMPLO.preco / 23.42).toBeCloseTo(1.83, 2);
-    expect(ATIVO_DE_EXEMPLO.pvp).toBe(1.83);
+    expect(ATIVO_DE_EXEMPLO.preco / 23.4).toBeCloseTo(1.96, 2);
+    expect(ATIVO_DE_EXEMPLO.valorPatrimonialPorAcao).toBe(23.4);
+    expect(ATIVO_DE_EXEMPLO.pvp).toBe(1.96);
   });
 
-  it("DY = proventos de 12 meses ÷ preço: R$ 3,01 ÷ R$ 42,85 = 7,02%", () => {
-    const dy = dividendYieldPct(emCentavos(3.01), emCentavos(42.85));
-    expect(dy.toFixed(2)).toBe("7.02");
-    expect(ATIVO_DE_EXEMPLO.dy12m).toBe(7.02);
+  it("DY = proventos de 12 meses ÷ preço: R$ 3,0065 ÷ R$ 45,87 = 6,55%", () => {
+    // os proventos vêm com 4 casas (0,6002 + 0,559 + 0,9089 + 0,9384): arredondar para R$ 3,01 daria 6,56%
+    const dy = dividendYieldPct(300.65, emCentavos(45.87));
+    expect(dy.toFixed(2)).toBe("6.55");
+    expect(ATIVO_DE_EXEMPLO.proventos12m.porUnidade).toBe(3.0065);
+    expect(ATIVO_DE_EXEMPLO.dy12m).toBe(6.55);
   });
 
   it("o artigo P/L e P/VP escreve os mesmos números que a conta dá", () => {
     const texto = artigo("pl-e-pvp");
-    for (const trecho of ["R$ 42,85", "≈ R$ 4,75", "≈ R$ 23,42", "9,02", "1,83"]) expect(texto, trecho).toContain(trecho);
+    for (const trecho of ["R$ 45,87", "≈ R$ 4,75", "≈ R$ 23,40", "9,66", "1,96"]) expect(texto, trecho).toContain(trecho);
+  });
+
+  it("os artigos que citam a TAEE11 usam a data do exemplo, e não a antiga", () => {
+    for (const slug of ["pl-e-pvp", "dividend-yield", "roe-margem-e-endividamento"]) {
+      const texto = artigo(slug);
+      expect(texto, slug).toContain(`TAEE11, fechamento de ${dataCurta(ATIVO_DE_EXEMPLO.fechamentoIso)}`);
+      expect(texto, slug).not.toContain("02/10/2026");
+    }
   });
 });
 
@@ -154,10 +167,14 @@ const NUMEROS_DOS_ARTIGOS: Record<string, [descricao: string, esperado: string][
     ["líquido depois de 720 dias", reais(rendimentoLiquido(13650, 800).liquidoCentavos)],
   ],
   "dividend-yield": [
-    ["DY da TAEE11", pct(dividendYieldPct(301, 4285))],
-    ["DY com o preço em queda", pct(dividendYieldPct(301, 3000))],
+    ["DY da TAEE11", pct(dividendYieldPct(300.65, 4587))],
+    ["proventos de 12 meses da TAEE11", "R$ 3,0065"],
+    ["preço da TAEE11", "R$ 45,87"],
+    ["DY com o preço em queda", pct(dividendYieldPct(300.65, 3000))],
   ],
   "roe-margem-e-endividamento": [
+    ["ROE da TAEE11", pct(ATIVO_DE_EXEMPLO.roe)],
+    ["lucro para cada R$ 100 de patrimônio", reais(Math.round(ATIVO_DE_EXEMPLO.roe * 100))],
     ["ROE com metade do patrimônio", `${razaoPct(20, 50)}%`],
     ["margem líquida", pct(razaoPct(15, 120), 1)],
     ["dívida sobre EBITDA", "2,0x"],

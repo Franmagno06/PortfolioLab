@@ -21,6 +21,8 @@ import { api, ApiError, type Pagina } from "@/lib/api";
 import { brl, coresClasse, nomesClasse, pct } from "@/lib/format";
 import { maioresPosicoes } from "@/lib/alocacao";
 import { calcularDesvios, formatarDesvio, type DesvioDeMeta } from "@/lib/goals";
+import { CURVA, DURACAO_GRAFICO_MS } from "@/lib/movimento";
+import { NumeroQueConta } from "@/components/movimento/numero-que-conta";
 
 type Summary = {
   patrimonioTotal: number;
@@ -92,7 +94,7 @@ function MaisLongeDaMeta({
           <Link
             href={`/simulacao?ticker=${encodeURIComponent(d.ticker)}`}
             aria-label={`${d.ticker}: ${umaCasa(d.atualPct)}% hoje, meta de ${umaCasa(d.alvoPct)}%, ${formatarDesvio(d)}. Abrir na simulação.`}
-            className="-mx-2 block rounded px-2 py-1.5 transition-colors hover:bg-white/5"
+            className="interativo -mx-2 block min-h-11 rounded px-2 py-1.5 hover:bg-white/5 focus-visible:bg-white/5"
           >
             <span className="flex items-baseline justify-between gap-2">
               <span className="tnum text-sm font-semibold">{d.ticker}</span>
@@ -134,6 +136,8 @@ function CardAlocacao({
   quantidadeAtivos: number;
 }) {
   const [classe, setClasse] = useState<string | null>(null);
+  // a pizza se desenha só na entrada; trocar de classe troca as fatias na hora, sem refazer 1,1 s
+  const [desenhou, setDesenhou] = useState(false);
 
   const corClasse = (c: string) => coresClasse[c] ?? "#5d6b7f";
   const maiores = maioresPosicoes(posicoes, classe);
@@ -213,8 +217,10 @@ function CardAlocacao({
                   type="button"
                   aria-pressed={classe === c}
                   onClick={() => setClasse(c)}
-                  className={`rounded-md px-2.5 py-1 font-medium transition-colors ${
-                    classe === c ? "bg-card text-ink shadow-sm" : "text-mute hover:text-ink"
+                  className={`toque relative inline-flex touch-manipulation items-center rounded-md px-2.5 py-1 font-medium before:absolute before:inset-x-0 before:-inset-y-2.5 before:content-[''] ${
+                    classe === c
+                      ? "bg-card text-ink shadow-sm"
+                      : "text-mute hover:text-ink focus-visible:text-ink"
                   }`}
                 >
                   {c === null ? "Todos" : (nomesClasse[c] ?? c)}
@@ -244,12 +250,17 @@ function CardAlocacao({
                   outerRadius={78}
                   paddingAngle={fatias.length > 1 ? 3 : 0}
                   strokeWidth={0}
+                  isAnimationActive={!desenhou}
+                  onAnimationEnd={() => setDesenhou(true)}
+                  animationDuration={DURACAO_GRAFICO_MS}
+                  animationEasing={CURVA}
                 >
                   {fatias.map((f) => (
                     <Cell key={f.chave} fill={f.cor} fillOpacity={f.opacidade} />
                   ))}
                 </Pie>
                 <Tooltip
+                  isAnimationActive={false}
                   offset={8}
                   wrapperStyle={{ outline: "none", zIndex: 10 }}
                   content={({ active, payload }) => {
@@ -405,8 +416,10 @@ export default function DashboardPage() {
             </span>
           </div>
 
+          {/* O valor vem pronto da API (Decimal → number no backend); aqui só se formata.
+              O leitor de tela ouve só o valor final, nunca os intermediários da contagem. */}
           <p className="tnum mt-3 text-4xl font-bold tracking-tight sm:text-5xl">
-            {brl(summary.patrimonioTotal)}
+            <NumeroQueConta valor={summary.patrimonioTotal} formato="brl" />
           </p>
 
           <dl className="mt-7 grid grid-cols-1 gap-4 border-t border-white/10 pt-5 sm:grid-cols-3">
@@ -439,7 +452,7 @@ export default function DashboardPage() {
               <p className="max-w-xs text-sm text-slate-200">{chamada.texto}</p>
               <Link
                 href="/simulacao"
-                className="rounded bg-white/10 px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/20"
+                className="toque inline-flex min-h-11 items-center rounded bg-white/10 px-3.5 text-sm font-semibold text-white hover:bg-white/20 focus-visible:bg-white/20"
               >
                 {chamada.rotulo}
               </Link>
@@ -486,6 +499,7 @@ export default function DashboardPage() {
                   />
                   <YAxis hide />
                   <Tooltip
+                    isAnimationActive={false}
                     cursor={{ fill: "rgba(14,27,51,0.04)" }}
                     formatter={(v, nome) => [
                       brl(Number(v)),
@@ -502,8 +516,18 @@ export default function DashboardPage() {
                     stackId="patrimonio"
                     fill="var(--color-mute-soft)"
                     radius={[0, 0, 0, 0]}
+                    isAnimationActive
+                    animationDuration={DURACAO_GRAFICO_MS}
+                    animationEasing={CURVA}
                   />
-                  <Bar dataKey="resultado" stackId="patrimonio" radius={[6, 6, 0, 0]}>
+                  <Bar
+                    dataKey="resultado"
+                    stackId="patrimonio"
+                    radius={[6, 6, 0, 0]}
+                    isAnimationActive
+                    animationDuration={DURACAO_GRAFICO_MS}
+                    animationEasing={CURVA}
+                  >
                     {serieEvolucao.map((p) => (
                       <Cell
                         key={p.mes}
@@ -548,10 +572,18 @@ export default function DashboardPage() {
                   />
                   <YAxis hide />
                   <Tooltip
+                    isAnimationActive={false}
                     cursor={{ fill: "rgba(14,27,51,0.04)" }}
                     formatter={(v) => [brl(Number(v)), "Proventos"]}
                   />
-                  <Bar dataKey="total" fill="var(--color-gain)" radius={[6, 6, 0, 0]} />
+                  <Bar
+                    dataKey="total"
+                    fill="var(--color-gain)"
+                    radius={[6, 6, 0, 0]}
+                    isAnimationActive
+                    animationDuration={DURACAO_GRAFICO_MS}
+                    animationEasing={CURVA}
+                  />
                 </BarChart>
               </ResponsiveContainer>
             </div>

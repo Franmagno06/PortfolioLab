@@ -149,7 +149,7 @@ describe("nota da fonte e histórico curto", () => {
 });
 
 describe("valores em reais das fichas passam por format.brl", () => {
-  const semEspacosEspeciais = (s: string) => s.replace(/ /g, " ");
+  const semEspacosEspeciais = (s: string) => s.replace(/\u00a0/g, " ");
 
   it("efeito no bolso do IPCA e do CDI em reais com centavos", () => {
     const ipca = semEspacosEspeciais(efeitoNoBolso(acharIndice("ipca")!, DADOS_DE_EXEMPLO));

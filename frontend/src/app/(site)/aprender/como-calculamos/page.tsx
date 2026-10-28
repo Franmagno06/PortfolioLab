@@ -12,7 +12,7 @@ import {
   emCentavos,
   type Centavos,
 } from "@/lib/aprender/exemplos";
-import { dataCurta, brl, numero, percentual } from "@/lib/format";
+import { dataCurta, brl, brlComCasas, numero, percentual } from "@/lib/format";
 import { ROTAS } from "@/lib/navegacao";
 import { ATIVO_DE_EXEMPLO, juroReal } from "@/lib/site-dados";
 
@@ -79,7 +79,9 @@ const SECOES = [
 export default function ComoCalculamosPage() {
   const pm = exemploDePrecoMedio();
   const aporte = exemploDeAporte();
-  const dy = dividendYieldPct(emCentavos(ATIVO_DE_EXEMPLO.proventos12m.porUnidade), emCentavos(ATIVO_DE_EXEMPLO.preco));
+  // os proventos têm 4 casas (R$ 3,0065): em centavos inteiros viraria R$ 3,01 e o DY sairia 6,56%, não o 6,55% da ficha.
+  // Por isso o primeiro argumento é centavos FRACIONÁRIOS (300,65); dividendYieldPct só divide, não arredonda.
+  const dy = dividendYieldPct(ATIVO_DE_EXEMPLO.proventos12m.porUnidade * 100, emCentavos(ATIVO_DE_EXEMPLO.preco));
   const { selicMeta, ipca12m } = DADOS_PUBLICOS;
   const real = juroReal(selicMeta.valorPct, ipca12m.valorPct);
 
@@ -139,7 +141,7 @@ export default function ComoCalculamosPage() {
             <p className={rotuloDoExemplo}>Exemplo em reais · {ATIVO_DE_EXEMPLO.ticker}</p>
             <Conta rotulo={`Cálculo do dividend yield da ${ATIVO_DE_EXEMPLO.ticker}`}>
               <Parcela rotulo="Proventos em 12 meses" fundo="papel">
-                {brl(ATIVO_DE_EXEMPLO.proventos12m.porUnidade)}
+                {brlComCasas(ATIVO_DE_EXEMPLO.proventos12m.porUnidade, 4)}
               </Parcela>
               <Sinal>÷</Sinal>
               <Parcela rotulo="Preço atual" fundo="papel">
@@ -150,6 +152,9 @@ export default function ComoCalculamosPage() {
                 {percentual(dy, 2)}
               </Parcela>
             </Conta>
+            <p className="text-[13px] leading-[19px] text-mute">
+              Números da {ATIVO_DE_EXEMPLO.ticker} no fechamento de {ATIVO_DE_EXEMPLO.fechamento}; fonte: {ATIVO_DE_EXEMPLO.fonte}.
+            </p>
             <Armadilha>
               Dois sites podem mostrar DYs diferentes: o PortfolioLab não usa o campo pronto do Yahoo, e sim os proventos que ele importa.
             </Armadilha>

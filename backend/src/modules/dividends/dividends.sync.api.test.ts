@@ -6,7 +6,9 @@ import { prisma } from "../../database/prisma.js";
 
 // O provedor é trocado por um calendário fixo: a suíte não pode depender do
 // Yahoo nem do que a empresa realmente pagou este mês.
-const TICKER = "TXDV1";
+// Ticker só desta suíte: o vitest roda os arquivos em paralelo no mesmo banco, e dividends.api.test.ts
+// apaga o ativo "TXDV1" no começo e no fim; compartilhá-lo derrubava as transações daqui (FK) no CI.
+const TICKER = "TXDS1";
 const DATA_EX_1 = new Date("2026-03-10");
 const DATA_EX_2 = new Date("2026-06-10");
 

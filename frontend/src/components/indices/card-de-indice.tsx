@@ -35,7 +35,7 @@ function Sparkline({ valores }: { valores: number[] }) {
 export function CardDeIndice({ indice, destaque }: { indice: Indice; destaque: Destaque }) {
   const { secundario } = destaque;
   return (
-    <article className="group relative flex w-full flex-col rounded-md border border-pauta bg-card transition-colors hover:border-ink-2">
+    <article className="interativo group relative flex w-full flex-col rounded-md border border-pauta bg-card">
       <div className="flex items-center gap-3.5 p-5 lg:px-4">
         <IconeDoIndice indice={indice} tamanho="card" />
         <div className="min-w-0">
@@ -74,7 +74,7 @@ export function CardDeIndice({ indice, destaque }: { indice: Indice; destaque: D
 
         <p className="text-[13px] leading-[19px] text-mute">{indice.descricao}</p>
         <p aria-hidden className="mt-auto text-[15px] leading-[22px] font-semibold text-anotacao">
-          Ver gráfico →
+          Ver gráfico<span className="seta">&nbsp;→</span>
         </p>
       </div>
     </article>

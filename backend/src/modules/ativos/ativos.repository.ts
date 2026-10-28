@@ -18,16 +18,13 @@ export const ativosRepository = {
   },
 
   /**
-   * Cadastra o ativo se ainda não existir. upsert com update vazio: duas visitas simultâneas
-   * à mesma ficha, ambas sem o ativo no banco, não disputam a unique de ticker.
+   * Cadastra o ativo se ainda não existir. createMany com skipDuplicates vira INSERT ... ON CONFLICT
+   * DO NOTHING, atômico no banco: duas visitas simultâneas à mesma ficha, ambas sem o ativo, não
+   * disputam a unique de ticker. (O upsert do Prisma lê e depois insere, e a corrida estourava P2002.)
    */
-  ensureAsset(data: { ticker: string; name: string; type: AssetType; currentPrice: number; cnpj: string | null }) {
-    return prisma.asset.upsert({
-      where: { ticker: data.ticker },
-      create: { ...data, priceUpdatedAt: new Date() },
-      update: {},
-      include: { indicator: true },
-    });
+  async ensureAsset(data: { ticker: string; name: string; type: AssetType; currentPrice: number; cnpj: string | null }) {
+    await prisma.asset.createMany({ data: [{ ...data, priceUpdatedAt: new Date() }], skipDuplicates: true });
+    return prisma.asset.findUniqueOrThrow({ where: { ticker: data.ticker }, include: { indicator: true } });
   },
 
   /**

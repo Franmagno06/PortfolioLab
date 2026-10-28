@@ -1,10 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import { Bar, BarChart, CartesianGrid, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { Props as PropsDoRotulo } from "recharts/types/component/Label";
 import { escalaDoEixo } from "@/lib/escala-do-grafico";
 import { numero } from "@/lib/format";
 import { marcasDoEixoX, type Granularidade, type PontoSerie } from "@/lib/indices";
+import { CURVA, DURACAO_GRAFICO_MS } from "@/lib/movimento";
 import { Balao, COR, Mira } from "./pecas-do-grafico";
 
 /*
@@ -27,6 +29,8 @@ type Props = {
 };
 
 export function GraficoDeBarras({ serie, granularidade, titulo, descricao, valor, data }: Props) {
+  // desenha só na entrada; trocar de período (ou redimensionar) não refaz a animação de 1,1 s
+  const [desenhou, setDesenhou] = useState(false);
   const maximo = Math.max(...serie.map((p) => p.valor), 0);
   const marcasY = escalaDoEixo(0, maximo, 4);
   const marcasX = marcasDoEixoX(serie, granularidade);
@@ -85,7 +89,10 @@ export function GraficoDeBarras({ serie, granularidade, titulo, descricao, valor
             fillOpacity={0.85}
             radius={[2, 2, 0, 0]}
             activeBar={{ fill: COR.ink, fillOpacity: 1 }}
-            isAnimationActive={false}
+            isAnimationActive={!desenhou}
+            onAnimationEnd={() => setDesenhou(true)}
+            animationDuration={DURACAO_GRAFICO_MS}
+            animationEasing={CURVA}
           >
             <LabelList dataKey="valor" position="top" content={rotulo} />
           </Bar>

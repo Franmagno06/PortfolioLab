@@ -72,8 +72,8 @@ export default async function IndicesPage({ searchParams }: Props) {
                   href={hrefDaCategoria(chip.id, ordem)}
                   aria-current={ativo ? "true" : undefined}
                   scroll={false}
-                  className={`inline-flex min-h-10 items-center rounded-full border px-4 text-[15px] leading-[22px] font-semibold ${
-                    ativo ? "border-ink bg-ink text-white" : "border-pauta bg-card text-ink hover:border-ink"
+                  className={`toque inline-flex min-h-11 items-center rounded-full border px-4 text-[15px] leading-[22px] font-semibold ${
+                    ativo ? "border-ink bg-ink text-white" : "border-pauta bg-card text-ink hover:border-ink focus-visible:border-ink"
                   }`}
                 >
                   {chip.rotulo} ({chip.total})

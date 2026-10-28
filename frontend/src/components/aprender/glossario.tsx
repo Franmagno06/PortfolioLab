@@ -70,7 +70,7 @@ export function Glossario({ verbetes }: { verbetes: VerbeteDaTela[] }) {
             return (
               <li key={letra}>
                 {ativa ? (
-                  <a href={`#letra-${letra.toLowerCase()}`} className={`${base} border-pauta bg-card text-ink hover:border-ink`}>
+                  <a href={`#letra-${letra.toLowerCase()}`} className={`${base} toque border-pauta bg-card text-ink hover:border-ink focus-visible:border-ink`}>
                     <span aria-hidden>{letra}</span>
                     <span className="sr-only">Letra {letra}</span>
                   </a>
@@ -93,7 +93,7 @@ export function Glossario({ verbetes }: { verbetes: VerbeteDaTela[] }) {
           <button
             type="button"
             onClick={() => setBusca("")}
-            className="inline-flex min-h-11 items-center rounded border border-ink bg-card px-[18px] text-[15px] font-semibold text-ink hover:bg-paper"
+            className="toque inline-flex min-h-11 items-center rounded border border-ink bg-card px-[18px] text-[15px] font-semibold text-ink hover:bg-paper"
           >
             Limpar a busca
           </button>
@@ -118,9 +118,9 @@ export function Glossario({ verbetes }: { verbetes: VerbeteDaTela[] }) {
                           {v.links.length > 0 && (
                             <span className="flex flex-wrap gap-x-5">
                               {v.links.map((l) => (
-                                <Link key={l.href} href={l.href} className="inline-flex min-h-11 items-center rounded text-[13px] leading-[19px] font-medium text-anotacao underline decoration-1 underline-offset-4">
+                                <Link key={l.href} href={l.href} className="toque inline-flex min-h-11 items-center rounded text-[13px] leading-[19px] font-medium text-anotacao underline decoration-1 underline-offset-4">
                                   {l.rotulo}
-                                  <span aria-hidden>&nbsp;→</span>
+                                  <span aria-hidden className="seta">&nbsp;→</span>
                                 </Link>
                               ))}
                             </span>

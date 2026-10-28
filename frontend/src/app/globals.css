@@ -13,6 +13,9 @@
 }
 
 @theme {
+  /* o transition-* do Tailwind (sem duração própria) usa os tokens do kit, não os 150ms/ease padrão */
+  --default-transition-duration: var(--duracao-rapida);
+  --default-transition-timing-function: var(--curva);
   --color-ink: #0e1b33; /* navy profundo (sidebar, títulos) */
   --color-ink-soft: #16264a; /* navy intermediário */
   --color-ink-lift: #1a2f5c; /* navy do hover dos botões escuros */
@@ -37,6 +40,12 @@
      Todo valor que é TEXTO usa estas, nunca as de preenchimento. */
   --color-gain-ink: #187f50;
   --color-loss-ink: #bf3c4b;
+  /* Perda em TEXTO sobre o navy (quadro escuro do bento): o coral de preenchimento
+     dá 4,27:1 ali e reprova; este dá 6,46:1. O ganho (--color-gain) já passa no navy. */
+  --color-loss-on-dark: #f27a86;
+  /* Trilho de régua e de barra de escala: objeto gráfico, mínimo de 3:1 (WCAG 1.4.11)
+     sobre o branco e sobre o caderno. O cinza a 40% de opacidade dava 1,76:1. */
+  --color-trilho: #7f8ca0;
 
   /* Cinzas do texto secundário. slate-400 reprova em AA sobre papel
      (2.3:1), então o tom mais claro que este projeto usa é o mute. */
@@ -75,7 +84,8 @@ body {
 .pular-para-conteudo {
   position: absolute;
   left: 0.5rem;
-  top: -3rem;
+  top: 0;
+  transform: translateY(-4rem);
   z-index: 50;
   border-radius: 0.5rem;
   background: var(--color-ink);
@@ -83,25 +93,24 @@ body {
   font-size: 0.875rem;
   font-weight: 600;
   color: #fff;
-  transition: top 0.15s ease-in-out;
+  transition: transform var(--duracao-rapida) var(--curva);
 }
 
 .pular-para-conteudo:focus {
-  top: 0.5rem;
+  transform: translateY(0.5rem);
 }
 
 /* O cabeçalho do site é fixo no topo: sem esta folga, o navegador rola o
    elemento focado por Tab (ou a seção de um link #âncora) para baixo dele. */
 html {
   scroll-padding-top: 4.5rem;
+  /* o retorno do toque é o :active dos controles, não o clarão do navegador */
+  -webkit-tap-highlight-color: transparent;
 }
 
-/* Os links de seção do site rolam até o destino em vez de saltar. Só para quem
-   não pediu menos movimento ao sistema. */
-@media (prefers-reduced-motion: no-preference) {
-  html {
-    scroll-behavior: smooth;
-  }
+/* Os links de seção do site rolam até o destino em vez de saltar. */
+html {
+  scroll-behavior: smooth;
 }
 
 /* números alinhados como em terminal financeiro */
@@ -145,7 +154,7 @@ html {
 }
 
 .reveal {
-  animation: fade-up 0.55s cubic-bezier(0.22, 0.9, 0.35, 1) both;
+  animation: fade-up var(--duracao-entrada) var(--curva) both;
 }
 .reveal-2 {
   animation-delay: 0.07s;
@@ -171,36 +180,275 @@ html {
 }
 .grow-bar {
   transform-origin: left center;
-  animation: grow-bar 0.9s cubic-bezier(0.22, 0.9, 0.35, 1) both;
+  animation: grow-bar var(--duracao-lenta) var(--curva) both;
 }
 
-/* Site público: a única animação da v2 é a abertura do mega menu, que responde
-   a uma ação. Nada entra na página sozinho. */
-@media (prefers-reduced-motion: no-preference) {
-  @keyframes abrir-menu {
-    from {
-      opacity: 0;
-      transform: translateY(-4px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
+/* Site público: abertura do mega menu, que responde a uma ação. */
+@keyframes abrir-menu {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
   }
-  .abrir-menu {
-    animation: abrir-menu 120ms ease-out both;
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.abrir-menu {
+  animation: abrir-menu var(--duracao-rapida) var(--curva) both;
+}
+
+/* Kit de movimento: tokens únicos. Nenhuma curva ou duração à mão fora deles. */
+:root {
+  --duracao-rapida: 160ms;
+  --duracao-media: 260ms;
+  --duracao-lenta: 900ms;
+  --duracao-grafico: 1100ms;
+  --duracao-entrada: 600ms;
+  --curva: cubic-bezier(.2,.8,.2,1);
+}
+
+/* Padrão A — cartão interativo: sobe, ganha sombra e escurece a borda no
+   hover e no foco de teclado; afunda um pouco ao pressionar. Só transform,
+   sombra e cor da borda. O filho .seta anda 4px no mesmo gatilho. */
+.interativo {
+  transition:
+    transform var(--duracao-media) var(--curva),
+    box-shadow var(--duracao-media) var(--curva),
+    border-color var(--duracao-media) var(--curva),
+    background-color var(--duracao-rapida) var(--curva),
+    color var(--duracao-rapida) var(--curva);
+}
+.interativo:focus-visible,
+.interativo:has(:focus-visible) {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 24px -12px color-mix(in srgb, var(--color-ink) 33%, transparent);
+  border-color: color-mix(in srgb, var(--color-line) 70%, var(--color-ink));
+}
+/* O hover só existe onde há mouse: no toque ele "gruda" no último cartão tocado. */
+@media (hover: hover) and (pointer: fine) {
+  .interativo:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 24px -12px color-mix(in srgb, var(--color-ink) 33%, transparent);
+    border-color: color-mix(in srgb, var(--color-line) 70%, var(--color-ink));
+  }
+}
+/* O cartão levantado vira contexto de empilhamento: sobe um degrau para o balão da Dica
+   (z-40, dentro dele) não ficar sob o cartão seguinte. */
+.interativo:focus-visible,
+.interativo:has(:focus-visible),
+.interativo:active {
+  z-index: 1;
+}
+@media (hover: hover) and (pointer: fine) {
+  .interativo:hover {
+    z-index: 1;
+  }
+}
+/* O "?" de dentro do cartão não afunda o cartão inteiro, e o balão aberto mantém o cartão acima do vizinho. */
+.interativo:has([role="tooltip"]:not([hidden])) {
+  z-index: 2;
+}
+.interativo:active:not(:has(button:active)) {
+  transform: translateY(-1px) scale(.995);
+  transition-duration: var(--duracao-rapida);
+}
+/* No toque não há hover que levante o cartão: apertar é só afundar. */
+@media (hover: none) {
+  .interativo:active:not(:has(button:active)) {
+    transform: scale(.98);
+  }
+}
+.interativo .seta {
+  display: inline-block;
+  transition: transform var(--duracao-media) var(--curva);
+}
+.interativo:focus-visible .seta,
+.interativo:has(:focus-visible) .seta {
+  transform: translateX(4px);
+}
+@media (hover: hover) and (pointer: fine) {
+  .interativo:hover .seta {
+    transform: translateX(4px);
+  }
+}
+/* Aba da página atual (área logada): quando sobe, o traço continua na cor da tinta. */
+.interativo[aria-current="page"] {
+  border-color: var(--color-ink);
+}
+
+/* Aba é um traço de cor, não um cartão: nada de subir nem de sombra (o nav corta os dois). */
+.interativo.interativo-aba:focus-visible,
+.interativo.interativo-aba:has(:focus-visible),
+.interativo.interativo-aba:active:not(:has(button:active)) {
+  transform: none;
+  box-shadow: none;
+}
+@media (hover: hover) and (pointer: fine) {
+  .interativo.interativo-aba:hover {
+    transform: none;
+    box-shadow: none;
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
+/* Linha de tabela da área logada: não sobe (distrairia a leitura dos números); só ganha
+   fundo no hover e no foco de teclado, com a cor nos tokens. */
+.linha-de-tabela {
+  transition: background-color var(--duracao-rapida) var(--curva);
+}
+
+/* Controles pequenos (botões, chips, letras): cor nos tokens e um afundar curto ao toque. */
+.toque {
+  transition:
+    transform var(--duracao-rapida) var(--curva),
+    background-color var(--duracao-rapida) var(--curva),
+    border-color var(--duracao-rapida) var(--curva),
+    color var(--duracao-rapida) var(--curva);
+}
+.toque:active:not(:disabled):not([aria-disabled="true"]) {
+  transform: scale(.98);
+}
+.toque .seta {
+  display: inline-block;
+  transition: transform var(--duracao-media) var(--curva);
+}
+.toque:focus-visible .seta {
+  transform: translateX(4px);
+}
+@media (hover: hover) and (pointer: fine) {
+  .toque:hover .seta {
+    transform: translateX(4px);
   }
+}
+
+/* Barra que cresce da esquerda: o valor entra como scaleX inline e a transição usa os tokens. */
+.barra-escala {
+  transform-origin: left;
+  transition: transform var(--duracao-media) var(--curva);
+}
+
+/* Padrão D — explicação do bento: onde há mouse e tela larga, fica escondida e sobe 6px
+   ao passar o mouse ou focar o quadro; no celular (toque não tem hover) fica sempre à vista. */
+.explicacao-bento {
+  transition:
+    opacity var(--duracao-media) var(--curva),
+    transform var(--duracao-media) var(--curva);
+}
+@media (hover: hover) and (pointer: fine) and (min-width: 48rem) {
+  .explicacao-bento {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  .interativo:hover .explicacao-bento,
+  .interativo:focus-visible .explicacao-bento {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Cascata da lista de artigos: o atraso é 90ms vezes a coluna do cartão na grade (1, 2 ou 3 colunas). */
+.cascata {
+  --atraso: 0ms;
+}
+@media (min-width: 48rem) {
+  .cascata {
+    --atraso: calc(var(--c2) * 90ms);
+  }
+}
+@media (min-width: 64rem) {
+  .cascata {
+    --atraso: calc(var(--c3) * 90ms);
+  }
+}
+
+/* Padrão C — revelar ao rolar: o HTML do servidor já é o conteúdo final e visível; só o que o
+   observador viu fora da tela ganha .revelar-espera (escondido e 16px abaixo), e tirar a classe ao
+   entrar dispara a transição. O atraso escalonado vem de --atraso (style={{ "--atraso": "80ms" }}). */
+.revelar {
+  transition:
+    opacity var(--duracao-entrada) var(--curva),
+    transform var(--duracao-entrada) var(--curva);
+  transition-delay: var(--atraso, 0ms);
+}
+.revelar-espera {
+  opacity: 0;
+  transform: translateY(16px);
+}
+/* Ao imprimir, o bloco que ninguém rolou até ver sai igual aos outros. */
+@media print {
+  .revelar-espera {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Padrão B — traço que se desenha (Minigrafico). O path usa pathLength="1", então
+   dasharray/dashoffset são frações do caminho. .tracar-espera só existe quando o
+   observador já disse "fora da tela"; .tracar só depois dele.
+   "1 2": traço do tamanho do caminho e vão maior que ele. Na espera, o deslocamento
+   1.5 põe o caminho inteiro no meio do vão, longe das duas pontas do traço, e a
+   ponta redonda não desenha um pingo no começo. No fim (0) o traço cobre o caminho
+   inteiro e o vão começa exatamente onde ele acaba: a linha fica sólida. */
+@keyframes tracar {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+.tracar-espera {
+  stroke-dasharray: 1 2;
+  stroke-dashoffset: 1.5;
+}
+.tracar {
+  stroke-dasharray: 1 2;
+  animation: tracar var(--duracao-grafico) var(--curva) both;
+}
+
+/* Padrão B — área sob a linha e ponto final do minigráfico. Só opacidade. A área aparece
+   junto do traço (mesmo token); o ponto aparece quando o traço termina: dura o token
+   rápido e espera o do gráfico. As classes -espera existem só depois de o observador ter
+   visto o elemento fora da tela, como em .tracar-espera. */
+@keyframes aparecer {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.area-espera,
+.ponto-espera {
+  opacity: 0;
+}
+.area-aparece {
+  animation: aparecer var(--duracao-grafico) var(--curva) both;
+}
+.ponto-aparece {
+  animation: aparecer var(--duracao-rapida) var(--curva) var(--duracao-grafico) both;
+}
+
+/* Padrão E — gráfico vivo ao fundo do topo. Os ciclos longos não são tempos de
+   interação, por isso têm nomes próprios. Movimento constante vai em linear (sem
+   aceleração); a pausa vem do botão (animation-play-state no próprio svg). */
+:root {
+  --ciclo-fundo-a: 14s;
+  --ciclo-fundo-b: 19s;
+}
+@keyframes deriva-fundo {
+  from {
+    transform: translateX(-30px);
+  }
+  to {
+    transform: translateX(30px);
+  }
+}
+.deriva-fundo-a {
+  animation: deriva-fundo var(--ciclo-fundo-a) linear infinite alternate;
+}
+.deriva-fundo-b {
+  animation: deriva-fundo var(--ciclo-fundo-b) linear infinite alternate-reverse;
 }
 
 /*

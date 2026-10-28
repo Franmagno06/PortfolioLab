@@ -12,7 +12,7 @@ import {
   ResultadosTrimestrais,
 } from "@/components/ativos/blocos-da-ficha";
 import { GraficoDePreco } from "@/components/ativos/grafico-de-preco";
-import { Armadilha, GrupoDeIndicadores, Indicador } from "@/components/ativos/indicadores-da-ficha";
+import { GrupoDeIndicadores, Indicador } from "@/components/ativos/indicadores-da-ficha";
 import { Anotacao, Migalhas, Voltar } from "@/components/ativos/pecas";
 import { Secao } from "@/components/ativos/secao";
 import { buscarAcao } from "@/lib/ativos-api";
@@ -101,6 +101,7 @@ export default async function FichaDaAcao({ params }: Props) {
         <div className="space-y-6 lg:col-start-1 lg:row-span-2 lg:row-start-1">
           <Secao
             id="preco"
+            revelar={false}
             titulo="Preço mês a mês"
             subtitulo="Fechamento do último pregão de cada mês, nos últimos 12 meses."
             estado={estadoDoBloco(ficha.historico, (d) => d.length === 0)}
@@ -120,14 +121,12 @@ export default async function FichaDaAcao({ params }: Props) {
             {ind && (
               <div className="space-y-6">
                 <GrupoDeIndicadores titulo="Valuation" pergunta="quanto se paga pelo lucro e pelo patrimônio?">
-                  <Indicador rotulo="Preço/lucro (P/L)" dica="pl" valor={umaCasa(ind.pl)} leitura={leituraPl(ind.pl)} />
-                  <Armadilha>{ARMADILHAS.pl}</Armadilha>
+                  <Indicador rotulo="Preço/lucro (P/L)" dica="pl" valor={umaCasa(ind.pl)} leitura={leituraPl(ind.pl)} armadilha={ARMADILHAS.pl} />
                   <Indicador rotulo="Preço/valor patrimonial (P/VP)" dica="pvp" valor={umaCasa(ind.pvp)} leitura={leituraPvpAcao(ind.pvp)} />
                 </GrupoDeIndicadores>
 
                 <GrupoDeIndicadores titulo="Dividendos" pergunta="quanto a empresa distribuiu?">
-                  <Indicador rotulo="Dividend Yield (12 meses)" dica="dy12m" valor={pctOuTraco(ind.dy12m)} leitura={leituraDy(ind.dy12m)} />
-                  <Armadilha>{ARMADILHAS.dyAcao}</Armadilha>
+                  <Indicador rotulo="Dividend Yield (12 meses)" dica="dy12m" valor={pctOuTraco(ind.dy12m)} leitura={leituraDy(ind.dy12m)} armadilha={ARMADILHAS.dyAcao} />
                 </GrupoDeIndicadores>
 
                 <GrupoDeIndicadores titulo="Rentabilidade" pergunta="quanto a empresa rende?">

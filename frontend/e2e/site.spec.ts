@@ -22,7 +22,7 @@ test.describe("site público", () => {
     await page.goto("/");
 
     await expect(page).toHaveURL("/");
-    await expect(page.getByRole("heading", { level: 1 })).toContainText("Invista aprendendo");
+    await expect(page.getByRole("heading", { level: 1 })).toContainText("Entenda o que você compra");
 
     const principal = page.getByRole("navigation", { name: "Principal" });
     for (const nome of ["Aprender", "Ativos", "Planejar"]) {
@@ -46,19 +46,95 @@ test.describe("site público", () => {
     await expect(aprender).toBeFocused();
   });
 
+  test("o menu Aprender ainda leva ao desafio", async ({ page }) => {
+    await page.goto("/");
+    const aprender = page.getByRole("navigation", { name: "Principal" }).getByRole("button", { name: "Aprender" });
+
+    await aprender.click();
+    await page.getByRole("link", { name: "Fazer o desafio" }).click();
+
+    await expect(page).toHaveURL(/#desafio$/);
+    await expect(page.locator("#desafio")).toBeVisible();
+    await expect(page.locator("#desafio").getByRole("heading", { name: "Aporte de novembro" })).toBeVisible();
+  });
+
+  test("a home tem as cinco seções na ordem", async ({ page }) => {
+    await page.goto("/");
+    const ids = await page.locator("main > section").evaluateAll((els) =>
+      els.map((el) => (el.id !== "" ? el.id : (el.querySelector("h1")?.id ?? ""))),
+    );
+    expect(ids).toEqual([
+      "titulo-topo",
+      "comece-por-aqui",
+      "ativos-e-indices",
+      "como-ler-um-ativo",
+      "organize-a-carteira",
+    ]);
+    await expect(page.getByRole("heading", { level: 2, name: "Organize a sua carteira" })).toBeVisible();
+  });
+
   test("a área logada continua fechada para quem não tem sessão", async ({ page }) => {
     await page.goto("/dashboard");
     await expect(page).toHaveURL(/\/login/);
   });
 
-  test("a folha do topo mostra o aporte de outubro calculado pelo algoritmo", async ({ page }) => {
+  test("o topo leva aos artigos", async ({ page }) => {
     await page.goto("/");
-    const folha = page.getByRole("table", { name: "Aporte de outubro da carteira de exemplo" });
 
-    // os mesmos números que rebalance.exemplo.test.ts fixa no backend
-    await expect(folha.getByRole("row").filter({ hasText: "TAEE11" }).first()).toContainText("16");
-    await expect(folha).toContainText("R$ 20,96");
-    await expect(page.getByText("de 20,8 para 15,1 pontos")).toBeVisible();
+    await expect(page.getByRole("link", { name: /Começar pelos artigos/ })).toHaveAttribute("href", "/aprender");
+
+    // movimento contínuo precisa de pausa (WCAG 2.2.2): o rótulo alterna
+    await page.getByRole("button", { name: "Pausar animação" }).click();
+    await expect(page.getByRole("button", { name: "Retomar animação" })).toBeVisible();
+  });
+
+  test("abrir o P/L mostra a conta", async ({ page }) => {
+    await page.goto("/");
+    const secao = page.locator("#como-ler-um-ativo");
+    await secao.scrollIntoViewIfNeeded();
+
+    const linha = secao.getByRole("button", { name: /Preço\/lucro/ });
+    await expect(linha).toHaveAttribute("aria-expanded", "false");
+    await linha.click();
+    await expect(linha).toHaveAttribute("aria-expanded", "true");
+    await expect(secao.getByText("preço ÷ lucro por Unit = P/L")).toBeVisible();
+    await expect(secao.getByText(/R\$\s45,87\s÷\sR\$\s4,75\s=\s9,66/)).toBeVisible();
+  });
+
+  test("comece por aqui mostra artigos reais", async ({ page }) => {
+    await page.goto("/");
+    const secao = page.locator("#comece-por-aqui");
+    await secao.scrollIntoViewIfNeeded();
+
+    const cartoes = secao.getByRole("article");
+    await expect(cartoes).toHaveCount(3);
+    for (let i = 0; i < 3; i++) {
+      await expect(cartoes.nth(i).getByRole("link")).toHaveAttribute("href", /^\/aprender\/[a-z0-9-]+$/);
+    }
+    await expect(secao.getByRole("link", { name: "Ver todos os artigos" })).toHaveAttribute("href", "/aprender");
+  });
+});
+
+test.describe("bento Ativos e índices", () => {
+  test("os quadros levam às fichas e aos índices, e a explicação sobe no foco", async ({ page }) => {
+    await page.goto("/");
+    // o substituto do Suspense usa o mesmo id: o goto já espera o load; a contagem só garante que a cópia escondida do streaming sumiu
+    await expect(page.locator("#ativos-e-indices")).toHaveCount(1);
+    const bento = page.locator("#ativos-e-indices");
+    await bento.scrollIntoViewIfNeeded();
+
+    await expect(bento.getByRole("heading", { level: 2, name: "Ativos e índices" })).toBeVisible();
+    await expect(bento.getByRole("link", { name: /^Ações/ })).toHaveAttribute("href", "/ativos/acoes");
+    await expect(bento.getByRole("link", { name: /^FIIs/ })).toHaveAttribute("href", "/ativos/fiis");
+    await expect(bento.getByRole("link", { name: /^ETFs/ })).toHaveAttribute("href", "/ativos/etfs");
+    await expect(bento.getByRole("link", { name: /^Selic/ })).toHaveAttribute("href", "/ativos/indices/selic");
+    await expect(bento.getByRole("link", { name: /Ibovespa/ })).toHaveAttribute("href", "/ativos/indices/ibovespa");
+
+    // no desktop a frase fica escondida até o foco (ou o mouse) chegar ao quadro
+    const selic = bento.getByRole("link", { name: /^Selic/ });
+    await expect(selic.locator("[data-explicacao]")).toHaveCSS("opacity", "0");
+    await selic.focus();
+    await expect(selic.locator("[data-explicacao]")).toHaveCSS("opacity", "1");
   });
 });
 
@@ -130,6 +206,25 @@ test.describe("no celular", () => {
     expect(largura.pagina).toBeLessThanOrEqual(largura.janela);
   });
 
+  test("o bento a 390px não rola para o lado e mostra a explicação sem hover", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/");
+    await expect(page.locator("#ativos-e-indices")).toHaveCount(1);
+    const bento = page.locator("#ativos-e-indices");
+    await bento.scrollIntoViewIfNeeded();
+
+    const medidas = await bento.evaluate((el) => ({ scroll: el.scrollWidth, cliente: el.clientWidth }));
+    expect(medidas.scroll).toBeLessThanOrEqual(medidas.cliente);
+
+    // celular não tem hover: a frase de cada quadro precisa estar à vista de partida
+    const explicacoes = bento.locator("[data-explicacao]");
+    await expect(explicacoes).toHaveCount(8);
+    for (let i = 0; i < 8; i++) {
+      await explicacoes.nth(i).scrollIntoViewIfNeeded();
+      await expect(explicacoes.nth(i)).toHaveCSS("opacity", "1");
+    }
+  });
+
   test("o menu abre a gaveta, a página atrás não rola e Esc fecha", async ({ page }) => {
     await page.goto("/");
     const abrir = page.getByRole("button", { name: "Abrir menu" });
@@ -159,7 +254,7 @@ test("sair leva à página inicial", async ({ page }) => {
   await page.getByRole("banner").getByRole("button", { name: "Sair" }).click();
 
   await expect.poll(() => new URL(page.url()).pathname, { timeout: 20_000 }).toBe("/");
-  await expect(page.getByRole("heading", { level: 1 })).toContainText("Invista aprendendo");
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("Entenda o que você compra");
 });
 
 test("ver a demonstração entra no dashboard da conta demo", async ({ page }) => {
