@@ -10,31 +10,30 @@ quem está começando.
 
 ## Estágio atual
 
-Estado em **15/10/2026**. O produto tem duas metades, que dividem a mesma API e o
+Estado em **28/10/2026**. O produto tem duas metades, que dividem a mesma API e o
 mesmo visual ("caderno de laboratório": papel frio, tinta navy, anotações roxas na margem):
 
 | Metade | O que é | Acesso |
 |---|---|---|
-| **Site público** | Página inicial com o desafio do aporte, fichas de 15 ações, 15 FIIs e 10 ETFs, e a aba **Aprender** (14 artigos, glossário, indicadores explicados) | aberto, sem login |
+| **Site público** | Página inicial, fichas de 15 ações, 15 FIIs, 10 ETFs e 8 índices, e a aba **Aprender** (14 artigos, glossário, indicadores explicados) | aberto, sem login |
 | **Área logada** | Dashboard, carteira, simulação de aporte, proventos, relatórios com IA, indicadores e notícias | login (cookie `HttpOnly`) |
 
 | Frente | Situação |
 |---|---|
-| Backend (12 módulos, 10 migrations) | pronto; 559 testes |
-| Frontend (site, área logada, Aprender) | pronto; 185 testes unitários e 147 de ponta a ponta |
+| Backend (13 módulos, 12 migrations) | pronto; 630 testes |
+| Frontend (site, área logada, Aprender) | pronto; 574 testes unitários e 189 de ponta a ponta |
 | Conteúdo educacional | 14 artigos, 38 verbetes, 9 indicadores, "Como o site calcula"; números conferidos em código e dados públicos com fonte e data |
 | Segurança | auditoria feita; decisões e pendências em [SECURITY.md](SECURITY.md) |
-| Deploy | API no Render, frontend na Vercel, banco no Supabase (a migration de produção é manual) |
+| CI | verde na `main` (backend e frontend) |
+| Deploy | banco pronto no Supabase; API (Render) e site (Vercel) **ainda não publicados**. O plano está em [docs/deploy.md](docs/deploy.md) |
 
 **O que ainda falta**
 
-- O CI do GitHub está vermelho por três causas já identificadas, anteriores à aba Aprender: o typecheck do
-  frontend não acha os tipos dos `.svg` do cabeçalho; um teste do histórico de notícias assume fuso de
-  Brasília e o CI roda em UTC; e um teste de integração do backend é intermitente. Os 559 testes do backend
-  passam localmente.
+- O primeiro deploy da API e do site, com as decisões e pendências de [docs/deploy.md](docs/deploy.md).
 - Agenda de proventos anunciados, Tesouro Direto com cotação automática e metas por classe de ativo
   (veja [Limitações conhecidas](#limitações-conhecidas)).
-- O IPCA da página inicial e dos exemplos é fixado à mão, com data. O de outubro sai por volta de 10/11/2026.
+- Os números de referência fixa da página inicial (usados só quando a API não responde) e o IPCA dos exemplos
+  são fixados à mão, com data.
 
 ## O que o projeto apresenta
 
@@ -42,8 +41,9 @@ mesmo visual ("caderno de laboratório": papel frio, tinta navy, anotações rox
 
 | Página | O que mostra |
 |---|---|
-| **Início** (`/`) | O desafio do aporte: o visitante monta a compra de uma carteira de exemplo e compara com o cálculo do PortfolioLab. Traz os números do mês (Selic, IPCA, Ibovespa, IFIX), um ativo anotado e os critérios didáticos de leitura |
-| **Ativos** (`/ativos/acoes`, `/fiis`, `/etfs` e cada ficha) | Lista e ficha de cada ativo do catálogo curado: cotação, histórico de preço, indicadores, proventos, resultados trimestrais da CVM, informe mensal de FII, notícias e uma explicação "o que é". Cada número tem um "?" e um link "Saiba mais" para o indicador explicado |
+| **Início** (`/`) | Por onde começar a ler, os números do dia em **Ativos e índices** (Ibovespa com minigráfico, Selic, IPCA, juro real, IFIX, buscados ao vivo com uma referência fixa e datada de reserva), como ler um ativo com explicações que se abrem, e o desafio do aporte: o visitante monta a compra de uma carteira de exemplo e compara com o cálculo do PortfolioLab |
+| **Ativos** (`/ativos/acoes`, `/fiis`, `/etfs` e cada ficha) | Lista e ficha de cada ativo do catálogo curado: cotação, histórico de preço, indicadores, proventos, resultados trimestrais da CVM, informe mensal de FII, notícias e uma explicação "o que é". Cada número tem um "?"; a explicação, a armadilha e o link "Saiba mais" se abrem em "Entender melhor" |
+| **Índices** (`/ativos/indices` e cada ficha) | Selic, IPCA, CDI, Ibovespa, IFIX, SMLL, IDIV e S&P 500, com gráfico por período, resumo e o que cada um significa no bolso |
 | **Aprender** (`/aprender`) | Artigos, glossário, indicadores explicados e como o site calcula (detalhes abaixo) |
 
 O catálogo público é **curado**: 15 ações, 15 FIIs e 10 ETFs. Só ticker do catálogo chega às fontes
@@ -157,6 +157,7 @@ As dependências apontam **só para baixo**:
 | `reports` | análise por IA: CVM, extração de PDF, recorte e chat |
 | `news` | feeds RSS, histórico de 14 dias e casamento notícia ↔ ativo |
 | `ativos` | as páginas públicas: catálogo curado, ficha de ação, FII e ETF |
+| `indices` | séries do Banco Central e do Yahoo para as páginas de índices e a home (`GET /indices/dados`) |
 
 Convenções: dinheiro é sempre `Prisma.Decimal` (a conversão para `number` só na fronteira HTTP); banco em
 `snake_case` e código em `camelCase`; domínio em português e schema em inglês; ESM com `NodeNext` (imports
@@ -166,7 +167,8 @@ relativos levam `.js`).
 
 `User` · `Asset` · `Transaction` · `AssetGoal` · `Dividend` (manual ou do provedor) · `AssetIndicator` (cache de
 24 h) · `Report` e `CvmSummary` (análises) · `AssetSnapshot` (resultados da CVM, informe de FII e notícias das
-fichas públicas) · `NewsItem` (histórico de notícias). Dez migrations versionadas em `backend/prisma/migrations`.
+fichas públicas) · `NewsItem` (histórico de notícias) · `IndexPoint` (um ponto por dia de IFIX, SMLL e IDIV, histórico
+que não se refaz). Doze migrations versionadas em `backend/prisma/migrations`.
 
 ### Frontend
 
@@ -177,7 +179,7 @@ Next.js 16 (App Router), Tailwind CSS 4 e Recharts. Tipografia: Literata (títul
 src/app/(site)/        site público: início, ativos e aprender
 src/app/(app)/         área logada: dashboard, carteira, simulação, relatórios, indicadores, notícias
 src/app/(auth)/        login e registro
-src/components/        ui, site, ativos e aprender
+src/components/        ui, site, ativos, indices, aprender e movimento (o kit)
 src/content/aprender/  artigos (.mdx), glossário e indicadores
 src/lib/               cliente HTTP único (api.ts), formatação (format.ts), regras puras e conteúdo
 src/proxy.ts           proteção de rotas e CSP (era o middleware.ts)
@@ -185,6 +187,11 @@ src/proxy.ts           proteção de rotas e CSP (era o middleware.ts)
 
 As páginas de ativos são lidas no servidor, direto da API (`API_URL`), com cache curto do Next. A aba Aprender não
 chama a API: é conteúdo estático.
+
+**Movimento** só com o kit próprio (tokens de duração e curva em `globals.css`, `lib/movimento.ts` e
+`components/movimento/`): cartões que respondem ao toque, blocos que entram ao rolar, números que contam,
+gráficos que se desenham e explicações que se abrem. A primeira dobra nunca espera animação e o movimento contínuo
+do topo tem botão de pausa. O desenho está em [docs/ux-movimento.md](docs/ux-movimento.md).
 
 ### Integrações externas
 
@@ -208,7 +215,9 @@ Resumo; a lista completa, com as decisões de **não** corrigir algo, está em [
   cada um com o seu contador para um não esgotar o outro.
 - Entrada validada com Zod; ticker restrito a `[A-Z0-9]{4,12}`; upload só de PDF até 25 MB, em memória.
 - Cabeçalhos: helmet na API; HSTS, nosniff, X-Frame-Options, Permissions-Policy e CSP no frontend.
-- O isolamento entre usuários é feito na aplicação (todo acesso por id filtra `userId`); não há RLS.
+- O isolamento entre usuários é feito na aplicação (todo acesso por id filtra `userId`). No Supabase, todas as
+  tabelas têm RLS ligado e nenhuma policy: a Data API (chave anon) não lê nem escreve nada, e a API, que conecta como
+  dona das tabelas, não é afetada.
 
 ## Limitações conhecidas
 
@@ -241,7 +250,7 @@ Resumo; a lista completa, com as decisões de **não** corrigir algo, está em [
 | Fontes de dados | Yahoo Finance, CVM (dados abertos), feeds RSS, Banco Central (SGS) |
 | IA | Google Gemini (`@google/genai`) + `unpdf` para extração de PDF |
 | Testes | Vitest, Supertest, Testing Library (jsdom) e Playwright |
-| Operação | GitHub Actions (CI), Render (API), Vercel (frontend), Supabase (banco) |
+| Operação | GitHub Actions (CI), Supabase (banco); Render (API) e Vercel (frontend) no plano de deploy |
 
 ## Como rodar
 
@@ -378,10 +387,10 @@ que acabou.
 
 | Suíte | Quantidade | Como rodar |
 |---|---|---|
-| Backend (Vitest + Supertest, 48 arquivos) | 559 | `cd backend && npm test` |
-| Frontend unitário (Vitest + jsdom, 15 arquivos) | 185 | `cd frontend && npm test` |
-| E2E: área logada, site e fluxo completo (Playwright) | 18 | `cd frontend && npm run test:e2e` |
-| E2E: ativos e Aprender, contra uma API de mentira | 129 | `cd frontend && npm run test:e2e:ativos` |
+| Backend (Vitest + Supertest, 56 arquivos) | 630 | `cd backend && npm test` |
+| Frontend unitário (Vitest + jsdom, 48 arquivos) | 574 | `cd frontend && npm test` |
+| E2E: área logada, site e fluxo completo (Playwright) | 35 | `cd frontend && npx playwright test` |
+| E2E: ativos, índices e Aprender, contra uma API de mentira | 154 | `cd frontend && npm run test:e2e:ativos` |
 
 ```bash
 cd backend  && npx prisma validate && npm run typecheck && npm test
@@ -395,13 +404,17 @@ cd frontend && npm run typecheck && npm run lint && npm test && npm run build
 - Os testes de conteúdo ligam cada número escrito num artigo à conta que o produz
   (`frontend/src/lib/aprender/exemplos.test.ts`) e validam frontmatter, tempo de leitura, índice e links.
 - **Integração contínua** (`.github/workflows/ci.yml`): backend com Postgres 16 (`migrate deploy`, typecheck e
-  testes) e frontend (typecheck, lint, testes e build). Veja a situação atual em [Estágio atual](#estágio-atual).
+  testes) e frontend (typecheck, lint, testes e build), em todo PR e todo push na `main`.
 
 ## Deploy
 
-O push na `main` publica a API no Render e o frontend na Vercel; **a migration do Supabase de produção é
-manual**. Rode `npm run supabase:migrate` **antes** do push que a contém: código novo contra um banco sem a coluna
-quebra todas as leituras do model alterado. O passo a passo, com a checagem de segredos, está na skill
+Banco no Supabase (pronto, migrations aplicadas), API no Render e site na Vercel. O primeiro deploy da API e do
+site ainda não foi feito; o passo a passo, as variáveis de ambiente, as decisões em aberto (plano, região) e as
+pendências estão em **[docs/deploy.md](docs/deploy.md)**.
+
+Depois dele, o push na `main` publica a API e o site sozinhos; **a migration do Supabase continua manual**. Rode
+`npm run supabase:migrate` **antes** do push que a contém: código novo contra um banco sem a coluna quebra todas as
+leituras do model alterado. O roteiro de cada publicação, com a checagem de segredos, está na skill
 `deploy-producao` (`.claude/skills/`).
 
 ## Conta de demonstração
@@ -484,7 +497,9 @@ node scripts/medir-pdf.mjs <pdf>       # páginas, caracteres e tokens
 
 ## Documentação
 
-- [Roadmap](docs/roadmap.md): os 9 sprints, do schema ao módulo de IA
+- [Plano de deploy](docs/deploy.md): estado da produção, passo a passo do primeiro deploy e pendências
+- [Roadmap](docs/roadmap.md): os 9 sprints, do schema ao módulo de IA, e os próximos passos
+- [UX de movimento](docs/ux-movimento.md): o desenho da página inicial e do kit de movimento
 - [Arquitetura](docs/arquitetura.md): camadas e decisões técnicas
 - [Algoritmo de rebalanceamento](docs/algoritmo-rebalanceamento.md): estratégia, complexidade e limitações
 - [Como escrever um artigo](docs/aprender-conteudo.md): frontmatter, blocos do MDX, regras de conteúdo e dados públicos
@@ -502,16 +517,16 @@ node scripts/medir-pdf.mjs <pdf>       # páginas, caracteres e tokens
 │       ├── config/           # variáveis de ambiente (Zod) e guarda do banco local
 │       ├── database/         # cliente Prisma (singleton)
 │       ├── modules/          # auth, assets, quotes, transactions, portfolio, dividends, goals,
-│       │                     # rebalance, indicators, reports, news, ativos
+│       │                     # rebalance, indicators, reports, news, ativos, indices
 │       └── shared/           # middlewares, erros e utilitários
 ├── frontend/                 # Next.js (App Router)
 │   ├── e2e/                  # Playwright (área logada, site, ativos e aprender)
 │   └── src/
 │       ├── app/              # (site), (app) e (auth)
-│       ├── components/       # ui, site, ativos e aprender
+│       ├── components/       # ui, site, ativos, indices, aprender e movimento
 │       ├── content/aprender/ # artigos (.mdx), glossário e indicadores
 │       └── lib/              # api, formatação, regras puras e conteúdo
-├── docs/                     # roadmap, arquitetura, algoritmo e guia de conteúdo
+├── docs/                     # deploy, roadmap, arquitetura, algoritmo, UX e guia de conteúdo
 ├── .claude/                  # skills e agentes de revisão do projeto
 ├── .github/workflows/        # CI
 └── relatorios-para-teste/    # PDFs reais para testar o módulo de IA
