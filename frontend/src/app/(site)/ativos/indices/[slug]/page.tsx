@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Migalhas, Voltar } from "@/components/ativos/pecas";
+import { Revelar } from "@/components/movimento/revelar";
 import { BotoesDaFicha } from "@/components/indices/botoes-da-ficha";
 import { PainelDoIndice } from "@/components/indices/painel-do-indice";
 import {
@@ -193,6 +194,7 @@ export default async function FichaDoIndice({ params }: Props) {
         />
 
         <div className="flex min-w-0 flex-col gap-5 lg:col-start-1 lg:row-start-3">
+          <Revelar>
           <BlocoDeArtigo titulo={PERGUNTA_DA_FICHA[indice.slug]}>
             {ehTaxa && <TextoComDestaques trechos={paragrafoDeHoje(indice, dados)} />}
             {indice.explicacao.map((p) => (
@@ -208,7 +210,12 @@ export default async function FichaDoIndice({ params }: Props) {
             )}
             <LinkDoArtigo indice={indice} />
           </BlocoDeArtigo>
-          {tabela && <TabelaDaTaxa tabela={tabela} />}
+          </Revelar>
+          {tabela && (
+            <Revelar>
+              <TabelaDaTaxa tabela={tabela} />
+            </Revelar>
+          )}
         </div>
       </div>
 

@@ -91,3 +91,18 @@ describe("a mesma microinteração em todo o site público", () => {
     }
   });
 });
+
+describe("Revelar na lista de artigos e nas fichas", () => {
+  it("lista de artigos: os cartões entram em cascata de 90 ms por coluna", () => {
+    const texto = fonte("components/aprender/lista-de-artigos.tsx");
+    expect(texto).toContain("Revelar");
+    expect(texto).toMatch(/atrasoMs=\{[^}]*90/);
+  });
+
+  it("o bloco da primeira dobra de cada ficha (preço) fica fora do Revelar", () => {
+    for (const ficha of ["acoes", "fiis", "etfs"]) {
+      const texto = fonte(`app/(site)/ativos/${ficha}/[ticker]/page.tsx`);
+      expect(texto, ficha).toMatch(/id="preco"[\s\S]{0,80}revelar=\{false\}|revelar=\{false\}[\s\S]{0,80}id="preco"/);
+    }
+  });
+});

@@ -101,6 +101,7 @@ export default async function FichaDaAcao({ params }: Props) {
         <div className="space-y-6 lg:col-start-1 lg:row-span-2 lg:row-start-1">
           <Secao
             id="preco"
+            revelar={false}
             titulo="Preço mês a mês"
             subtitulo="Fechamento do último pregão de cada mês, nos últimos 12 meses."
             estado={estadoDoBloco(ficha.historico, (d) => d.length === 0)}

@@ -1,3 +1,4 @@
+import { Revelar } from "@/components/movimento/revelar";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export type EstadoDaSecao = "pronto" | "carregando" | "erro" | "vazio";
@@ -14,6 +15,8 @@ type Props = {
   /** Quantas linhas de esqueleto mostrar enquanto carrega. */
   linhas?: number;
   className?: string;
+  /** Entra com o Revelar ao rolar. Passe `false` no bloco da primeira dobra. */
+  revelar?: boolean;
   children?: React.ReactNode;
 };
 
@@ -30,11 +33,12 @@ export function Secao({
   vazio,
   linhas = 3,
   className = "",
+  revelar = true,
   children,
 }: Props) {
   const idDoTitulo = `${id}-titulo`;
 
-  return (
+  const card = (
     <section aria-labelledby={idDoTitulo} className={`rounded-md border border-line bg-card p-6 ${className}`}>
       <h2 id={idDoTitulo} className="font-leitura text-xl leading-7 font-semibold">
         {titulo}
@@ -63,4 +67,6 @@ export function Secao({
       </div>
     </section>
   );
+
+  return revelar ? <Revelar>{card}</Revelar> : card;
 }

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { CATEGORIAS, rotuloDaCategoria, type IdDeCategoria } from "@/lib/aprender/tipos";
+import { Revelar } from "@/components/movimento/revelar";
 import { CardArtigo, type ResumoDeArtigo } from "./card-artigo";
 
 /** Quantos cards aparecem antes de "Ver todos": duas linhas de três. */
@@ -69,9 +70,12 @@ export function ListaDeArtigos({
         </div>
       ) : (
         <ul className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {visiveis.map((a) => (
-            <li key={a.slug} className="flex [&>article]:flex-1">
-              <CardArtigo artigo={a} />
+          {visiveis.map((a, i) => (
+            <li key={a.slug} className="flex">
+              {/* cascata de 90 ms por coluna (3 no computador): o cartão seguinte da mesma linha entra logo depois */}
+              <Revelar atrasoMs={(i % 3) * 90} className="flex flex-1 [&>article]:flex-1">
+                <CardArtigo artigo={a} />
+              </Revelar>
             </li>
           ))}
         </ul>

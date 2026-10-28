@@ -263,6 +263,26 @@ test.describe("ficha da ação", () => {
   });
 });
 
+test.describe("ficha da ação: revelar ao rolar", () => {
+  test("o cabeçalho e o preço aparecem sem esperar animação", async ({ page }) => {
+    await page.goto("/ativos/acoes/VALE3", { waitUntil: "commit" });
+    // o HTML do servidor já traz o conteúdo final: nada começa invisível
+    const h1 = page.getByRole("heading", { level: 1, name: "VALE3" });
+    await expect(h1).toBeVisible();
+    await expect(h1).toHaveCSS("opacity", "1");
+    await expect(page.locator("#preco-titulo")).toHaveCSS("opacity", "1");
+  });
+
+  test("o bloco de indicadores aparece ao rolar até ele", async ({ page }) => {
+    await page.goto("/ativos/acoes/VALE3");
+    const bloco = page.locator("#indicadores-titulo").locator("xpath=ancestor::*[contains(@class,'revelar')][1]");
+    await bloco.scrollIntoViewIfNeeded();
+    await expect(bloco).not.toHaveClass(/revelar-espera/);
+    await expect(bloco).toHaveCSS("opacity", "1");
+    await expect(page.getByRole("heading", { level: 3, name: /^Valuation/ })).toBeVisible();
+  });
+});
+
 test.describe("ficha do FII", () => {
   test("mostra rendimento, patrimônio, gestão, composição e agenda de proventos", async ({ page }) => {
     const semErros = falharEmErroNoConsole(page);
