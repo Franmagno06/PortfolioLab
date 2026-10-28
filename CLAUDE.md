@@ -190,7 +190,10 @@ não comercial. As notícias de cada ficha vêm de feeds RSS públicos de vário
 S&P 500 com histórico do Yahoo, IFIX, SMLL e IDIV do último valor do Yahoo somado ao que `index_points`
 acumulou. O front lê em `frontend/src/lib/indices-api.ts` (20 s de prazo nas páginas de índices; 5 s na
 home, cuja seção "Os números de…" chega por streaming sob `<Suspense>` com os números fixos de
-`NUMEROS_DO_MES` enquanto carrega).
+`NUMEROS_DO_MES` enquanto carrega). Na home o prazo de 5 s só limita a espera: a leitura segue até 20 s e enche o
+cache do Next. Se o servidor não conseguiu (`null`), o navegador tenta de novo por `/api/indices/dados` com 25 s
+(`components/site/numeros-do-mes-recuperaveis.tsx`, via `apiPublica`, que não mexe na sessão) e troca pelos
+números reais. Mudou o DTO de `/indices/dados`? Confira também a checagem de formato desse componente.
 
 O front lê essa API no servidor (`frontend/src/lib/ativos-api.ts`, direto em `API_URL`, e não por `/api`), com as páginas em `revalidate = 0` e a resposta guardada 2 min pelo Next. `ativos-catalogo.ts` do front é uma cópia só de tickers e nomes, e um teste confere que não diverge do backend. O E2E das páginas (`npm run test:e2e:ativos`) é isolado: lê uma API de mentira (`e2e/ativos/stub-api.mjs`) em portas próprias, sem backend, Docker, Yahoo nem CVM. Mudou um campo do DTO de `/ativos`? Atualize `ativos-tipos.ts` e o stub. O stub também responde `/indices/dados` com
 `frontend/e2e/ativos/indices-dados.json`, gerado de `DADOS_DE_EXEMPLO` (`cd frontend && npx tsx

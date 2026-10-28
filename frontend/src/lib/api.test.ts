@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { api, ApiError, cancelarSaida, iniciarSaida } from "./api";
+import { api, ApiError, apiPublica, cancelarSaida, iniciarSaida } from "./api";
 
 /**
  * Um 401 de sessão morta leva ao login (`encerrarSessao`). Mas quem clicou em
@@ -77,5 +77,26 @@ describe("401 fora do login", () => {
     await expect(api("/portfolio")).rejects.toMatchObject({ status: 401 });
 
     expect(replace).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("apiPublica (leituras públicas, sem sessão)", () => {
+  it("devolve o corpo de /api + caminho e repassa as opções (signal)", async () => {
+    const fetchFalso = vi.fn().mockResolvedValue(resposta(200, { ok: 1 }));
+    vi.stubGlobal("fetch", fetchFalso);
+    const controle = new AbortController();
+
+    await expect(apiPublica("/indices/dados", { signal: controle.signal })).resolves.toEqual({ ok: 1 });
+    expect(fetchFalso.mock.calls[0]?.[0]).toBe("/api/indices/dados");
+    expect(fetchFalso.mock.calls[0]?.[1]?.signal).toBe(controle.signal);
+  });
+
+  it("um 401 lança ApiError e NÃO encerra a sessão nem leva ao login", async () => {
+    const fetchFalso = vi.fn().mockResolvedValue(resposta(401, { error: "não" }));
+    vi.stubGlobal("fetch", fetchFalso);
+
+    await expect(apiPublica("/indices/dados")).rejects.toBeInstanceOf(ApiError);
+    expect(fetchFalso).toHaveBeenCalledTimes(1); // nenhum POST /api/auth/logout
+    expect(replace).not.toHaveBeenCalled();
   });
 });

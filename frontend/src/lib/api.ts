@@ -82,6 +82,17 @@ export async function apiUpload<T>(path: string, form: FormData): Promise<T> {
 // este envelope em vez de um array. proximoCursor null significa última página.
 export type Pagina<T> = { itens: T[]; proximoCursor: string | null };
 
+/**
+ * Leitura pública (sem login), como os índices da home. Não conhece sessão: um 401 aqui é só um erro, nunca
+ * motivo para deslogar quem está navegando nem para mandar um visitante ao login.
+ */
+export async function apiPublica<T>(path: string, options?: RequestInit): Promise<T> {
+  const res = await fetch(`/api${path}`, options);
+  const body = (await res.json().catch(() => null)) as (T & ApiErrorBody) | null;
+  if (!res.ok) throw new ApiError(body?.error ?? "Erro inesperado, tente novamente", res.status);
+  return body as T;
+}
+
 export async function api<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`/api${path}`, {
     ...options,

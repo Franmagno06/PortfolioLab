@@ -76,7 +76,11 @@ function QuadroDeLista({
   );
 }
 
-export function BentoAtivosIndices({ dados }: { dados: Dados }) {
+/**
+ * `reservarMinigrafico`: com os números fixos à espera dos reais (NumerosDoMesRecuperaveis), guarda a altura
+ * do minigráfico do Ibovespa para a troca não empurrar o resto da página.
+ */
+export function BentoAtivosIndices({ dados, reservarMinigrafico = false }: { dados: Dados; reservarMinigrafico?: boolean }) {
   const { numeros, minigraficoIbovespa } = dados;
   const { selic, ipca12m, ipcaReferencia, ibovespa, ifix, fechamento, aoVivo, intradiario } = numeros;
   const variacao = ibovespa.variacaoNoMes;
@@ -135,6 +139,9 @@ export function BentoAtivosIndices({ dados }: { dados: Dados }) {
                     rotulo="Ibovespa: último fechamento de cada um dos últimos 12 meses"
                   />
                 </span>
+              )}
+              {!minigraficoIbovespa && reservarMinigrafico && (
+                <span data-lugar-do-minigrafico aria-hidden="true" className="mt-2 block h-14" />
               )}
             </Quadro>
           </Revelar>

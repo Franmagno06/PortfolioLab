@@ -1,6 +1,7 @@
 import { numerosDoBento } from "@/lib/home-dados";
 import { lerDadosDosIndices } from "@/lib/indices-api";
 import { BentoAtivosIndices } from "./bento-ativos-indices";
+import { NumerosDoMesRecuperaveis } from "./numeros-do-mes-recuperaveis";
 
 /*
  * Os números do mês dentro do bento "Ativos e índices" da home. Ficam fora da página para poder chegar
@@ -16,7 +17,12 @@ export function NumerosDoMesFixos() {
   return <BentoAtivosIndices dados={numerosDoBento(null)} />;
 }
 
-/** Lê os índices (Banco Central e Yahoo, via backend) e cai na referência fixa se a leitura falhar. */
+/**
+ * Lê os índices (Banco Central e Yahoo, via backend). Se o servidor não consegue a tempo, entrega a
+ * referência fixa e o navegador tenta de novo (NumerosDoMesRecuperaveis); se consegue, mostra os reais.
+ */
 export async function NumerosDoMesAoVivo() {
-  return <BentoAtivosIndices dados={numerosDoBento(await lerDadosDosIndices({ prazoMs: PRAZO_DA_HOME_MS }))} />;
+  const dados = await lerDadosDosIndices({ prazoMs: PRAZO_DA_HOME_MS });
+  if (dados === null) return <NumerosDoMesRecuperaveis />;
+  return <BentoAtivosIndices dados={numerosDoBento(dados)} />;
 }
