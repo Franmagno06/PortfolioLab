@@ -98,3 +98,31 @@ Fase 1 pronta menos o checkpoint T9. HEAD 9ff2ca8.
 
 ## TRANSFERÊNCIA PARA SESSÃO EM NUVEM (28/10/2026)
 O usuário pediu que a sessão em nuvem continue a partir da Task 9. Pacote em docs/handoff-ux/ (LEIA-ME.md, progress.md, constraints.md) + spec e plano adicionados à força (git add -f) na branch feat/ux-movimento; branch enviada ao origin.
+
+## SESSÃO EM NUVEM (28/10/2026): Tasks 9 a 16 concluídas (HEAD b92e0c5 em feat/ux-movimento)
+Pronto para o dono revisar; nada foi mergeado na main, nenhum deploy. Cada tarefa teve revisão independente (agente Opus, somente leitura) e as correções entraram em commits `fix(movimento)`. A Task 15 foi implementada por agente Opus (regra do CLAUDE.md: estado complexo do dashboard).
+
+**O que foi decidido na execução**
+- `Revelar` reescrito: o HTML do servidor já é o conteúdo final; só o que o observador viu inteiramente fora da tela ganha `.revelar-espera` (escondido 16px abaixo) e a transição roda ao tirar a classe. Resolve a primeira dobra, âncoras e a troca do Suspense da home. Substitui o `.revelar` com opacidade 0 de partida; `@media print` mostra tudo.
+- `.interativo`: `:hover` só em `(hover: hover) and (pointer: fine)`; foco de teclado sempre; `:active` em `--duracao-rapida`; no toque afunda (`scale(.98)`) sem subir; cartão levantado ou com balão da Dica aberto sobe de z-index (`:has([role="tooltip"]:not([hidden]))`). `.interativo-aba`: aba da carteira só muda a cor do traço. `.toque`: botões, chips, letras (afunda ao toque, só se clicável). `.linha-de-tabela`: só fundo. `.cascata`: atraso por coluna (1, 2 ou 3).
+- Tailwind `transition-*` agora usa os tokens (`--default-transition-duration/-timing-function` no `@theme`). `-webkit-tap-highlight-color: transparent` no `html`.
+- Gráficos Recharts: série com `DURACAO_GRAFICO_MS` e `CURVA` (espelho de `--curva` em `lib/movimento.ts`); Tooltip sem animação. Gráficos de índice e a pizza do dashboard desenham só na entrada (`desenhou` + `onAnimationEnd`), trocar período/filtro é instantâneo. Ponto final do gráfico de preço só depois da linha.
+- Fichas: `NumeroQueConta` no preço e no valor de hoje da taxa; `Secao` envolve o card em `Revelar` (o bloco do preço, `revelar={false}`); indicadores com `ExplicacaoQueAbre` ("Entender melhor", só onde há armadilha ou link; o "?" fica fora do botão); /aprender/indicadores com fórmula e exemplo numa explicação fechada.
+- Área logada: abas, cartões e links com `.interativo`; indicadores da carteira ganharam a seção "O que cada indicador mede" (desvio do plano: a tela é uma tabela, não há valor único por indicador).
+- Bug achado no checkpoint 2: a tabela `sr-only` do gráfico de preço alargava a ficha a 471px num celular de 390px; agora fica num recipiente `relative overflow-hidden`, com E2E nas três fichas.
+- Teste de notícias do CI vermelho era bug de código (regex sem `\`), corrigido na branch separada `fix/ci-vermelho` junto com o typecheck do frontend (`next typegen` antes do `tsc`). Elas NÃO estão nesta branch.
+
+**O que NÃO foi verificado**
+- Sensação do movimento em aparelho real (iOS e Android): hover preso, `:active`, clarão do toque, queda de quadros do Recharts na montagem (anima por JS), sincronia do número com a linha, layout shift ao abrir explicações no Safari. A conferência visual foi em Chromium headless a 1440 e 390 px (home, ficha de ação, indicadores).
+- O E2E principal rodou contra um Postgres 16 nativo local (o Docker não existe na sandbox) e com Chromium via symlinks (versão 1194 no lugar da 1234); `NODE_USE_ENV_PROXY=1` foi necessário para o Node alcançar o Yahoo/BCB. `npm run db:local` nunca foi executado.
+- `site.spec.ts` (bento) já falhou uma vez por "strict mode" (cópia escondida do streaming do Suspense) e `area-logada.spec.ts` "as abas rolam" falhou uma vez numa rodada completa e passou isolada e em reruns: flakes não explicados a fundo.
+- `ativos.repository.test.ts` ("visitas simultâneas…") falhou em 2 de 6 rodadas completas do backend e passa isolada: concorrência no banco compartilhado, não tocado nesta branch.
+
+**Menores diferidos (para o dono decidir)**
+- `.reveal` do dashboard (600ms, atrasos escritos à mão, cobre a primeira dobra) segue como o plano mandou; contradiz a regra "primeira dobra nunca espera" (registrado no CLAUDE.md).
+- `Botao` tamanhos `md` (36px) e `sm` (28px) abaixo de 44px; só alguns usos receberam `min-h-11`. Mexer em todos muda o layout de telas logadas.
+- O patrimônio total do dashboard usa `NumeroQueConta` mas na prática nunca conta (está na primeira dobra e é renderizado no cliente depois do fetch); o mesmo vale para o preço e o valor de hoje nas fichas.
+- Dinheiro somado em `number` no backend (`portfolio.service.ts` resumo) e no front (`agruparPorMes` do dashboard, totais da carteira): lógica antiga, fora do escopo, merece tarefa com `auditar-calculo-financeiro`.
+- Testes de classe/CSS por regex em `movimento-css.test.ts` e `constancia.test.tsx` provam a presença do código, não o comportamento; os de comportamento são `revelar`, `minigrafico`, `numero-que-conta`, `secao`, `indicadores-da-ficha`, `pecas-da-ficha`, `cabecalho-do-ativo`, `dashboard/page.test`.
+- Dois sistemas de escalonamento (`atrasoMs={i*90}` na home e `.cascata` na lista de artigos).
+- Revisão editorial das palavras antigas "cara ou barata/bom sinal/pechincha" (R-anterior) não foi feita nesta sessão.
