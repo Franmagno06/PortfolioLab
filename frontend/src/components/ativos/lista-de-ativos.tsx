@@ -160,7 +160,7 @@ function Listagem<T extends Ativo>({ itens, colunas, hrefBase, plural, rotuloDoA
         {/* Celular: um card por ativo */}
         <ul className="space-y-3 md:hidden">
           {visiveis.map((item) => (
-            <li key={item.ticker} className="relative rounded-md border border-line bg-card p-4 active:bg-paper">
+            <li key={item.ticker} className="interativo relative rounded-md border border-line bg-card p-4">
               <div className="flex items-start gap-3">
                 <Avatar ticker={item.ticker} tamanho="lista" tipoFii={item.tipo} etf={etf} />
                 <div className="min-w-0 flex-1">
@@ -217,7 +217,7 @@ function Listagem<T extends Ativo>({ itens, colunas, hrefBase, plural, rotuloDoA
           aria-expanded={todas}
           aria-controls={idDaLista}
           onClick={() => setTodas((v) => !v)}
-          className="inline-flex min-h-11 touch-manipulation items-center gap-2 rounded border border-ink bg-card px-4 text-[15px] font-semibold text-ink hover:bg-caderno"
+          className="toque inline-flex min-h-11 touch-manipulation items-center gap-2 rounded border border-ink bg-card px-4 text-[15px] font-semibold text-ink hover:bg-caderno"
         >
           {todas ? `Mostrar só as ${QUANTIDADE_INICIAL}` : `Ver todas as ${itens.length}`}
           <svg className={todas ? "rotate-180" : ""} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>

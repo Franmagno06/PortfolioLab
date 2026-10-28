@@ -54,13 +54,13 @@ export default async function AprenderPage({ searchParams }: { searchParams: Pro
             <li key={a.href} className="flex">
               <Link
                 href={a.href}
-                className="flex w-full flex-col gap-1.5 rounded-xl border border-l-4 border-pauta bg-card p-5 transition-colors hover:border-ink"
+                className="interativo flex w-full flex-col gap-1.5 rounded-xl border border-l-4 border-pauta bg-card p-5"
               >
                 <span className="font-leitura text-base leading-[22px] font-semibold text-ink">{a.titulo}</span>
                 <span className="text-[13px] leading-[19px] text-ink-2">{a.texto}</span>
                 <span className="mt-auto pt-1 text-[15px] leading-[22px] font-semibold text-anotacao">
                   Abrir<span className="sr-only">: {a.titulo}</span>
-                  <span aria-hidden> →</span>
+                  <span aria-hidden className="seta">&nbsp;→</span>
                 </span>
               </Link>
             </li>

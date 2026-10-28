@@ -245,6 +245,18 @@ html {
   }
 }
 
+/* Controles pequenos (botões, chips, letras): cor nos tokens e um afundar curto ao toque. */
+.toque {
+  transition:
+    transform var(--duracao-rapida) var(--curva),
+    background-color var(--duracao-rapida) var(--curva),
+    border-color var(--duracao-rapida) var(--curva),
+    color var(--duracao-rapida) var(--curva);
+}
+.toque:active:not(:disabled) {
+  transform: scale(.98);
+}
+
 /* Barra que cresce da esquerda: o valor entra como scaleX inline e a transição usa os tokens. */
 .barra-escala {
   transform-origin: left;

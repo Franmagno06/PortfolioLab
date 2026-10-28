@@ -15,7 +15,7 @@ function href(tema: IdDeCategoria | null, todos = false): string {
 }
 
 const botaoSecundario =
-  "inline-flex min-h-11 w-fit items-center rounded border border-ink bg-card px-[18px] text-[15px] font-semibold text-ink hover:bg-paper";
+  "toque inline-flex min-h-11 w-fit items-center rounded border border-ink bg-card px-[18px] text-[15px] font-semibold text-ink hover:bg-paper";
 
 /**
  * O filtro por tema e a grade de artigos, tudo no servidor: tema e expansão vivem na URL
@@ -92,7 +92,7 @@ function Chip({ ativo, destino, children }: { ativo: boolean; destino: string; c
       href={destino}
       scroll={false}
       aria-current={ativo ? "true" : undefined}
-      className={`inline-flex min-h-11 items-center rounded-full border px-4 text-[15px] leading-[22px] font-semibold transition-colors ${
+      className={`inline-flex min-h-11 items-center rounded-full border px-4 text-[15px] leading-[22px] font-semibold toque ${
         ativo ? "border-ink bg-ink text-white" : "border-pauta bg-card text-ink hover:border-ink"
       }`}
     >

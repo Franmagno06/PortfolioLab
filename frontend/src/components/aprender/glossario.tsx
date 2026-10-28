@@ -66,7 +66,7 @@ export function Glossario({ verbetes }: { verbetes: VerbeteDaTela[] }) {
         <ul className="flex flex-wrap gap-2">
           {todasAsLetras.map((letra) => {
             const ativa = letrasComResultado.has(letra);
-            const base = "inline-flex size-11 items-center justify-center rounded-lg border text-[15px] leading-[22px] font-semibold";
+            const base = "toque inline-flex size-11 items-center justify-center rounded-lg border text-[15px] leading-[22px] font-semibold";
             return (
               <li key={letra}>
                 {ativa ? (
@@ -93,7 +93,7 @@ export function Glossario({ verbetes }: { verbetes: VerbeteDaTela[] }) {
           <button
             type="button"
             onClick={() => setBusca("")}
-            className="inline-flex min-h-11 items-center rounded border border-ink bg-card px-[18px] text-[15px] font-semibold text-ink hover:bg-paper"
+            className="toque inline-flex min-h-11 items-center rounded border border-ink bg-card px-[18px] text-[15px] font-semibold text-ink hover:bg-paper"
           >
             Limpar a busca
           </button>
