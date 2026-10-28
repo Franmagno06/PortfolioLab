@@ -50,20 +50,23 @@ const linkEscuro =
 
 const FERRAMENTAS = [
   {
-    titulo: "Simular o aporte do mês",
+    titulo: "Aporte do mês",
     href: ROTAS.simulacao,
+    acao: "Simular o aporte",
     descricao:
       "Informe quanto vai investir e veja quantas cotas comprar de cada ativo para se aproximar das metas, sempre em cotas inteiras.",
   },
   {
-    titulo: "Acompanhar a carteira inteira",
+    titulo: "Carteira e preço médio",
     href: ROTAS.dashboard,
+    acao: "Ver a carteira",
     descricao:
-      "Registre compras e vendas. O preço médio segue a regra da Receita Federal e os proventos entram sozinhos.",
+      "As compras e vendas viram a sua posição. O preço médio segue a regra da Receita Federal e os proventos entram sozinhos.",
   },
   {
-    titulo: "Ler relatórios com ajuda",
+    titulo: "Relatórios com IA",
     href: ROTAS.relatorios,
+    acao: "Ler um relatório",
     descricao:
       "Envie o relatório de um fundo ou o release de uma empresa. Os números vêm da CVM e a IA explica o que mudou.",
   },
@@ -117,11 +120,6 @@ export default function SitePage() {
           </div>
         </section>
 
-        {/* ── 2. Ativos e índices (bento com os números do mês) ────────────────────────────────────── */}
-        <Suspense fallback={<NumerosDoMesFixos />}>
-          <NumerosDoMesAoVivo />
-        </Suspense>
-
         {/* ── 2. Comece por aqui ─────────────────────────────────────────
             Por que assim: o visitante vê artigos de verdade (não promessas) e escolhe por onde entrar;
             os cartões priorizam quem está começando para o destaque do dia não esconder o básico. */}
@@ -169,30 +167,12 @@ export default function SitePage() {
           </div>
         </section>
 
-        {/* ── 4. Agora é com você: o aporte de novembro ──────────────── */}
-        <section id="desafio" aria-labelledby="titulo-desafio" className="bg-card">
-          <div className={`${recipiente} pt-20 pb-20 lg:pt-[104px] lg:pb-28`}>
-            <div className="max-w-[680px]">
-              <h2 id="titulo-desafio" className={tituloDeSecao}>
-                Agora é com você: o aporte de novembro
-              </h2>
-              <p className={`mt-[18px] ${apoioDeSecao}`}>
-                Depois das compras de outubro, a carteira de exemplo recebe mais{" "}
-                {brlSemCentavos(APORTE_DO_DESAFIO)}. Monte a compra que deixa a carteira mais perto das metas e
-                compare com o cálculo do PortfolioLab.
-              </p>
-              <p className="mt-3 text-sm leading-[21px] text-mute">
-                Os ativos são reais e os preços são uma referência fixa de {NUMEROS_DO_MES.rotulo}. “Fora das metas” conta
-                quantos pontos percentuais da carteira estão no lugar errado: zero é a carteira igual às metas.
-              </p>
-            </div>
-            <div className="mt-12">
-              <DesafioAporte carteira={CARTEIRA_DE_NOVEMBRO} />
-            </div>
-          </div>
-        </section>
+        {/* ── 3. Ativos e índices (bento com os números do mês) ────────────────────────────────────── */}
+        <Suspense fallback={<NumerosDoMesFixos />}>
+          <NumerosDoMesAoVivo />
+        </Suspense>
 
-        {/* ── 5. Como ler um ativo ──────────────────────────────────────
+        {/* ── 4. Como ler um ativo ──────────────────────────────────────
             Por que assim: o número e a frase ficam à vista; a conta, a explicação e a armadilha abrem
             sob demanda. Sem nota nem ranking: o julgamento é dos critérios de quem lê. */}
         <section id="como-ler-um-ativo" aria-labelledby="titulo-como-ler" className="bg-caderno">
@@ -223,57 +203,68 @@ export default function SitePage() {
           </div>
         </section>
 
-        {/* ── 6. O que você faz no PortfolioLab ──────────────────────── */}
-        <section aria-labelledby="titulo-ferramentas" className="bg-card">
-          <div
-            className={`${recipiente} grid gap-10 pt-20 pb-20 lg:grid-cols-[400px_1fr] lg:gap-16 lg:pt-[104px] lg:pb-28`}
-          >
-            <div>
-              <h2 id="titulo-ferramentas" className={tituloDeSecao}>
-                O que você faz no PortfolioLab
-              </h2>
-              <p className={`mt-[18px] ${apoioDeSecao}`}>
-                Ferramentas para decidir com calma, sempre com a explicação junto.
-              </p>
-            </div>
-            <ul role="list" className="border-t border-pauta">
-              {FERRAMENTAS.map((f) => (
-                <li key={f.titulo} className="border-b border-pauta pt-[22px] pb-6">
-                  <Link
-                    href={f.href}
-                    className="font-leitura text-[22px] leading-7 font-semibold text-ink decoration-1 underline-offset-4 hover:underline"
-                  >
-                    {f.titulo}
-                  </Link>
-                  <p className="mt-1.5 text-[15px] leading-[23px] text-ink-2">{f.descricao}</p>
+        {/* ── 5. Organize a sua carteira ─────────────────────────────────
+            Por que assim: é a segunda ideia do site (gerir o que se aprendeu), então vem depois do conteúdo;
+            as três ferramentas aparecem como portas, o desafio fica compacto e SEM <Revelar> (ele re-renderiza
+            a cada clique) e a demonstração fecha a página como o próximo passo natural. */}
+        <section id="organize-a-carteira" aria-labelledby="titulo-organize" className="bg-card">
+          <div className={`${recipiente} py-20 lg:py-28`}>
+            <Revelar>
+              <div className="max-w-[680px]">
+                <h2 id="titulo-organize" className={tituloDeSecao}>
+                  Organize a sua carteira
+                </h2>
+                <p className={`mt-[18px] ${apoioDeSecao}`}>
+                  Depois de entender os ativos, acompanhe os seus. Ferramentas para decidir com calma, sempre com a
+                  explicação junto.
+                </p>
+              </div>
+            </Revelar>
+
+            <ul role="list" className="mt-10 grid gap-6 md:grid-cols-3">
+              {FERRAMENTAS.map((f, i) => (
+                <li key={f.titulo} className="flex">
+                  <Revelar atrasoMs={i * 90} className="flex w-full">
+                    <Link
+                      href={f.href}
+                      className="interativo flex min-h-11 w-full flex-col rounded-md border border-pauta bg-caderno p-6"
+                    >
+                      <span className="font-leitura text-[22px] leading-7 font-semibold text-ink">{f.titulo}</span>
+                      <span className="mt-2 text-[15px] leading-[23px] text-ink-2">{f.descricao}</span>
+                      <span className="mt-4 text-sm font-semibold text-ink underline decoration-1 underline-offset-4">
+                        {f.acao}
+                        <span aria-hidden className="seta">&nbsp;→</span>
+                      </span>
+                    </Link>
+                  </Revelar>
                 </li>
               ))}
             </ul>
-          </div>
-        </section>
 
-        {/* ── 7. Chamada final ───────────────────────────────────────── */}
-        <section aria-labelledby="titulo-chamada" data-superficie="navy" className="bg-ink text-white">
-          <div
-            className={`${recipiente} flex flex-col gap-8 py-20 lg:flex-row lg:items-center lg:justify-between`}
-          >
-            <div className="min-w-0">
-              <h2
-                id="titulo-chamada"
-                className="font-leitura text-[30px] leading-9 font-semibold text-white lg:text-4xl lg:leading-[44px]"
-              >
-                Comece pela carteira de demonstração
-              </h2>
-              <p className="mt-3 max-w-[560px] font-leitura text-lg leading-[30px] text-white/78">
-                {CONTA_DEMO.ativos} ativos reais e {CONTA_DEMO.transacoes} transações, prontos para você explorar
-                antes de montar a sua.
+            <div id="desafio" className="mt-16 max-w-[860px] scroll-mt-24">
+              <p className="font-leitura text-lg leading-[30px] text-ink-2">
+                Teste com a carteira de exemplo: depois das compras de outubro, ela recebe mais{" "}
+                {brlSemCentavos(APORTE_DO_DESAFIO)}. Monte a compra que deixa a carteira mais perto das metas e
+                compare com o cálculo do PortfolioLab.
               </p>
+              <p className="mt-3 mb-8 text-sm leading-[21px] text-mute">
+                Os ativos são reais e os preços são uma referência fixa de {NUMEROS_DO_MES.rotulo}. “Fora das metas” conta
+                quantos pontos percentuais da carteira estão no lugar errado: zero é a carteira igual às metas.
+              </p>
+              <DesafioAporte carteira={CARTEIRA_DE_NOVEMBRO} />
             </div>
-            <div className="flex flex-wrap items-start gap-5">
-              <BotaoDemo />
-              <Link href={ROTAS.registro} className={linkClaro}>
-                Criar minha conta
-              </Link>
+
+            <div className="mt-16 flex flex-col gap-6 border-t border-pauta pt-10 lg:flex-row lg:items-center lg:justify-between">
+              <p className="max-w-[560px] font-leitura text-lg leading-[30px] text-ink-2">
+                A demonstração tem {CONTA_DEMO.ativos} ativos reais e {CONTA_DEMO.transacoes} transações para você
+                explorar; ela é só para olhar e não aceita alterações. Para acompanhar a sua, crie uma conta.
+              </p>
+              <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
+                <BotaoDemo tom="escuro" />
+                <Link href={ROTAS.registro} className={linkEscuro}>
+                  Criar minha conta
+                </Link>
+              </div>
             </div>
           </div>
         </section>

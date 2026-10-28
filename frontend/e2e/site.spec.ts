@@ -46,6 +46,33 @@ test.describe("site público", () => {
     await expect(aprender).toBeFocused();
   });
 
+  test("o menu Aprender ainda leva ao desafio", async ({ page }) => {
+    await page.goto("/");
+    const aprender = page.getByRole("navigation", { name: "Principal" }).getByRole("button", { name: "Aprender" });
+
+    await aprender.click();
+    await page.getByRole("link", { name: "Fazer o desafio" }).click();
+
+    await expect(page).toHaveURL(/#desafio$/);
+    await expect(page.locator("#desafio")).toBeVisible();
+    await expect(page.locator("#desafio").getByRole("heading", { name: "Aporte de novembro" })).toBeVisible();
+  });
+
+  test("a home tem as cinco seções na ordem", async ({ page }) => {
+    await page.goto("/");
+    const ids = await page.locator("main > section").evaluateAll((els) =>
+      els.map((el) => (el.id !== "" ? el.id : (el.querySelector("h1")?.id ?? ""))),
+    );
+    expect(ids).toEqual([
+      "titulo-topo",
+      "comece-por-aqui",
+      "ativos-e-indices",
+      "como-ler-um-ativo",
+      "organize-a-carteira",
+    ]);
+    await expect(page.getByRole("heading", { level: 2, name: "Organize a sua carteira" })).toBeVisible();
+  });
+
   test("a área logada continua fechada para quem não tem sessão", async ({ page }) => {
     await page.goto("/dashboard");
     await expect(page).toHaveURL(/\/login/);

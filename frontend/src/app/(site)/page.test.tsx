@@ -70,6 +70,49 @@ describe("Comece por aqui", () => {
   });
 });
 
+describe("Organize a sua carteira", () => {
+  const secao = (c: HTMLElement) => c.querySelector("#organize-a-carteira") as HTMLElement;
+
+  it("tem o h2, três cartões com as rotas, o desafio e a chamada da demonstração", () => {
+    const { container } = render(<SitePage />);
+    const s = secao(container);
+    expect(s.getAttribute("aria-labelledby")).toBe("titulo-organize");
+    expect(within(s).getByRole("heading", { level: 2 }).textContent).toBe("Organize a sua carteira");
+
+    const hrefs = within(s)
+      .getAllByRole("link")
+      .map((a) => a.getAttribute("href"));
+    expect(hrefs).toEqual(expect.arrayContaining(["/simulacao", "/dashboard", "/relatorios", "/registro"]));
+    expect(s.querySelectorAll("a.interativo")).toHaveLength(3);
+
+    expect(s.querySelector("#desafio")).not.toBeNull();
+    expect(within(s).getByRole("button", { name: "Ver a demonstração" })).toBeTruthy();
+    expect(within(s).getByRole("link", { name: "Criar minha conta" }).getAttribute("href")).toBe("/registro");
+  });
+
+  it("não promete que a demonstração aceita alterações, nem recomenda", () => {
+    const { container } = render(<SitePage />);
+    const texto = secao(container).textContent ?? "";
+    expect(texto).not.toMatch(/compre|melhores|oportunidade|barato|caro|recomend/i);
+    expect(texto).not.toMatch(/registre|altere|edite|monte a sua na demonstra/i);
+  });
+
+  it("vem depois de Como ler um ativo, e as seções antigas saíram", () => {
+    const { container } = render(<SitePage />);
+    const ids = [...container.querySelectorAll("main > section")].map((s) => s.querySelector("h1, h2")?.id ?? s.id);
+    const ordem = ["titulo-topo", "comece-por-aqui", "como-ler-um-ativo", "organize-a-carteira"];
+    const posicoes = ordem.map((id) =>
+      [...container.querySelectorAll("main > section")].findIndex((s) => s.id === id || s.querySelector(`#${id}`)),
+    );
+    expect(posicoes).toEqual([...posicoes].sort((a, b) => a - b));
+    expect(ids.length).toBe(4);
+    for (const nome of ["Agora é com você: o aporte de novembro", "O que você faz no PortfolioLab", "Comece pela carteira de demonstração"]) {
+      expect(screen.queryByRole("heading", { name: nome })).toBeNull();
+    }
+    expect(container.querySelectorAll("#desafio")).toHaveLength(1);
+  });
+});
+
 describe("ArtigoEmDestaque", () => {
   it("sem nivelDoTitulo mantém o h2 (como em /aprender)", () => {
     render(<ArtigoEmDestaque artigo={artigoEmDestaque()!} />);

@@ -225,6 +225,12 @@ html {
   transform: translateX(4px);
 }
 
+/* Barra que cresce da esquerda: o valor entra como scaleX inline e a transição usa os tokens. */
+.barra-escala {
+  transform-origin: left;
+  transition: transform var(--duracao-media) var(--curva);
+}
+
 /* Padrão D — explicação do bento: onde há mouse e tela larga, fica escondida e sobe 6px
    ao passar o mouse ou focar o quadro; no celular (toque não tem hover) fica sempre à vista. */
 .explicacao-bento {
