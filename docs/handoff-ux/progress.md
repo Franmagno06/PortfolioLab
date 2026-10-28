@@ -110,7 +110,7 @@ Pronto para o dono revisar; nada foi mergeado na main, nenhum deploy. Cada taref
 - Fichas: `NumeroQueConta` no preço e no valor de hoje da taxa; `Secao` envolve o card em `Revelar` (o bloco do preço, `revelar={false}`); indicadores com `ExplicacaoQueAbre` ("Entender melhor", só onde há armadilha ou link; o "?" fica fora do botão); /aprender/indicadores com fórmula e exemplo numa explicação fechada.
 - Área logada: abas, cartões e links com `.interativo`; indicadores da carteira ganharam a seção "O que cada indicador mede" (desvio do plano: a tela é uma tabela, não há valor único por indicador).
 - Bug achado no checkpoint 2: a tabela `sr-only` do gráfico de preço alargava a ficha a 471px num celular de 390px; agora fica num recipiente `relative overflow-hidden`, com E2E nas três fichas.
-- Teste de notícias do CI vermelho era bug de código (regex sem `\`), corrigido na branch separada `fix/ci-vermelho` junto com o typecheck do frontend (`next typegen` antes do `tsc`). Elas NÃO estão nesta branch.
+- Teste de notícias do CI vermelho era bug de código (regex sem `\`), corrigido na branch separada `fix/ci-vermelho` junto com o typecheck do frontend (`next typegen` antes do `tsc`). Ficaram na `fix/ci-vermelho`, que é esta branch mais esses 2 commits; o PR para a main leva tudo junto.
 
 **O que NÃO foi verificado**
 - Sensação do movimento em aparelho real (iOS e Android): hover preso, `:active`, clarão do toque, queda de quadros do Recharts na montagem (anima por JS), sincronia do número com a linha, layout shift ao abrir explicações no Safari. A conferência visual foi em Chromium headless a 1440 e 390 px (home, ficha de ação, indicadores).
