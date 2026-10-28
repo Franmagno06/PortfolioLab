@@ -135,7 +135,7 @@ function texto(valor: unknown): string {
  * produção, UTC, três horas adiantado. É horário de Brasília. Data ilegível vira "agora".
  */
 export function interpretarDataDoFeed(bruto: string): string {
-  const semFuso = /^d{4}-d{2}-d{2}Td{2}:d{2}:d{2}(.d+)?$/.test(bruto.trim());
+  const semFuso = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?$/.test(bruto.trim());
   const data = new Date(semFuso ? `${bruto.trim()}-03:00` : bruto);
   return isNaN(data.getTime()) ? new Date().toISOString() : data.toISOString();
 }

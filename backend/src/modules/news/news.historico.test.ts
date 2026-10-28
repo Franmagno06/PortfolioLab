@@ -73,6 +73,20 @@ describe("interpretarDataDoFeed", () => {
     expect(interpretarDataDoFeed("2026-10-09T09:00:00")).toBe("2026-10-09T12:00:00.000Z");
   });
 
+  it("data ISO sem fuso é lida como Brasília em qualquer fuso do servidor, com ou sem fração de segundo", () => {
+    const original = process.env.TZ;
+    try {
+      for (const tz of ["UTC", "America/Sao_Paulo", "Asia/Tokyo"]) {
+        process.env.TZ = tz;
+        expect(interpretarDataDoFeed("2026-10-09T09:00:00"), tz).toBe("2026-10-09T12:00:00.000Z");
+        expect(interpretarDataDoFeed("2026-10-09T09:00:00.500"), tz).toBe("2026-10-09T12:00:00.500Z");
+      }
+    } finally {
+      if (original === undefined) delete process.env.TZ;
+      else process.env.TZ = original;
+    }
+  });
+
   it("data inválida vira o instante atual, e não quebra", () => {
     expect(new Date(interpretarDataDoFeed("lixo")).getTime()).not.toBeNaN();
   });
