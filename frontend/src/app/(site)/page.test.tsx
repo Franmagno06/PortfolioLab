@@ -97,19 +97,23 @@ describe("Organize a sua carteira", () => {
     expect(texto).not.toMatch(/registre|altere|edite|monte a sua na demonstra/i);
   });
 
-  it("vem depois de Como ler um ativo, e as seções antigas saíram", () => {
+  // A ordem das cinco seções é garantida pelo E2E "a home tem as cinco seções na ordem" (site.spec.ts).
+  it("as seções antigas saíram e o desafio aparece uma vez só", () => {
     const { container } = render(<SitePage />);
-    const ids = [...container.querySelectorAll("main > section")].map((s) => s.querySelector("h1, h2")?.id ?? s.id);
-    const ordem = ["titulo-topo", "comece-por-aqui", "como-ler-um-ativo", "organize-a-carteira"];
-    const posicoes = ordem.map((id) =>
-      [...container.querySelectorAll("main > section")].findIndex((s) => s.id === id || s.querySelector(`#${id}`)),
-    );
-    expect(posicoes).toEqual([...posicoes].sort((a, b) => a - b));
-    expect(ids.length).toBe(4);
     for (const nome of ["Agora é com você: o aporte de novembro", "O que você faz no PortfolioLab", "Comece pela carteira de demonstração"]) {
       expect(screen.queryByRole("heading", { name: nome })).toBeNull();
     }
     expect(container.querySelectorAll("#desafio")).toHaveLength(1);
+  });
+
+  it("a hierarquia de títulos: h2 da seção e um h3 por cartão, dentro do link", () => {
+    const { container } = render(<SitePage />);
+    const s = secao(container);
+    expect(within(s).getAllByRole("heading", { level: 2 }).map((h) => h.textContent)).toEqual(["Organize a sua carteira"]);
+
+    const h3 = within(s).getAllByRole("heading", { level: 3 });
+    expect(h3.map((h) => h.textContent)).toEqual(["Aporte do mês", "Carteira e preço médio", "Relatórios com IA"]);
+    for (const h of h3) expect(h.closest("a.interativo"), h.textContent ?? "").not.toBeNull();
   });
 });
 

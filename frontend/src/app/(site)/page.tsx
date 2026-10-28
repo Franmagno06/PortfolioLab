@@ -229,7 +229,7 @@ export default function SitePage() {
                       href={f.href}
                       className="interativo flex min-h-11 w-full flex-col rounded-md border border-pauta bg-caderno p-6"
                     >
-                      <span className="font-leitura text-[22px] leading-7 font-semibold text-ink">{f.titulo}</span>
+                      <h3 className="font-leitura text-[22px] leading-7 font-semibold text-ink">{f.titulo}</h3>
                       <span className="mt-2 text-[15px] leading-[23px] text-ink-2">{f.descricao}</span>
                       <span className="mt-4 text-sm font-semibold text-ink underline decoration-1 underline-offset-4">
                         {f.acao}
