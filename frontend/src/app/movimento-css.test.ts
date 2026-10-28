@@ -58,16 +58,20 @@ describe("globals.css: movimento", () => {
     expect(sobras).toEqual([]);
   });
 
-  it(".interativo reage a hover e foco juntos, com o deslocamento certo", () => {
-    const { seletores, corpo } = regra("\\.interativo:hover");
-    expect(seletores).toContain(".interativo:focus-visible");
-    expect(seletores).toContain(".interativo:has(:focus-visible)");
-    expect(corpo).toContain("translateY(-3px)");
+  it(".interativo reage ao foco sempre e ao hover só com mouse, com o deslocamento certo", () => {
+    const foco = regra("\\.interativo:focus-visible");
+    expect(foco.seletores).toContain(".interativo:has(:focus-visible)");
+    expect(foco.corpo).toContain("translateY(-3px)");
+    expect(css).toMatch(
+      /@media \(hover: hover\) and \(pointer: fine\)\s*\{\s*\.interativo:hover\s*\{[^}]*translateY\(-3px\)/,
+    );
     expect(css).toMatch(/\.interativo:active\s*\{[^}]*translateY\(-1px\) scale\(\.995\)/);
-    const seta = regra("\\.interativo:hover \\.seta");
-    expect(seta.seletores).toContain(".interativo:focus-visible .seta");
+    const seta = regra("\\.interativo:focus-visible \\.seta");
     expect(seta.seletores).toContain(".interativo:has(:focus-visible) .seta");
     expect(seta.corpo).toContain("translateX(4px)");
+    expect(css).toMatch(
+      /@media \(hover: hover\) and \(pointer: fine\)\s*\{[^@]*\.interativo:hover \.seta\s*\{[^}]*translateX\(4px\)/,
+    );
   });
 
   it(".revelar parte deslocado e escondido; .visivel e sem-JS mostram", () => {

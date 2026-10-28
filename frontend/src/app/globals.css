@@ -211,12 +211,19 @@ html {
     box-shadow var(--duracao-media) var(--curva),
     border-color var(--duracao-media) var(--curva);
 }
-.interativo:hover,
 .interativo:focus-visible,
 .interativo:has(:focus-visible) {
   transform: translateY(-3px);
   box-shadow: 0 10px 24px -12px color-mix(in srgb, var(--color-ink) 33%, transparent);
   border-color: color-mix(in srgb, var(--color-line) 70%, var(--color-ink));
+}
+/* O hover só existe onde há mouse: no toque ele "gruda" no último cartão tocado. */
+@media (hover: hover) and (pointer: fine) {
+  .interativo:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 24px -12px color-mix(in srgb, var(--color-ink) 33%, transparent);
+    border-color: color-mix(in srgb, var(--color-line) 70%, var(--color-ink));
+  }
 }
 .interativo:active {
   transform: translateY(-1px) scale(.995);
@@ -225,10 +232,14 @@ html {
   display: inline-block;
   transition: transform var(--duracao-media) var(--curva);
 }
-.interativo:hover .seta,
 .interativo:focus-visible .seta,
 .interativo:has(:focus-visible) .seta {
   transform: translateX(4px);
+}
+@media (hover: hover) and (pointer: fine) {
+  .interativo:hover .seta {
+    transform: translateX(4px);
+  }
 }
 
 /* Barra que cresce da esquerda: o valor entra como scaleX inline e a transição usa os tokens. */
