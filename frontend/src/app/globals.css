@@ -37,6 +37,12 @@
      Todo valor que é TEXTO usa estas, nunca as de preenchimento. */
   --color-gain-ink: #187f50;
   --color-loss-ink: #bf3c4b;
+  /* Perda em TEXTO sobre o navy (quadro escuro do bento): o coral de preenchimento
+     dá 4,27:1 ali e reprova; este dá 6,46:1. O ganho (--color-gain) já passa no navy. */
+  --color-loss-on-dark: #f27a86;
+  /* Trilho de régua e de barra de escala: objeto gráfico, mínimo de 3:1 (WCAG 1.4.11)
+     sobre o branco e sobre o caderno. O cinza a 40% de opacidade dava 1,76:1. */
+  --color-trilho: #7f8ca0;
 
   /* Cinzas do texto secundário. slate-400 reprova em AA sobre papel
      (2.3:1), então o tom mais claro que este projeto usa é o mute. */

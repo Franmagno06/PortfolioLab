@@ -83,6 +83,25 @@ describe("bento Ativos e índices", () => {
     expect(secao().textContent).not.toMatch(/compre|melhores|oportunidade|barato|caro\b|recomend/i);
   });
 
+  it("a variação negativa do Ibovespa usa o coral claro: o coral de fundo claro não passa de 4,5:1 sobre o navy", () => {
+    const dados = fixo();
+    render(
+      <BentoAtivosIndices
+        dados={{ ...dados, numeros: { ...dados.numeros, ibovespa: { ...dados.numeros.ibovespa, variacaoNoMes: -1.5 } } }}
+      />,
+    );
+    const ibovespa = quadro(/Ibovespa/);
+    const variacao = ibovespa.querySelector(".text-loss-on-dark");
+    expect(variacao?.textContent).toContain("-1,5%");
+    expect(ibovespa.querySelector(".text-loss")).toBeNull();
+  });
+
+  it("a variação positiva do Ibovespa segue em esmeralda, com sinal", () => {
+    render(<BentoAtivosIndices dados={fixo()} />);
+    const variacao = quadro(/Ibovespa/).querySelector(".text-gain");
+    expect(variacao?.textContent).toContain("+3,1%");
+  });
+
   it("variação do Ibovespa: com sinal e sem nada quando é nula", () => {
     const dados = fixo();
     const { rerender } = render(<BentoAtivosIndices dados={dados} />);

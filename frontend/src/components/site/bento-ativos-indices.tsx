@@ -120,7 +120,8 @@ export function BentoAtivosIndices({ dados }: { dados: Dados }) {
                 <span className="ml-2 font-sans text-[15px] font-normal text-white/78">pontos</span>
               </span>
               {variacao !== null && (
-                <span className={`text-[15px] font-semibold ${variacao >= 0 ? "text-gain" : "text-loss"}`}>
+                // o quadro é navy: lá o coral de fundo claro (text-loss) reprova em contraste
+                <span className={`text-[15px] font-semibold ${variacao >= 0 ? "text-gain" : "text-loss-on-dark"}`}>
                   {pct(variacao)}
                   <span className="font-normal text-white/78"> no mês</span>
                 </span>

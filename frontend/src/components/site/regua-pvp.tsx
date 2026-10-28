@@ -29,7 +29,7 @@ export function ReguaPvp({ pvp }: { pvp: number | null }) {
         aria-label={`Régua do P/VP, de 0 a ${ESCALA_MAXIMA_PVP} ou mais: ${numero(pvp, 2)}, ${lado} patrimônio contábil (referência 1,0)`}
         className="relative h-6"
       >
-        <div className="absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-mute/40" />
+        <div data-trilho className="absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-trilho" />
         <div className="absolute top-1/2 h-4 w-0.5 -translate-y-1/2 bg-ink-2" style={{ left: `${referencia}%` }} />
         <div
           data-marcador="pvp"
