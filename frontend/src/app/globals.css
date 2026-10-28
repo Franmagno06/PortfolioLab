@@ -302,6 +302,29 @@ html {
   animation: tracar var(--duracao-grafico) var(--curva) both;
 }
 
+/* Padrão B — área sob a linha e ponto final do minigráfico. Só opacidade. A área aparece
+   junto do traço (mesmo token); o ponto aparece quando o traço termina: dura o token
+   rápido e espera o do gráfico. As classes -espera existem só depois de o observador ter
+   visto o elemento fora da tela, como em .tracar-espera. */
+@keyframes aparecer {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.area-espera,
+.ponto-espera {
+  opacity: 0;
+}
+.area-aparece {
+  animation: aparecer var(--duracao-grafico) var(--curva) both;
+}
+.ponto-aparece {
+  animation: aparecer var(--duracao-rapida) var(--curva) var(--duracao-grafico) both;
+}
+
 /* Padrão E — gráfico vivo ao fundo do topo. Os ciclos longos não são tempos de
    interação, por isso têm nomes próprios. Movimento constante vai em linear (sem
    aceleração); a pausa vem do botão (animation-play-state no próprio svg). */

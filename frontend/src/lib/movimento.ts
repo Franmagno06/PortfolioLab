@@ -35,20 +35,45 @@ function coordenada(n: number): string {
 }
 
 /**
- * Atributo `d` de um `<path>`: menor valor embaixo (y = altura), maior no topo (y = 0).
- * Valores não finitos (NaN, Infinity) são descartados antes; com menos de 2 sobrando, devolve "".
+ * Os pontos [x, y] do minigráfico: menor valor embaixo (y = altura), maior no topo (y = 0).
+ * Valores não finitos (NaN, Infinity) são descartados antes; com menos de 2 sobrando, devolve [].
  * Descartar assim reparte o x por igual entre os pontos que sobram. Série constante vai no meio da altura, para não dividir por zero.
  */
-export function caminhoDoMinigrafico(valores: number[], largura: number, altura: number): string {
+function pontosDoMinigrafico(valores: number[], largura: number, altura: number): [number, number][] {
   const limpos = valores.filter(Number.isFinite);
-  if (limpos.length < 2) return "";
+  if (limpos.length < 2) return [];
   const menor = Math.min(...limpos);
   const intervalo = Math.max(...limpos) - menor;
   const passo = largura / (limpos.length - 1);
-  return limpos
-    .map((valor, i) => {
-      const y = intervalo === 0 ? altura / 2 : altura - ((valor - menor) / intervalo) * altura;
-      return `${i === 0 ? "M" : "L"}${coordenada(i * passo)},${coordenada(y)}`;
-    })
+  return limpos.map((valor, i) => {
+    const y = intervalo === 0 ? altura / 2 : altura - ((valor - menor) / intervalo) * altura;
+    return [i * passo, y];
+  });
+}
+
+/** Atributo `d` de um `<path>` com a linha do minigráfico; "" se houver menos de 2 valores finitos. */
+export function caminhoDoMinigrafico(valores: number[], largura: number, altura: number): string {
+  return pontosDoMinigrafico(valores, largura, altura)
+    .map(([x, y], i) => `${i === 0 ? "M" : "L"}${coordenada(x)},${coordenada(y)}`)
     .join(" ");
+}
+
+/**
+ * Atributo `d` da área sob a linha: a própria linha, depois desce ao pé do último ponto, volta ao
+ * pé do primeiro e fecha. "" se a linha não existir.
+ */
+export function caminhoDaAreaDoMinigrafico(valores: number[], largura: number, altura: number): string {
+  const linha = caminhoDoMinigrafico(valores, largura, altura);
+  if (linha === "") return "";
+  return `${linha} L${coordenada(largura)},${coordenada(altura)} L0,${coordenada(altura)} Z`;
+}
+
+/** Onde a linha termina (ponta direita, na altura do último valor); null se não houver linha. */
+export function pontoFinalDoMinigrafico(
+  valores: number[],
+  largura: number,
+  altura: number,
+): { x: number; y: number } | null {
+  const ultimo = pontosDoMinigrafico(valores, largura, altura).at(-1);
+  return ultimo ? { x: Number(coordenada(ultimo[0])), y: Number(coordenada(ultimo[1])) } : null;
 }

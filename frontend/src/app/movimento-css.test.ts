@@ -84,6 +84,16 @@ describe("globals.css: movimento", () => {
     expect(css).toMatch(/@keyframes tracar\s*\{\s*from\s*\{\s*stroke-dashoffset:\s*1;\s*\}\s*to\s*\{\s*stroke-dashoffset:\s*0;/);
   });
 
+  it("área e ponto final do minigráfico: esperam invisíveis, a área aparece junto do traço e o ponto só ao fim dele", () => {
+    expect(css).toMatch(/\.area-espera,\s*\.ponto-espera\s*\{[^}]*opacity:\s*0/);
+    expect(css).toMatch(/\.area-aparece\s*\{[^}]*animation:\s*aparecer var\(--duracao-grafico\) var\(--curva\) both/);
+    // o ponto dura o token rápido e começa quando o traço (token do gráfico) termina
+    expect(css).toMatch(
+      /\.ponto-aparece\s*\{[^}]*animation:\s*aparecer var\(--duracao-rapida\) var\(--curva\) var\(--duracao-grafico\) both/,
+    );
+    expect(css).toMatch(/@keyframes aparecer\s*\{\s*from\s*\{\s*opacity:\s*0;\s*\}\s*to\s*\{\s*opacity:\s*1;/);
+  });
+
   it("scroll suave e abrir-menu valem sempre", () => {
     expect(css).toMatch(/scroll-behavior:\s*smooth/);
     expect(css).toMatch(/\.abrir-menu\s*\{/);

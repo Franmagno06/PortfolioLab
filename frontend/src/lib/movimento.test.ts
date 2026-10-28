@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  caminhoDaAreaDoMinigrafico,
   caminhoDoMinigrafico,
   desacelerar,
   DURACAO_CONTAGEM_MS,
   DURACAO_GRAFICO_MS,
+  pontoFinalDoMinigrafico,
   valorNaContagem,
 } from "./movimento";
 
@@ -99,6 +101,54 @@ describe("movimento", () => {
       expect(caminhoDoMinigrafico([1, 2, 3], 0, 40)).toBe("M0,40 L0,20 L0,0");
       expect(caminhoDoMinigrafico([1, 2, 3], 100, 0)).toBe("M0,0 L50,0 L100,0");
       expect(caminhoDoMinigrafico([7, 7], 0, 0)).not.toContain("NaN");
+    });
+  });
+
+  describe("caminhoDaAreaDoMinigrafico", () => {
+    it("fecha a linha pela base: desce ao fim, volta ao começo e fecha", () => {
+      expect(caminhoDaAreaDoMinigrafico([1, 2, 3], 100, 40)).toBe("M0,40 L50,20 L100,0 L100,40 L0,40 Z");
+    });
+
+    it("série constante também vira área, no meio da altura", () => {
+      expect(caminhoDaAreaDoMinigrafico([7, 7], 100, 40)).toBe("M0,20 L100,20 L100,40 L0,40 Z");
+    });
+
+    it("devolve vazio com menos de 2 valores finitos", () => {
+      expect(caminhoDaAreaDoMinigrafico([], 100, 40)).toBe("");
+      expect(caminhoDaAreaDoMinigrafico([5], 100, 40)).toBe("");
+      expect(caminhoDaAreaDoMinigrafico([1, Number.NaN], 100, 40)).toBe("");
+    });
+
+    it("começa exatamente pela linha, para a borda de cima da área ser a própria linha", () => {
+      const valores = [0, 1, 2, 3];
+      expect(caminhoDaAreaDoMinigrafico(valores, 100, 30).startsWith(caminhoDoMinigrafico(valores, 100, 30))).toBe(true);
+    });
+  });
+
+  describe("pontoFinalDoMinigrafico", () => {
+    it("fica na ponta direita, na altura do último valor", () => {
+      expect(pontoFinalDoMinigrafico([1, 2, 3], 100, 40)).toEqual({ x: 100, y: 0 });
+      expect(pontoFinalDoMinigrafico([3, 2, 1], 100, 40)).toEqual({ x: 100, y: 40 });
+      expect(pontoFinalDoMinigrafico([1, 3, 2], 100, 40)).toEqual({ x: 100, y: 20 });
+    });
+
+    it("série constante fica no meio da altura", () => {
+      expect(pontoFinalDoMinigrafico([7, 7, 7], 100, 40)).toEqual({ x: 100, y: 20 });
+    });
+
+    it("descarta valores não finitos e devolve null com menos de 2 valores", () => {
+      expect(pontoFinalDoMinigrafico([1, Number.NaN, 3], 100, 40)).toEqual({ x: 100, y: 0 });
+      expect(pontoFinalDoMinigrafico([], 100, 40)).toBeNull();
+      expect(pontoFinalDoMinigrafico([5], 100, 40)).toBeNull();
+      expect(pontoFinalDoMinigrafico([1, Number.NaN], 100, 40)).toBeNull();
+    });
+
+    it("coincide com o último ponto do caminho da linha", () => {
+      const valores = [0, 1, 2, 3, 1.5];
+      const linha = caminhoDoMinigrafico(valores, 120, 36);
+      const ultimo = linha.split(" ").at(-1)!.slice(1).split(",").map(Number);
+      const ponto = pontoFinalDoMinigrafico(valores, 120, 36)!;
+      expect([ponto.x, ponto.y]).toEqual(ultimo);
     });
   });
 });
