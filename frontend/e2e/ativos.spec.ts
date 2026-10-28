@@ -268,22 +268,34 @@ test.describe("ficha da ação", () => {
 });
 
 test.describe("ficha da ação: revelar ao rolar", () => {
-  test("o cabeçalho e o preço aparecem sem esperar animação", async ({ page }) => {
-    await page.goto("/ativos/acoes/VALE3", { waitUntil: "commit" });
-    // o HTML do servidor já traz o conteúdo final: nada começa invisível
-    const h1 = page.getByRole("heading", { level: 1, name: "VALE3" });
-    await expect(h1).toBeVisible();
-    await expect(h1).toHaveCSS("opacity", "1");
-    await expect(page.locator("#preco-titulo")).toHaveCSS("opacity", "1");
+  test("o cabeçalho e o bloco do preço nunca ficam dentro de um Revelar", async ({ page }) => {
+    await page.goto("/ativos/acoes/VALE3");
+    await expect(page.getByRole("heading", { level: 1, name: "VALE3" })).toBeVisible();
+    const dentroDeRevelar = await page.evaluate(() =>
+      ["h1", "#preco-titulo"].map((seletor) => document.querySelector(seletor)?.closest(".revelar") !== null),
+    );
+    expect(dentroDeRevelar).toEqual([false, false]);
   });
 
-  test("o bloco de indicadores aparece ao rolar até ele", async ({ page }) => {
+  test("sem JavaScript o HTML do servidor já traz os blocos visíveis (nada começa escondido)", async ({ browser }) => {
+    const contexto = await browser.newContext({ javaScriptEnabled: false });
+    const page = await contexto.newPage();
+    await page.goto("/ativos/acoes/VALE3");
+    const escondidos = await page.evaluate(() => document.querySelectorAll(".revelar-espera").length);
+    expect(escondidos).toBe(0);
+    await expect(page.locator("#indicadores-titulo")).toHaveCSS("opacity", "1");
+    await contexto.close();
+  });
+
+  test("o bloco de indicadores espera fora da tela e aparece ao rolar até ele", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 700 });
     await page.goto("/ativos/acoes/VALE3");
     const bloco = page.locator("#indicadores-titulo").locator("xpath=ancestor::*[contains(@class,'revelar')][1]");
+    // visto fora da tela na primeira leitura do observador: fica à espera
+    await expect(bloco).toHaveClass(/revelar-espera/);
     await bloco.scrollIntoViewIfNeeded();
     await expect(bloco).not.toHaveClass(/revelar-espera/);
     await expect(bloco).toHaveCSS("opacity", "1");
-    await expect(page.getByRole("heading", { level: 3, name: /^Valuation/ })).toBeVisible();
   });
 });
 

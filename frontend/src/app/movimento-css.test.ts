@@ -89,6 +89,10 @@ describe("globals.css: movimento", () => {
     expect(css).toMatch(/\.interativo:focus-visible,[^{]*\{[^}]*z-index:\s*1/);
   });
 
+  it("ao imprimir, o bloco à espera aparece", () => {
+    expect(css).toMatch(/@media print\s*\{\s*\.revelar-espera\s*\{[^}]*opacity:\s*1/);
+  });
+
   it(".revelar transita; só .revelar-espera esconde e desloca (o servidor entrega o conteúdo visível)", () => {
     const base = css.match(/\n\.revelar\s*\{([^}]*)\}/);
     expect(base?.[1]).not.toContain("opacity: 0");

@@ -306,6 +306,21 @@ html {
   }
 }
 
+/* Cascata da lista de artigos: o atraso é 90ms vezes a coluna do cartão na grade (1, 2 ou 3 colunas). */
+.cascata {
+  --atraso: 0ms;
+}
+@media (min-width: 48rem) {
+  .cascata {
+    --atraso: calc(var(--c2) * 90ms);
+  }
+}
+@media (min-width: 64rem) {
+  .cascata {
+    --atraso: calc(var(--c3) * 90ms);
+  }
+}
+
 /* Padrão C — revelar ao rolar: o HTML do servidor já é o conteúdo final e visível; só o que o
    observador viu fora da tela ganha .revelar-espera (escondido e 16px abaixo), e tirar a classe ao
    entrar dispara a transição. O atraso escalonado vem de --atraso (style={{ "--atraso": "80ms" }}). */
@@ -318,6 +333,13 @@ html {
 .revelar-espera {
   opacity: 0;
   transform: translateY(16px);
+}
+/* Ao imprimir, o bloco que ninguém rolou até ver sai igual aos outros. */
+@media print {
+  .revelar-espera {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 /* Padrão B — traço que se desenha (Minigrafico). O path usa pathLength="1", então

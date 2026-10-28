@@ -72,8 +72,11 @@ export function ListaDeArtigos({
         <ul className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {visiveis.map((a, i) => (
             <li key={a.slug} className="flex">
-              {/* cascata de 90 ms por coluna (3 no computador): o cartão seguinte da mesma linha entra logo depois */}
-              <Revelar atrasoMs={(i % 3) * 90} className="flex flex-1 [&>article]:flex-1">
+              {/* cascata de 90 ms por coluna: .cascata escolhe 1, 2 ou 3 colunas conforme a largura */}
+              <Revelar
+                className="cascata flex flex-1 [&>article]:flex-1"
+                style={{ "--c2": i % 2, "--c3": i % 3 } as React.CSSProperties}
+              >
                 <CardArtigo artigo={a} />
               </Revelar>
             </li>

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
-import { cleanup, render } from "@testing-library/react";
+import { act, cleanup, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { instalarObservadorFalso } from "@/components/movimento/observador-falso";
+import { dispararTodos, instalarObservadorFalso } from "@/components/movimento/observador-falso";
 import { Secao } from "./secao";
 
 beforeEach(() => instalarObservadorFalso());
@@ -32,13 +32,19 @@ describe("Secao: revelar ao rolar", () => {
     expect(container.querySelector(".revelar")).toBeNull();
   });
 
-  it("o conteúdo está no HTML inicial, visível (nada espera antes do observador)", () => {
+  it("o conteúdo está no HTML inicial, visível; só espera se foi visto fora da tela, e entra ao chegar", async () => {
     const { container } = render(
       <Secao id="x" titulo="Bloco">
         <p>conteúdo</p>
       </Secao>,
     );
+    const caixa = container.firstElementChild as HTMLElement;
     expect(container.textContent).toContain("conteúdo");
-    expect(container.querySelector(".revelar-espera")).toBeNull();
+    expect(caixa.classList.contains("revelar-espera")).toBe(false);
+
+    await act(async () => dispararTodos(0));
+    expect(caixa.classList.contains("revelar-espera")).toBe(true);
+    await act(async () => dispararTodos(0.5));
+    expect(caixa.classList.contains("revelar-espera")).toBe(false);
   });
 });

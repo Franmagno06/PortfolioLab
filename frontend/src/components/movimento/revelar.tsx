@@ -12,17 +12,20 @@ import { useVisibilidade } from "./usar-visibilidade";
 export function Revelar({
   atrasoMs,
   className,
+  style,
   children,
 }: {
   atrasoMs?: number;
   className?: string;
+  /** Variáveis CSS por item (ex.: a coluna do cartão para o atraso em cascata). */
+  style?: CSSProperties;
   children: ReactNode;
 }) {
   const [ref, visibilidade, passouPorFora] = useVisibilidade<HTMLDivElement>(0.3);
   const esperando = passouPorFora && visibilidade === "fora";
   const classes = ["revelar", esperando && "revelar-espera", className].filter(Boolean).join(" ");
   const estilo =
-    atrasoMs === undefined ? undefined : ({ "--atraso": `${atrasoMs}ms` } as CSSProperties);
+    atrasoMs === undefined ? style : ({ ...style, "--atraso": `${atrasoMs}ms` } as CSSProperties);
 
   return (
     <div ref={ref} className={classes} style={estilo}>
