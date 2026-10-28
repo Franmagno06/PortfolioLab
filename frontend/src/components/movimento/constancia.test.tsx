@@ -87,6 +87,7 @@ describe("a mesma microinteração em todo o site público", () => {
       for (const tag of series) {
         expect(tag, arquivo).not.toContain("isAnimationActive={false}");
         expect(tag, arquivo).toContain("animationDuration={DURACAO_GRAFICO_MS}");
+        expect(tag, arquivo).toContain("animationEasing={CURVA}");
       }
     }
   });

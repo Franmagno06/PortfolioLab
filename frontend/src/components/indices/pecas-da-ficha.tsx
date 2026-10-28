@@ -53,7 +53,6 @@ export function CabecalhoDaFicha({ indice, direita }: { indice: Indice; direita:
   );
 }
 
-/** O número de hoje no cabeçalho de uma taxa, com a data e a fonte. */
 /** O número do topo da ficha de taxa: conta ao chegar à tela (o leitor de tela ouve só o valor final). `valor` nulo = sem dado. */
 export function ValorDeHoje({ indice, valor, atualizadoEm }: { indice: Indice; valor: number | null; atualizadoEm?: string }) {
   return (

@@ -4,7 +4,7 @@ import { Area, AreaChart, CartesianGrid, ReferenceLine, ResponsiveContainer, Too
 import { escalaDoEixo } from "@/lib/escala-do-grafico";
 import { numero } from "@/lib/format";
 import { marcasDoEixoX, reduzirParaGrafico, type PontoSerie } from "@/lib/indices";
-import { DURACAO_GRAFICO_MS } from "@/lib/movimento";
+import { CURVA, DURACAO_GRAFICO_MS } from "@/lib/movimento";
 import { Balao, COR, Mira } from "./pecas-do-grafico";
 
 /*
@@ -86,7 +86,7 @@ export function GraficoDeArea({ serie, media, titulo, descricao, valor, valorCur
             fill={`url(#${idDoGradiente})`}
             isAnimationActive
             animationDuration={DURACAO_GRAFICO_MS}
-            animationEasing="ease-out"
+            animationEasing={CURVA}
             activeDot={{ r: 5, fill: COR.linha, stroke: "#ffffff", strokeWidth: 2 }}
           />
           <Mira valor={(v) => numero(v, 0)} data={data} />

@@ -5,7 +5,7 @@ import type { Props as PropsDoRotulo } from "recharts/types/component/Label";
 import { escalaDoEixo } from "@/lib/escala-do-grafico";
 import { numero } from "@/lib/format";
 import { marcasDoEixoX, type Granularidade, type PontoSerie } from "@/lib/indices";
-import { DURACAO_GRAFICO_MS } from "@/lib/movimento";
+import { CURVA, DURACAO_GRAFICO_MS } from "@/lib/movimento";
 import { Balao, COR, Mira } from "./pecas-do-grafico";
 
 /*
@@ -88,7 +88,7 @@ export function GraficoDeBarras({ serie, granularidade, titulo, descricao, valor
             activeBar={{ fill: COR.ink, fillOpacity: 1 }}
             isAnimationActive
             animationDuration={DURACAO_GRAFICO_MS}
-            animationEasing="ease-out"
+            animationEasing={CURVA}
           >
             <LabelList dataKey="valor" position="top" content={rotulo} />
           </Bar>

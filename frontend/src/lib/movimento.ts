@@ -6,6 +6,8 @@
 /** Espelham `--duracao-grafico` do globals.css; se um mudar, o outro muda junto. */
 export const DURACAO_GRAFICO_MS = 1100;
 export const DURACAO_CONTAGEM_MS = 1100;
+/** Espelha `--curva` do globals.css, no formato que o Recharts aceita em `animationEasing`. */
+export const CURVA = "cubic-bezier(0.2,0.8,0.2,1)" as const;
 
 /** Saída cúbica (1 - (1 - t)^3): arranca rápido e assenta devagar. `t` fica preso em [0, 1]; NaN vira 0. */
 export function desacelerar(t: number): number {

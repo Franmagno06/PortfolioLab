@@ -1,10 +1,11 @@
 "use client";
 
+import { useState } from "react";
 import { Area, AreaChart, CartesianGrid, ReferenceDot, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { PontoDePreco } from "@/lib/ativos-tipos";
 import { escalaDoEixo } from "@/lib/escala-do-grafico";
 import { brl, mesAno, mesCurto } from "@/lib/format";
-import { DURACAO_GRAFICO_MS } from "@/lib/movimento";
+import { CURVA, DURACAO_GRAFICO_MS } from "@/lib/movimento";
 
 /*
  * O preço no fechamento de cada mês, nos últimos 12. Linha e área na cor da
@@ -42,6 +43,8 @@ function TabelaParaLeitorDeTela({ ticker, historico }: Omit<Props, "cor">) {
 }
 
 export function GraficoDePreco({ ticker, historico, cor }: Props) {
+  // o ponto do último fechamento só surge quando a linha termina de se desenhar
+  const [desenhou, setDesenhou] = useState(false);
   const dados = historico.map((p) => ({ ...p, rotulo: mesCurto(p.mes) }));
   const primeiro = historico[0];
   const ultimo = historico[historico.length - 1];
@@ -100,10 +103,11 @@ export function GraficoDePreco({ ticker, historico, cor }: Props) {
               fill={`url(#${idDoGradiente})`}
               isAnimationActive
               animationDuration={DURACAO_GRAFICO_MS}
-              animationEasing="ease-out"
+              animationEasing={CURVA}
+              onAnimationEnd={() => setDesenhou(true)}
               activeDot={{ r: 5, stroke: "#fff", strokeWidth: 2 }}
             />
-            <ReferenceDot x={mesCurto(ultimo.mes)} y={ultimo.fechamento} r={5} fill={cor} stroke="#fff" strokeWidth={2} />
+            {desenhou && <ReferenceDot x={mesCurto(ultimo.mes)} y={ultimo.fechamento} r={5} fill={cor} stroke="#fff" strokeWidth={2} />}
           </AreaChart>
         </ResponsiveContainer>
       </div>
