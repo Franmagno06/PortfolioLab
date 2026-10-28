@@ -36,8 +36,7 @@ export function ExplicacaoQueAbre({
         aria-expanded={aberta}
         aria-controls={id}
         onClick={() => setAberta((a) => !a)}
-        className="-mx-2 flex min-h-11 w-[calc(100%+1rem)] touch-manipulation items-center gap-3 rounded-lg px-2 text-left hover:bg-caderno"
-        style={{ transition: "background-color var(--duracao-rapida) var(--curva)" }}
+        className="-mx-2 flex min-h-11 w-[calc(100%+1rem)] touch-manipulation items-center gap-3 rounded-lg px-2 text-left toque hover:bg-caderno focus-visible:bg-caderno"
       >
         <span className="font-semibold text-ink">{rotulo}</span>
         <span className="ml-auto flex items-center gap-2">

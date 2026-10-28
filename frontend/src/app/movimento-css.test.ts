@@ -65,7 +65,7 @@ describe("globals.css: movimento", () => {
     expect(css).toMatch(
       /@media \(hover: hover\) and \(pointer: fine\)\s*\{\s*\.interativo:hover\s*\{[^}]*translateY\(-3px\)/,
     );
-    expect(css).toMatch(/\.interativo:active\s*\{[^}]*translateY\(-1px\) scale\(\.995\)/);
+    expect(css).toMatch(/\.interativo:active:not\(:has\(button:active\)\)\s*\{[^}]*translateY\(-1px\) scale\(\.995\)/);
     const seta = regra("\\.interativo:focus-visible \\.seta");
     expect(seta.seletores).toContain(".interativo:has(:focus-visible) .seta");
     expect(seta.corpo).toContain("translateX(4px)");
@@ -75,7 +75,7 @@ describe("globals.css: movimento", () => {
   });
 
   it("resposta ao toque é rápida e nenhuma transição anima top/left/width/height", () => {
-    expect(css).toMatch(/\.interativo:active\s*\{[^}]*transition-duration:\s*var\(--duracao-rapida\)/);
+    expect(css).toMatch(/\.interativo:active:not\(:has\(button:active\)\)\s*\{[^}]*transition-duration:\s*var\(--duracao-rapida\)/);
     expect(css).not.toMatch(/transition:\s*(top|left|right|bottom|width|height)\b/);
   });
 
@@ -86,11 +86,17 @@ describe("globals.css: movimento", () => {
 
   it(".interativo levantado sobe de camada para não cobrir o balão da Dica do cartão vizinho", () => {
     expect(css).toMatch(/\.interativo:active\s*\{[^}]*z-index:\s*1/);
+    expect(css).toMatch(/\.interativo:has\(\[role="tooltip"\]\)\s*\{[^}]*z-index:\s*2/);
     expect(css).toMatch(/\.interativo:focus-visible,[^{]*\{[^}]*z-index:\s*1/);
   });
 
   it("ao imprimir, o bloco à espera aparece", () => {
     expect(css).toMatch(/@media print\s*\{\s*\.revelar-espera\s*\{[^}]*opacity:\s*1/);
+  });
+
+  it("no toque o cartão afunda (scale .98, sem subir) e o clarão do navegador some", () => {
+    expect(css).toMatch(/@media \(hover: none\)\s*\{\s*\.interativo:active:not\(:has\(button:active\)\)\s*\{[^}]*transform:\s*scale\(\.98\)/);
+    expect(css).toMatch(/-webkit-tap-highlight-color:\s*transparent/);
   });
 
   it(".revelar transita; só .revelar-espera esconde e desloca (o servidor entrega o conteúdo visível)", () => {

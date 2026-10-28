@@ -82,7 +82,7 @@ describe("a mesma microinteração em todo o site público", () => {
     ]) {
       const texto = fonte(arquivo);
       expect(texto, arquivo).toContain("DURACAO_GRAFICO_MS");
-      const series = [...texto.matchAll(/<(?:Area|Bar)\b[^>]*>/g)].map((m) => m[0]);
+      const series = [...texto.matchAll(/<(?:Area|Bar)\b[\s\S]*?\n\s*\/?>/g)].map((m) => m[0]);
       expect(series.length, arquivo).toBeGreaterThan(0);
       for (const tag of series) {
         expect(tag, arquivo).not.toContain("isAnimationActive={false}");
@@ -101,5 +101,13 @@ describe("Revelar na lista de artigos", () => {
     const css = fonte("app/globals.css");
     expect(css).toMatch(/@media \(min-width: 48rem\)\s*\{\s*\.cascata\s*\{\s*--atraso:\s*calc\(var\(--c2\) \* 90ms\)/);
     expect(css).toMatch(/@media \(min-width: 64rem\)\s*\{\s*\.cascata\s*\{\s*--atraso:\s*calc\(var\(--c3\) \* 90ms\)/);
+  });
+
+  it("gráficos dos índices desenham só na entrada: trocar de período não refaz a animação", () => {
+    for (const arquivo of ["components/indices/grafico-de-area.tsx", "components/indices/grafico-de-barras.tsx"]) {
+      const texto = fonte(arquivo);
+      expect(texto, arquivo).toContain("isAnimationActive={!desenhou}");
+      expect(texto, arquivo).toContain("onAnimationEnd={() => setDesenhou(true)}");
+    }
   });
 });

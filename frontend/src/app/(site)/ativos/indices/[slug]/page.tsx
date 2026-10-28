@@ -193,26 +193,29 @@ export default async function FichaDoIndice({ params }: Props) {
           }
         />
 
-        <Revelar className="min-w-0 lg:col-start-1 lg:row-start-3">
-          <div className="flex min-w-0 flex-col gap-5">
-            <BlocoDeArtigo titulo={PERGUNTA_DA_FICHA[indice.slug]}>
-              {ehTaxa && <TextoComDestaques trechos={paragrafoDeHoje(indice, dados)} />}
-              {indice.explicacao.map((p) => (
-                <p key={p}>{p}</p>
-              ))}
-              {indice.comoFunciona && (
-                <>
-                  <h3 className="pt-2 text-[22px] leading-[30px] font-semibold text-ink sm:text-[24px] sm:leading-[32px]">
-                    Como ele funciona
-                  </h3>
-                  <p>{indice.comoFunciona}</p>
-                </>
-              )}
-              <LinkDoArtigo indice={indice} />
-            </BlocoDeArtigo>
-            {tabela && <TabelaDaTaxa tabela={tabela} />}
-          </div>
-        </Revelar>
+        <div className="flex min-w-0 flex-col gap-5 lg:col-start-1 lg:row-start-3">
+          <BlocoDeArtigo titulo={PERGUNTA_DA_FICHA[indice.slug]}>
+            {ehTaxa && <TextoComDestaques trechos={paragrafoDeHoje(indice, dados)} />}
+            {indice.explicacao.map((p) => (
+              <p key={p}>{p}</p>
+            ))}
+            {indice.comoFunciona && (
+              <>
+                <h3 className="pt-2 text-[22px] leading-[30px] font-semibold text-ink sm:text-[24px] sm:leading-[32px]">
+                  Como ele funciona
+                </h3>
+                <p>{indice.comoFunciona}</p>
+              </>
+            )}
+            <LinkDoArtigo indice={indice} />
+          </BlocoDeArtigo>
+          {/* o texto longo nunca entra com animação; só a tabela, que é um bloco curto e separado */}
+          {tabela && (
+            <Revelar>
+              <TabelaDaTaxa tabela={tabela} />
+            </Revelar>
+          )}
+        </div>
       </div>
 
       <div className="mt-8">

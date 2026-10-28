@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Area, AreaChart, CartesianGrid, ReferenceDot, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { PontoDePreco } from "@/lib/ativos-tipos";
 import { escalaDoEixo } from "@/lib/escala-do-grafico";
@@ -48,7 +48,8 @@ function TabelaParaLeitorDeTela({ ticker, historico }: Omit<Props, "cor">) {
 export function GraficoDePreco({ ticker, historico, cor }: Props) {
   // o ponto do último fechamento só surge quando a linha termina de se desenhar
   const [desenhou, setDesenhou] = useState(false);
-  const dados = historico.map((p) => ({ ...p, rotulo: mesCurto(p.mes) }));
+  // referência estável: o Recharts reanima sempre que a referência dos dados muda
+  const dados = useMemo(() => historico.map((p) => ({ ...p, rotulo: mesCurto(p.mes) })), [historico]);
   const primeiro = historico[0];
   const ultimo = historico[historico.length - 1];
   if (!primeiro || !ultimo) return null;

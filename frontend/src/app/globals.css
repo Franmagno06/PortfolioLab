@@ -101,6 +101,8 @@ body {
    elemento focado por Tab (ou a seção de um link #âncora) para baixo dele. */
 html {
   scroll-padding-top: 4.5rem;
+  /* o retorno do toque é o :active dos controles, não o clarão do navegador */
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* Os links de seção do site rolam até o destino em vez de saltar. */
@@ -239,9 +241,19 @@ html {
     z-index: 1;
   }
 }
-.interativo:active {
+/* O "?" de dentro do cartão não afunda o cartão inteiro, e o balão aberto mantém o cartão acima do vizinho. */
+.interativo:has([role="tooltip"]) {
+  z-index: 2;
+}
+.interativo:active:not(:has(button:active)) {
   transform: translateY(-1px) scale(.995);
   transition-duration: var(--duracao-rapida);
+}
+/* No toque não há hover que levante o cartão: apertar é só afundar. */
+@media (hover: none) {
+  .interativo:active:not(:has(button:active)) {
+    transform: scale(.98);
+  }
 }
 .interativo .seta {
   display: inline-block;

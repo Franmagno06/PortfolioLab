@@ -41,8 +41,8 @@ export function SeletorDePeriodo({
             aria-pressed={ativo}
             aria-label={`Mostrar ${ROTULO_DO_PERIODO[p].frase}`}
             onClick={() => aoEscolher(p)}
-            className={`min-h-9 min-w-11 touch-manipulation rounded-full border px-3 text-[13px] leading-[19px] font-medium transition-colors ${
-              ativo ? "border-ink bg-ink text-white" : "border-pauta bg-card text-ink hover:border-ink"
+            className={`toque min-h-11 min-w-11 touch-manipulation rounded-full border px-3 text-[13px] leading-[19px] font-medium ${
+              ativo ? "border-ink bg-ink text-white" : "border-pauta bg-card text-ink hover:border-ink focus-visible:border-ink"
             }`}
           >
             {ROTULO_DO_PERIODO[p].botao}

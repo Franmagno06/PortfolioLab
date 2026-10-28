@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Area, AreaChart, CartesianGrid, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { escalaDoEixo } from "@/lib/escala-do-grafico";
 import { numero } from "@/lib/format";
@@ -26,6 +27,8 @@ type Props = {
 };
 
 export function GraficoDeArea({ serie, media, titulo, descricao, valor, valorCurto, data, id }: Props) {
+  // desenha só na entrada; trocar de período (ou redimensionar) não refaz a animação de 1,1 s
+  const [desenhou, setDesenhou] = useState(false);
   const desenho = reduzirParaGrafico(serie);
   const valores = desenho.map((p) => p.valor);
   const marcasY = escalaDoEixo(Math.min(...valores), Math.max(...valores), 4);
@@ -84,7 +87,8 @@ export function GraficoDeArea({ serie, media, titulo, descricao, valor, valorCur
             stroke={COR.linha}
             strokeWidth={2}
             fill={`url(#${idDoGradiente})`}
-            isAnimationActive
+            isAnimationActive={!desenhou}
+            onAnimationEnd={() => setDesenhou(true)}
             animationDuration={DURACAO_GRAFICO_MS}
             animationEasing={CURVA}
             activeDot={{ r: 5, fill: COR.linha, stroke: "#ffffff", strokeWidth: 2 }}
