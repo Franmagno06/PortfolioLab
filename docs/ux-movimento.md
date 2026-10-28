@@ -1,8 +1,12 @@
 # PortfolioLab — Página inicial nova e camada de movimento (design)
 
 Data: 20/10/2026. Origem: conversa de brainstorming com o dono do projeto, com uma vitrine de padrões
-aprovada no navegador (padrões A a F). Este documento descreve **o quê** e **por quê**; o **como**
-passo a passo vem depois, no plano.
+aprovada no navegador (padrões A a F). Este documento descreve **o quê** e **por quê**.
+
+> **Implementado** e mesclado na `main` em 28/10/2026 (PR #9). As regras que valem no dia a dia estão em
+> `CLAUDE.md` (seção Frontend, "Movimento"); o que ficou para depois está em [roadmap.md](roadmap.md). Onde este
+> documento e o código divergirem, vale o código: o `Revelar`, por exemplo, passou a entregar o conteúdo visível
+> no HTML e só esconder o que foi visto fora da tela.
 
 ## 1. Intenção
 

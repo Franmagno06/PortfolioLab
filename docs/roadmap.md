@@ -110,6 +110,19 @@ detectada pelo ticker. A comparação ignora acentos e maiúsculas.
 
 ---
 
+## Próximos passos (depois de 28/10/2026)
+
+O plano do primeiro deploy, com as decisões em aberto e as pendências técnicas, está em [deploy.md](deploy.md).
+Sobraram, da UX de movimento (o desenho do kit está em [ux-movimento.md](ux-movimento.md)):
+
+- Conferir a sensação do movimento em aparelho real (iOS e Android): `:active`, rolagem e o desenho dos gráficos.
+- O `.reveal` do dashboard (entrada de 600 ms na primeira dobra) ainda usa durações escritas à mão.
+- `Botao` nos tamanhos `md` (36 px) e `sm` (28 px) fica abaixo do alvo de toque de 44 px; só alguns usos têm `min-h-11`.
+- O número que conta (`NumeroQueConta`) quase nunca conta no patrimônio e no preço das fichas: eles ficam na
+  primeira dobra, e o kit só anima o que foi visto fora da tela antes.
+- Dois jeitos de escalonar entradas (`atrasoMs={i*90}` na home e `.cascata` na lista de artigos).
+- Revisão editorial das expressões antigas "cara ou barata", "bom sinal" e "pechincha" nos textos.
+
 ## Conexão com as disciplinas do 4º semestre
 
 | Disciplina | Onde aparece |

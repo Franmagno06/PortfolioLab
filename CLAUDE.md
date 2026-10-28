@@ -31,7 +31,8 @@ Nunca rode sem confirmar o banco de destino:
 grep -rl "database/prisma" backend/src --include=*.test.ts
 ```
 
-**Ordem do deploy quando há migration.** O Render publica a API no push para a `main`, mas a migration do
+**Ordem do deploy quando há migration.** Depois do primeiro deploy (plano em `docs/deploy.md`; em 28/10/2026 a API e o
+site ainda não estavam publicados), o Render publica a API no push para a `main`, mas a migration do
 Supabase de produção é manual (`npm run supabase:migrate`). Rode a migration **antes** do push que a
 contém: código novo contra um banco sem a coluna dá P2022 em toda leitura que passa pelo model alterado
 (a coluna `divida_ebitda`, por exemplo, quebraria `/indicators` e a carteira). Só rode contra a produção
