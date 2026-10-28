@@ -81,7 +81,8 @@ body {
 .pular-para-conteudo {
   position: absolute;
   left: 0.5rem;
-  top: -3rem;
+  top: 0;
+  transform: translateY(-4rem);
   z-index: 50;
   border-radius: 0.5rem;
   background: var(--color-ink);
@@ -89,11 +90,11 @@ body {
   font-size: 0.875rem;
   font-weight: 600;
   color: #fff;
-  transition: top var(--duracao-rapida) var(--curva);
+  transition: transform var(--duracao-rapida) var(--curva);
 }
 
 .pular-para-conteudo:focus {
-  top: 0.5rem;
+  transform: translateY(0.5rem);
 }
 
 /* O cabeçalho do site é fixo no topo: sem esta folga, o navegador rola o
@@ -209,7 +210,8 @@ html {
   transition:
     transform var(--duracao-media) var(--curva),
     box-shadow var(--duracao-media) var(--curva),
-    border-color var(--duracao-media) var(--curva);
+    border-color var(--duracao-media) var(--curva),
+    background-color var(--duracao-rapida) var(--curva);
 }
 .interativo:focus-visible,
 .interativo:has(:focus-visible) {
@@ -227,6 +229,7 @@ html {
 }
 .interativo:active {
   transform: translateY(-1px) scale(.995);
+  transition-duration: var(--duracao-rapida);
 }
 .interativo .seta {
   display: inline-block;
@@ -255,7 +258,7 @@ html {
     opacity var(--duracao-media) var(--curva),
     transform var(--duracao-media) var(--curva);
 }
-@media (hover: hover) and (min-width: 48rem) {
+@media (hover: hover) and (pointer: fine) and (min-width: 48rem) {
   .explicacao-bento {
     opacity: 0;
     transform: translateY(6px);
@@ -267,26 +270,18 @@ html {
   }
 }
 
-/* Padrão C — revelar ao rolar: o elemento entra quando recebe .visivel.
-   O atraso escalonado vem de --atraso (ex.: style={{ "--atraso": "80ms" }}). */
+/* Padrão C — revelar ao rolar: o HTML do servidor já é o conteúdo final e visível; só o que o
+   observador viu fora da tela ganha .revelar-espera (escondido e 16px abaixo), e tirar a classe ao
+   entrar dispara a transição. O atraso escalonado vem de --atraso (style={{ "--atraso": "80ms" }}). */
 .revelar {
-  opacity: 0;
-  transform: translateY(16px);
   transition:
     opacity var(--duracao-entrada) var(--curva),
     transform var(--duracao-entrada) var(--curva);
   transition-delay: var(--atraso, 0ms);
 }
-.revelar.visivel {
-  opacity: 1;
-  transform: none;
-}
-/* Sem JavaScript nada adicionaria .visivel: o conteúdo nunca fica invisível. */
-@media (scripting: none) {
-  .revelar {
-    opacity: 1;
-    transform: none;
-  }
+.revelar-espera {
+  opacity: 0;
+  transform: translateY(16px);
 }
 
 /* Padrão B — traço que se desenha (Minigrafico). O path usa pathLength="1", então

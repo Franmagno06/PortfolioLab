@@ -15,44 +15,43 @@ function caixa() {
 }
 
 describe("Revelar", () => {
-  it("fica sem .visivel até entrar na tela", async () => {
+  it("o HTML inicial já é visível: nada espera antes da primeira leitura do observador", () => {
     render(
       <Revelar>
         <p>conteúdo</p>
       </Revelar>,
     );
     expect(caixa().classList.contains("revelar")).toBe(true);
-    expect(caixa().classList.contains("visivel")).toBe(false);
-
-    // Abaixo de 30% ainda não conta como "entrou".
-    await act(async () => dispararTodos(0.1));
-    expect(caixa().classList.contains("visivel")).toBe(false);
+    expect(caixa().classList.contains("revelar-espera")).toBe(false);
   });
 
-  it("ganha .visivel ao entrar e não perde ao sair", async () => {
+  it("o que já estava (parcialmente) à vista na primeira leitura não some nem anima", async () => {
     render(
       <Revelar>
         <p>conteúdo</p>
       </Revelar>,
     );
+    await act(async () => dispararTodos(0.1));
+    expect(caixa().classList.contains("revelar-espera")).toBe(false);
     await act(async () => dispararTodos(0.4));
-    expect(caixa().classList.contains("visivel")).toBe(true);
+    expect(caixa().classList.contains("revelar-espera")).toBe(false);
+  });
+
+  it("o que foi visto fora da tela espera escondido e é liberado ao entrar, sem voltar a esconder", async () => {
+    render(
+      <Revelar>
+        <p>conteúdo</p>
+      </Revelar>,
+    );
+    await act(async () => dispararTodos(0));
+    expect(caixa().classList.contains("revelar-espera")).toBe(true);
+
+    await act(async () => dispararTodos(0.4));
+    expect(caixa().classList.contains("revelar-espera")).toBe(false);
     expect(ObservadorFalso.instancias.every((o) => o.desconectado)).toBe(true);
 
     await act(async () => dispararTodos(0));
-    expect(caixa().classList.contains("visivel")).toBe(true);
-  });
-
-  it("parcialmente visível ao carregar (10%) ainda ganha .visivel ao chegar a 30%", async () => {
-    render(
-      <Revelar>
-        <p>conteúdo</p>
-      </Revelar>,
-    );
-    await act(async () => dispararTodos(0.1));
-    expect(caixa().classList.contains("visivel")).toBe(false);
-    await act(async () => dispararTodos(0.35));
-    expect(caixa().classList.contains("visivel")).toBe(true);
+    expect(caixa().classList.contains("revelar-espera")).toBe(false);
   });
 
   it("atrasoMs vira a variável --atraso", () => {
@@ -82,7 +81,7 @@ describe("Revelar", () => {
         <p>conteúdo</p>
       </Revelar>,
     );
-    expect(caixa().classList.contains("visivel")).toBe(true);
+    expect(caixa().classList.contains("revelar-espera")).toBe(false);
   });
 
   it("um bloco mais alto que a tela entra quando cobre 30% da altura dela", async () => {
@@ -110,6 +109,6 @@ describe("Revelar", () => {
         observador as unknown as IntersectionObserver,
       );
     });
-    expect(alvo.classList.contains("visivel")).toBe(true);
+    expect(alvo.classList.contains("revelar-espera")).toBe(false);
   });
 });

@@ -74,12 +74,20 @@ describe("globals.css: movimento", () => {
     );
   });
 
-  it(".revelar parte deslocado e escondido; .visivel e sem-JS mostram", () => {
+  it("resposta ao toque é rápida e nenhuma transição anima top/left/width/height", () => {
+    expect(css).toMatch(/\.interativo:active\s*\{[^}]*transition-duration:\s*var\(--duracao-rapida\)/);
+    expect(css).not.toMatch(/transition:\s*(top|left|right|bottom|width|height)\b/);
+  });
+
+  it(".revelar transita; só .revelar-espera esconde e desloca (o servidor entrega o conteúdo visível)", () => {
     const base = css.match(/\n\.revelar\s*\{([^}]*)\}/);
-    expect(base?.[1]).toContain("translateY(16px)");
-    expect(base?.[1]).toContain("opacity: 0");
-    expect(css).toMatch(/\.revelar\.visivel\s*\{[^}]*opacity:\s*1/);
-    expect(css).toMatch(/@media \(scripting: none\)\s*\{\s*\.revelar\s*\{[^}]*opacity:\s*1/);
+    expect(base?.[1]).not.toContain("opacity: 0");
+    expect(base?.[1]).toContain("transition");
+    const espera = css.match(/\n\.revelar-espera\s*\{([^}]*)\}/);
+    expect(espera?.[1]).toContain("translateY(16px)");
+    expect(espera?.[1]).toContain("opacity: 0");
+    expect(css).not.toMatch(/\.revelar\.visivel/);
+    expect(css).not.toMatch(/scripting: none/);
   });
 
   it("traço do minigráfico: espera sem pingo na ponta e termina sólido", () => {
