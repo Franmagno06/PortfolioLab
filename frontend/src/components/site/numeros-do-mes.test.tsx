@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { DadosDosIndices } from "@/lib/indices";
 import { DADOS_DE_EXEMPLO } from "@/lib/indices-exemplo";
@@ -7,10 +7,13 @@ import { NumerosDoMesAoVivo, NumerosDoMesFixos } from "./numeros-do-mes";
 
 const lerDadosDosIndices = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/indices-api", () => ({ lerDadosDosIndices }));
+const api = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/api", () => ({ api }));
 
 afterEach(() => {
   cleanup();
   lerDadosDosIndices.mockReset();
+  api.mockReset();
 });
 
 const comIbov = (hoje: string, ibovespa: { data: string; valor: number }[]): DadosDosIndices => ({
@@ -34,6 +37,7 @@ describe("seção dos números do mês (bento Ativos e índices)", () => {
 
   it("ao vivo lê a API com prazo de 5 s", async () => {
     lerDadosDosIndices.mockResolvedValue(null);
+    api.mockRejectedValue(new Error("fora do ar"));
     render(await NumerosDoMesAoVivo());
 
     expect(lerDadosDosIndices).toHaveBeenCalledWith({ prazoMs: 5_000 });
@@ -70,5 +74,58 @@ describe("seção dos números do mês (bento Ativos e índices)", () => {
     expect(texto).toContain("Fechamento de 23 de outubro;");
     expect(texto).toContain("197.000");
     expect(texto).not.toContain("Cotação de");
+  });
+
+  describe("quando o servidor não consegue os índices a tempo (API fria ou lenta)", () => {
+    const fechamentoDe23 = () =>
+      comIbov("2026-10-24", [
+        { data: "2026-09-30", valor: 190000 },
+        { data: "2026-10-23", valor: 197000 },
+      ]);
+
+    it("abre com a referência fixa e troca pelos números reais quando o navegador consegue buscá-los", async () => {
+      lerDadosDosIndices.mockResolvedValue(null);
+      api.mockResolvedValue(fechamentoDe23());
+      render(await NumerosDoMesAoVivo());
+      expect(textoDaSecao()).toContain("Referência fixa");
+
+      await waitFor(() => expect(textoDaSecao()).toContain("Fechamento de 23 de outubro;"));
+      expect(textoDaSecao()).toContain("197.000");
+      expect(textoDaSecao()).not.toContain("Referência fixa");
+    });
+
+    it("o navegador pede /indices/dados com prazo próprio de 25 s", async () => {
+      lerDadosDosIndices.mockResolvedValue(null);
+      api.mockResolvedValue(fechamentoDe23());
+      render(await NumerosDoMesAoVivo());
+
+      await waitFor(() => expect(api).toHaveBeenCalledTimes(1));
+      expect(api.mock.calls[0]?.[0]).toBe("/indices/dados");
+      expect(api.mock.calls[0]?.[1]?.signal).toBeInstanceOf(AbortSignal);
+    });
+
+    it("se o navegador também falha, continua na referência fixa, dita como fixa", async () => {
+      lerDadosDosIndices.mockResolvedValue(null);
+      api.mockRejectedValue(new Error("fora do ar"));
+      render(await NumerosDoMesAoVivo());
+
+      await waitFor(() => expect(api).toHaveBeenCalled());
+      expect(textoDaSecao()).toContain("Referência fixa de 2 de outubro, não atualizada ao vivo");
+    });
+
+    it("resposta incompleta do servidor (sem Selic, por exemplo) não é refeita no navegador: fica a referência fixa", async () => {
+      lerDadosDosIndices.mockResolvedValue({ ...DADOS_DE_EXEMPLO, selicMensal: [] });
+      render(await NumerosDoMesAoVivo());
+
+      expect(api).not.toHaveBeenCalled();
+      expect(textoDaSecao()).toContain("Referência fixa");
+    });
+
+    it("se o servidor conseguiu, o navegador nem pergunta", async () => {
+      lerDadosDosIndices.mockResolvedValue(fechamentoDe23());
+      render(await NumerosDoMesAoVivo());
+
+      expect(api).not.toHaveBeenCalled();
+    });
   });
 });
