@@ -48,6 +48,20 @@ describe("Indicador com explicação que se abre", () => {
     expect(corpo().querySelector('[role="note"]')).toBeNull();
   });
 
+  it("o botão diz de qual indicador é (o rótulo visível se repete em cada linha)", () => {
+    pl();
+    expect(screen.getByRole("button", { name: "Entender melhor sobre Preço/lucro (P/L)" })).toBeTruthy();
+  });
+
+  it("sem armadilha nem link, não há explicação para abrir (o texto seria cópia do '?')", () => {
+    render(
+      <GrupoDeIndicadores titulo="Estrutura" pergunta="como é o fundo?">
+        <Indicador rotulo="Número de cotistas" dica="cotistas" valor="1,2 mil" leitura="leitura" />
+      </GrupoDeIndicadores>,
+    );
+    expect(screen.queryByRole("button", { name: /Entender melhor/ })).toBeNull();
+  });
+
   it("o '?' do indicador continua no cabeçalho, fora do botão da explicação", () => {
     pl();
     const botao = screen.getByRole("button", { name: /Entender melhor/ });

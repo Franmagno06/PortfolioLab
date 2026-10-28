@@ -63,7 +63,7 @@ export default function IndicadoresPage() {
               <Armadilha>{i.armadilha}</Armadilha>
 
               <div className="border-t border-pauta pt-1">
-                <ExplicacaoQueAbre id={`conta-${i.id}`} rotulo="Ver a fórmula e o exemplo">
+                <ExplicacaoQueAbre id={`conta-do-indicador-${i.id}`} rotulo="Ver a fórmula e o exemplo" nomeAcessivel={`Ver a fórmula e o exemplo de ${i.nome}`}>
                   <div className="flex flex-col gap-3">
                     <div className="flex flex-col gap-1 rounded-lg bg-marca-texto p-3.5 text-anotacao">
                       <p className="text-xs leading-4 font-medium tracking-wide uppercase">Fórmula</p>

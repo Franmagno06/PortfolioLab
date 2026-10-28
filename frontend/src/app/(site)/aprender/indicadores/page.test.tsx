@@ -23,4 +23,13 @@ describe("Indicadores explicados", () => {
       expect(corpo.contains(secao.querySelector('[role="note"]')), i.id).toBe(false);
     }
   });
+
+  it("cada botão tem nome acessível próprio e os ids das explicações são únicos", () => {
+    const { container } = render(<IndicadoresPage />);
+    const botoes = [...container.querySelectorAll("button[aria-expanded]")];
+    const nomes = botoes.map((b) => b.getAttribute("aria-label"));
+    expect(new Set(nomes).size).toBe(botoes.length);
+    const ids = botoes.map((b) => b.getAttribute("aria-controls"));
+    expect(new Set(ids).size).toBe(botoes.length);
+  });
 });

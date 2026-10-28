@@ -11,12 +11,15 @@ export function ExplicacaoQueAbre({
   id,
   rotulo,
   valor,
+  nomeAcessivel,
   resumo,
   children,
 }: {
   id: string;
   rotulo: string | number;
   valor?: string | number;
+  /** Nome acessível do botão quando o rótulo visível se repete na página (ex.: "Entender melhor sobre P/L"). */
+  nomeAcessivel?: string;
   /** Texto sempre à vista entre o botão e o corpo; sem ele, o botão fica logo acima do corpo. */
   resumo?: ReactNode;
   children: ReactNode;
@@ -29,7 +32,7 @@ export function ExplicacaoQueAbre({
       <button
         type="button"
         // o nome é montado aqui porque o texto de dois <span> seguidos se cola ("P/L9,66") no nome acessível
-        aria-label={valor !== undefined ? `${rotulo} ${valor}` : undefined}
+        aria-label={nomeAcessivel ?? (valor !== undefined ? `${rotulo} ${valor}` : undefined)}
         aria-expanded={aberta}
         aria-controls={id}
         onClick={() => setAberta((a) => !a)}

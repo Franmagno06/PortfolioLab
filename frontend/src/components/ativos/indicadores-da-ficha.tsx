@@ -77,22 +77,25 @@ export function Indicador({
       <p className="col-span-2 border-l-[1.5px] border-anotacao-margem pl-3.5 text-sm leading-[21px] font-medium text-anotacao sm:col-span-1">
         {leitura}
       </p>
-      <div className="col-span-2 sm:col-span-3">
-        <ExplicacaoQueAbre id={`explicacao-${dica}`} rotulo="Entender melhor">
-          <div className="flex flex-col gap-3">
-            <p className="text-sm leading-[21px] text-ink-2">{DICAS[dica].texto}</p>
-            {armadilha && <NotaDeArmadilha>{armadilha}</NotaDeArmadilha>}
-            {ancora && (
-              <Link
-                href={`/aprender/indicadores#${ancora}`}
-                className="flex min-h-11 w-fit items-center rounded text-[13px] leading-[19px] font-semibold underline decoration-1 underline-offset-4"
-              >
-                Saiba mais<span className="sr-only"> sobre {rotulo}</span>
-              </Link>
-            )}
-          </div>
-        </ExplicacaoQueAbre>
-      </div>
+      {/* sem armadilha nem link, o corpo repetiria o texto do "?": então não há explicação para abrir */}
+      {(armadilha || ancora) && (
+        <div className="col-span-2 sm:col-span-3">
+          <ExplicacaoQueAbre id={`explicacao-${dica}`} rotulo="Entender melhor" nomeAcessivel={`Entender melhor sobre ${rotulo}`}>
+            <div className="flex flex-col gap-3">
+              <p className="text-sm leading-[21px] text-ink-2">{DICAS[dica].texto}</p>
+              {armadilha && <NotaDeArmadilha>{armadilha}</NotaDeArmadilha>}
+              {ancora && (
+                <Link
+                  href={`/aprender/indicadores#${ancora}`}
+                  className="flex min-h-11 w-fit items-center rounded text-[13px] leading-[19px] font-semibold underline decoration-1 underline-offset-4"
+                >
+                  Saiba mais<span className="sr-only"> sobre {rotulo}</span>
+                </Link>
+              )}
+            </div>
+          </ExplicacaoQueAbre>
+        </div>
+      )}
     </li>
   );
 }
