@@ -116,6 +116,32 @@ test.describe("área logada no celular", () => {
     await expect(abas(page).getByRole("link", { name: "Notícias" })).toBeInViewport();
   });
 
+  test("resumo, posições e indicadores não rolam para o lado", async ({ page }) => {
+    for (const [rota, titulo] of [
+      ["/dashboard", "Resumo"],
+      ["/carteira", "Posições"],
+      ["/indicadores", "Indicadores"],
+    ] as const) {
+      await page.goto(rota);
+      await expect(page.getByRole("heading", { level: 1, name: titulo })).toBeVisible();
+      const largura = await page.evaluate(() => ({
+        pagina: document.documentElement.scrollWidth,
+        janela: window.innerWidth,
+      }));
+      expect(largura.pagina, rota).toBeLessThanOrEqual(largura.janela);
+    }
+  });
+
+  test("indicadores: a explicação abre ao tocar e mostra a armadilha", async ({ page }) => {
+    await page.goto("/indicadores");
+    const secao = page.getByRole("region", { name: "O que cada indicador mede" });
+    const botao = secao.getByRole("button", { name: "P/L: onde a leitura engana" });
+    await expect(botao).toHaveAttribute("aria-expanded", "false");
+    await botao.click();
+    await expect(botao).toHaveAttribute("aria-expanded", "true");
+    await expect(secao.getByRole("link", { name: "Saiba mais sobre P/L" })).toBeVisible();
+  });
+
   test("a gaveta do cabeçalho termina em Sair", async ({ page }) => {
     await page.goto("/dashboard");
 

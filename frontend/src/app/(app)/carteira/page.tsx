@@ -105,7 +105,9 @@ export default function CarteiraPage() {
         }
         acao={
           !registrando && (
-            <Botao onClick={() => setRegistrando(true)}>Nova transação</Botao>
+            <Botao className="min-h-11" onClick={() => setRegistrando(true)}>
+              Nova transação
+            </Botao>
           )
         }
       />
@@ -133,7 +135,9 @@ export default function CarteiraPage() {
           titulo="Sua carteira está vazia"
           descricao="Registre sua primeira compra para ver preço médio, resultado e distribuição por classe."
         >
-          <Botao onClick={() => setRegistrando(true)}>Registrar primeira compra</Botao>
+          <Botao className="min-h-11" onClick={() => setRegistrando(true)}>
+            Registrar primeira compra
+          </Botao>
         </EmptyState>
       ) : (
         <CardTabela larguraMinima="min-w-205">
@@ -148,7 +152,7 @@ export default function CarteiraPage() {
               return (
                 <tr
                   key={a.ticker}
-                  className="border-b border-line last:border-0 hover:bg-paper"
+                  className="linha-de-tabela border-b border-line last:border-0 hover:bg-paper has-[:focus-visible]:bg-paper"
                 >
                   <td className="py-3.5 pr-3 pl-5">
                     <p className="tnum font-semibold">{a.ticker}</p>

@@ -28,10 +28,8 @@ function CardNoticia({ n, destaque }: { n: Noticia; destaque?: boolean }) {
       href={n.link}
       target="_blank"
       rel="noopener noreferrer"
-      className={`group block rounded-md border p-4 transition-colors ${
-        destaque
-          ? "border-gain/30 bg-gain/5 hover:border-gain/60"
-          : "border-line bg-card hover:border-mute-soft"
+      className={`interativo group block rounded-md border p-4 ${
+        destaque ? "border-gain/30 bg-gain/5" : "border-line bg-card"
       }`}
     >
       {n.tickers.length > 0 && (
@@ -47,7 +45,7 @@ function CardNoticia({ n, destaque }: { n: Noticia; destaque?: boolean }) {
         </div>
       )}
 
-      <p className="text-sm leading-snug font-medium group-hover:text-gain-ink">{n.titulo}</p>
+      <p className="text-sm leading-snug font-medium group-hover:text-gain-ink group-focus-visible:text-gain-ink">{n.titulo}</p>
 
       <p className="mt-2 text-xs text-mute">
         {n.fonte}

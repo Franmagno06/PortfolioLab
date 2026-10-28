@@ -1,13 +1,19 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
+import { Armadilha } from "@/components/aprender/armadilha";
+import { ExplicacaoQueAbre } from "@/components/movimento/explicacao-que-abre";
+import { Card, TituloCard } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { MensagemErro } from "@/components/ui/mensagem";
 import { PageHeader, Pilula } from "@/components/ui/page-header";
 import { SkeletonPagina } from "@/components/ui/skeleton";
 import { CabecalhoTabela, CardTabela } from "@/components/ui/tabela";
 import { api, ApiError } from "@/lib/api";
+import { ANCORA_DA_DICA, INDICADORES } from "@/content/aprender/indicadores";
 import { indicadorOuTraco, pctIndicadorOuTraco, tempoRelativo } from "@/lib/format";
+import { DICAS, type IdDaDica } from "@/lib/indicadores-explicados";
 
 type IndicadorDeAtivo = {
   ticker: string;
@@ -31,6 +37,62 @@ const colunas = [
   { rotulo: "ROE", direita: true },
   { rotulo: "Margem líquida", direita: true },
 ];
+
+/** Os indicadores das colunas da tabela, com o mesmo nome do cabeçalho. ROA só entra se houver banco. */
+const EXPLICADOS: { nome: string; dica: IdDaDica }[] = [
+  { nome: "P/L", dica: "pl" },
+  { nome: "P/VP", dica: "pvp" },
+  { nome: "Dividend Yield", dica: "dy12m" },
+  { nome: "ROE", dica: "roe" },
+  { nome: "Margem líquida", dica: "margemLiquida" },
+  { nome: "ROA", dica: "roa" },
+];
+
+/**
+ * Os números ficam na tabela; aqui, cada indicador tem o nome e a frase do que mede sempre à
+ * vista (a mesma explicação do "?" das fichas), e se abre para a armadilha de leitura e o link
+ * para o cartão em /aprender/indicadores. O corpo nunca repete a frase.
+ */
+function OQueCadaIndicadorMede({ comBanco }: { comBanco: boolean }) {
+  const itens = EXPLICADOS.filter((e) => e.dica !== "roa" || comBanco);
+  return (
+    <Card>
+      <div role="region" aria-labelledby="titulo-o-que-mede">
+        <TituloCard>
+          <span id="titulo-o-que-mede">O que cada indicador mede</span>
+        </TituloCard>
+        <ul className="mt-3 divide-y divide-line">
+          {itens.map(({ nome, dica }) => {
+            const ancora = ANCORA_DA_DICA[dica];
+            const armadilha = INDICADORES.find((i) => i.id === ancora)?.armadilha;
+            return (
+              <li key={dica} className="py-3">
+                <ExplicacaoQueAbre
+                  id={`explicacao-carteira-${dica}`}
+                  rotulo={nome}
+                  nomeAcessivel={`${nome}: onde a leitura engana`}
+                  resumo={<p className="max-w-prose leading-[21px]">{DICAS[dica].texto}</p>}
+                >
+                  <div className="flex max-w-prose flex-col gap-2">
+                    {armadilha && <Armadilha>{armadilha}</Armadilha>}
+                    {ancora && (
+                      <Link
+                        href={`/aprender/indicadores#${ancora}`}
+                        className="toque flex min-h-11 w-fit items-center rounded text-[13px] leading-[19px] font-semibold underline decoration-1 underline-offset-4"
+                      >
+                        Saiba mais <span className="sr-only">sobre {nome}</span>
+                      </Link>
+                    )}
+                  </div>
+                </ExplicacaoQueAbre>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    </Card>
+  );
+}
 
 export default function IndicadoresPage() {
   const [indicadores, setIndicadores] = useState<IndicadorDeAtivo[] | null>(null);
@@ -71,7 +133,7 @@ export default function IndicadoresPage() {
           <CabecalhoTabela colunas={colunas} />
           <tbody>
             {indicadores.map((i) => (
-              <tr key={i.ticker} className="border-b border-line last:border-0 hover:bg-paper">
+              <tr key={i.ticker} className="linha-de-tabela border-b border-line last:border-0 hover:bg-paper has-[:focus-visible]:bg-paper">
                 <td className="py-3.5 pr-3 pl-5">
                   <p className="tnum font-semibold">{i.ticker}</p>
                   <p className="text-xs text-mute">{i.name}</p>
@@ -105,6 +167,10 @@ export default function IndicadoresPage() {
           Para bancos, a última coluna traz ROA no lugar da margem líquida: é o indicador que o
           mercado usa para comparar instituições financeiras.
         </p>
+      )}
+
+      {indicadores.length > 0 && (
+        <OQueCadaIndicadorMede comBanco={indicadores.some((i) => i.setorBancario)} />
       )}
     </div>
   );

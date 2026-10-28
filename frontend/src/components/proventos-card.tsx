@@ -89,6 +89,7 @@ export function ProventosCard({ ativos }: Props) {
               type="button"
               variante="secundario"
               tamanho="sm"
+              className="min-h-11"
               onClick={sincronizar}
               disabled={sincronizando}
             >
@@ -110,7 +111,7 @@ export function ProventosCard({ ativos }: Props) {
         type="button"
         onClick={() => setManual((v) => !v)}
         aria-expanded={manual}
-        className="mt-4 rounded text-xs font-semibold text-mute underline-offset-2 hover:underline"
+        className="toque mt-2 inline-flex min-h-11 touch-manipulation items-center rounded text-xs font-semibold text-mute underline-offset-2 hover:underline focus-visible:underline"
       >
         {manual ? "Esconder lançamento manual" : "Lançar um provento à mão"}
       </button>
@@ -153,7 +154,7 @@ export function ProventosCard({ ativos }: Props) {
             className="tnum"
           />
         </div>
-        <Botao type="submit" variante="secundario" disabled={salvando}>
+        <Botao type="submit" variante="secundario" className="min-h-11" disabled={salvando}>
           {salvando ? "Registrando…" : "Registrar"}
         </Botao>
       </form>

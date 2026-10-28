@@ -26,6 +26,8 @@ const ICONES: Record<AbaDaCarteira["id"], () => React.ReactElement> = {
  * Abas da área logada, logo abaixo do cabeçalho do site. São links entre
  * páginas, e não um tablist: cada aba é uma rota, e aria-current marca a atual.
  * No celular a fila rola para o lado, e a aba atual entra na tela sozinha.
+ * Cada aba responde como os cartões do site (.interativo): sobe no hover e no foco, e o traço
+ * escurece; o da aba atual fica na cor da tinta (globals.css).
  */
 export function AbasDaCarteira() {
   const rota = usePathname();
@@ -49,10 +51,10 @@ export function AbasDaCarteira() {
                   ref={ativa ? atual : undefined}
                   href={aba.href}
                   aria-current={ativa ? "page" : undefined}
-                  className={`flex items-center gap-2 border-b-2 py-4 text-[15px] font-medium whitespace-nowrap transition-colors ${
+                  className={`interativo flex min-h-11 items-center gap-2 border-b-2 py-4 text-[15px] font-medium whitespace-nowrap ${
                     ativa
                       ? "border-ink text-ink"
-                      : "border-transparent text-ink-2 hover:border-pauta hover:text-ink"
+                      : "border-transparent text-ink-2 hover:text-ink focus-visible:text-ink"
                   }`}
                 >
                   <span className={ativa ? "text-ink" : "text-mute"}>
