@@ -45,12 +45,16 @@ describe("ativosRepository.ensureAsset", () => {
   });
 
   it("visitas simultâneas à mesma ficha, ambas sem o ativo no banco, não disputam a unique de ticker", async () => {
-    const resultados = await Promise.all(
-      Array.from({ length: 8 }, () => ativosRepository.ensureAsset(novoAsset("ZZAT1"))),
-    );
+    // várias rodadas: a corrida só aparece quando as inserções caem juntas, e uma rodada sozinha passa por sorte
+    for (let rodada = 0; rodada < 10; rodada++) {
+      await limpar();
+      const resultados = await Promise.all(
+        Array.from({ length: 8 }, () => ativosRepository.ensureAsset(novoAsset("ZZAT1"))),
+      );
 
-    expect(new Set(resultados.map((r) => r.id)).size).toBe(1);
-    expect(await prisma.asset.count({ where: { ticker: "ZZAT1" } })).toBe(1);
+      expect(new Set(resultados.map((r) => r.id)).size, `rodada ${rodada}`).toBe(1);
+      expect(await prisma.asset.count({ where: { ticker: "ZZAT1" } })).toBe(1);
+    }
   });
 
   it("devolve o indicador junto (null quando ainda não foi calculado)", async () => {
