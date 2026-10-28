@@ -267,6 +267,18 @@ test.describe("ficha da ação", () => {
   });
 });
 
+test.describe("fichas no celular", () => {
+  test("a 390px nenhuma ficha rola para o lado (a tabela do leitor de tela não vaza)", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    for (const rota of ["/ativos/acoes/VALE3", "/ativos/fiis/MXRF11", "/ativos/etfs/BOVA11"]) {
+      await page.goto(rota);
+      await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+      const medidas = await page.evaluate(() => ({ pagina: document.documentElement.scrollWidth, janela: window.innerWidth }));
+      expect(medidas.pagina, rota).toBeLessThanOrEqual(medidas.janela);
+    }
+  });
+});
+
 test.describe("ficha da ação: revelar ao rolar", () => {
   test("o cabeçalho e o bloco do preço nunca ficam dentro de um Revelar", async ({ page }) => {
     await page.goto("/ativos/acoes/VALE3");

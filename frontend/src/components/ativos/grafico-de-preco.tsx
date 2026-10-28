@@ -22,23 +22,26 @@ type Props = { ticker: string; historico: PontoDePreco[]; cor: string };
 /** Os 12 valores em texto: o tooltip do gráfico só aparece para quem usa o mouse. */
 function TabelaParaLeitorDeTela({ ticker, historico }: Omit<Props, "cor">) {
   return (
-    <table className="sr-only">
-      <caption>Fechamento de {ticker} em cada um dos últimos 12 meses</caption>
-      <thead>
-        <tr>
-          <th scope="col">Mês</th>
-          <th scope="col">Fechamento</th>
-        </tr>
-      </thead>
-      <tbody>
-        {historico.map((p) => (
-          <tr key={p.mes}>
-            <th scope="row">{mesAno(p.mes)}</th>
-            <td>{brl(p.fechamento)}</td>
+    // relative + overflow-hidden: a tabela sr-only é absolute e, sem este recipiente, alarga a página no celular
+    <div className="relative overflow-hidden">
+      <table className="sr-only">
+        <caption>Fechamento de {ticker} em cada um dos últimos 12 meses</caption>
+        <thead>
+          <tr>
+            <th scope="col">Mês</th>
+            <th scope="col">Fechamento</th>
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {historico.map((p) => (
+            <tr key={p.mes}>
+              <th scope="row">{mesAno(p.mes)}</th>
+              <td>{brl(p.fechamento)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
