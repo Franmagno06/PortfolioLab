@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { NumeroQueConta } from "@/components/movimento/numero-que-conta";
 import { dataDeLeitura } from "@/lib/format";
 import type { Indice, Link as LinkDoIndice, Trecho } from "@/lib/indices";
 
@@ -53,11 +54,21 @@ export function CabecalhoDaFicha({ indice, direita }: { indice: Indice; direita:
 }
 
 /** O número de hoje no cabeçalho de uma taxa, com a data e a fonte. */
-export function ValorDeHoje({ indice, valor, atualizadoEm }: { indice: Indice; valor: string; atualizadoEm?: string }) {
+/** O número do topo da ficha de taxa: conta ao chegar à tela (o leitor de tela ouve só o valor final). `valor` nulo = sem dado. */
+export function ValorDeHoje({ indice, valor, atualizadoEm }: { indice: Indice; valor: number | null; atualizadoEm?: string }) {
   return (
     <div className="sm:text-right">
       <p className="text-[13px] leading-[19px] text-mute">{indice.rotuloDoValor}</p>
-      <p className="tnum text-[30px] leading-[36px] font-semibold text-ink">{valor}</p>
+      <p className="tnum text-[30px] leading-[36px] font-semibold text-ink">
+        {valor === null ? (
+          "—"
+        ) : (
+          <>
+            <NumeroQueConta valor={valor} formato="percentual" />
+            {indice.unidade === "% a.a." && " a.a."}
+          </>
+        )}
+      </p>
       <DataEFonte indice={indice} atualizadoEm={atualizadoEm} className="mt-0.5" />
     </div>
   );

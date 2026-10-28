@@ -4,13 +4,13 @@ import { Area, AreaChart, CartesianGrid, ReferenceDot, ResponsiveContainer, Tool
 import type { PontoDePreco } from "@/lib/ativos-tipos";
 import { escalaDoEixo } from "@/lib/escala-do-grafico";
 import { brl, mesAno, mesCurto } from "@/lib/format";
+import { DURACAO_GRAFICO_MS } from "@/lib/movimento";
 
 /*
  * O preço no fechamento de cada mês, nos últimos 12. Linha e área na cor da
  * classe do ativo (verde para ação, azul para FII), com o último ponto
  * marcado. Hex direto, e não var(): o Recharts pinta SVG com estes valores.
- * Sem animação de entrada: o gráfico não precisa chamar atenção para si, e
- * assim não há o que reduzir para quem pediu menos movimento.
+ * A linha e a área se desenham uma vez, na duração do kit de movimento.
  */
 
 const COR_DA_PAUTA = "#dce3ee";
@@ -98,7 +98,9 @@ export function GraficoDePreco({ ticker, historico, cor }: Props) {
               stroke={cor}
               strokeWidth={2}
               fill={`url(#${idDoGradiente})`}
-              isAnimationActive={false}
+              isAnimationActive
+              animationDuration={DURACAO_GRAFICO_MS}
+              animationEasing="ease-out"
               activeDot={{ r: 5, stroke: "#fff", strokeWidth: 2 }}
             />
             <ReferenceDot x={mesCurto(ultimo.mes)} y={ultimo.fechamento} r={5} fill={cor} stroke="#fff" strokeWidth={2} />

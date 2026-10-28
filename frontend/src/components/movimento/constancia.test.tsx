@@ -62,4 +62,21 @@ describe("a mesma microinteração em todo o site público", () => {
     expect(fonte("components/aprender/lista-de-artigos.tsx")).toMatch(/\btoque\b/);
     expect(fonte("components/aprender/glossario.tsx")).toMatch(/\btoque\b/);
   });
+
+  it("gráficos: a série (Area/Bar) anima com a duração do kit; só o Tooltip fica sem animação", () => {
+    for (const arquivo of [
+      "components/ativos/grafico-de-preco.tsx",
+      "components/indices/grafico-de-area.tsx",
+      "components/indices/grafico-de-barras.tsx",
+    ]) {
+      const texto = fonte(arquivo);
+      expect(texto, arquivo).toContain("DURACAO_GRAFICO_MS");
+      const series = [...texto.matchAll(/<(?:Area|Bar)\b[^>]*>/g)].map((m) => m[0]);
+      expect(series.length, arquivo).toBeGreaterThan(0);
+      for (const tag of series) {
+        expect(tag, arquivo).not.toContain("isAnimationActive={false}");
+        expect(tag, arquivo).toContain("animationDuration={DURACAO_GRAFICO_MS}");
+      }
+    }
+  });
 });

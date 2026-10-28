@@ -156,7 +156,7 @@ export default async function FichaDoIndice({ params }: Props) {
         <div className="flex min-w-0 flex-col gap-4 lg:col-start-1 lg:row-start-1">
           <CabecalhoDaFicha
             indice={indice}
-            direita={ehTaxa ? <ValorDeHoje indice={indice} valor={destaque.valorFormatado} atualizadoEm={dados.atualizadoEm} /> : <BotoesDaFicha nome={indice.nome} />}
+            direita={ehTaxa ? <ValorDeHoje indice={indice} valor={destaque.semDados ? null : destaque.valor} atualizadoEm={dados.atualizadoEm} /> : <BotoesDaFicha nome={indice.nome} />}
           />
           {!ehTaxa && (
             <>
