@@ -15,14 +15,30 @@ const REVALIDAR_EM_SEGUNDOS = Number(process.env.ATIVOS_REVALIDAR_S ?? 120);
 const TEMPO_LIMITE_MS = 20_000;
 
 /**
- * `prazoMs` encurta a espera: a home usa 5 s, porque lá os números do mês têm o conjunto fixo como
- * reserva e não vale segurar o visitante; as páginas de índices esperam os 20 s.
+ * `prazoMs` encurta só a ESPERA de quem chama: a home usa 5 s, porque lá os números do mês têm o conjunto fixo
+ * como reserva e não vale segurar o visitante; as páginas de índices esperam os 20 s. A requisição em si não é
+ * cancelada no prazo curto: segue até os 20 s e, quando chega, o Next a guarda (revalidate), e a próxima visita
+ * já sai com os números reais. Cancelar no prazo da home deixava o cache vazio para sempre com a API lenta.
  */
 export async function lerDadosDosIndices({ prazoMs = TEMPO_LIMITE_MS }: { prazoMs?: number } = {}): Promise<DadosDosIndices | null> {
+  const leitura = ler();
+  if (prazoMs >= TEMPO_LIMITE_MS) return leitura;
+  let prazo: ReturnType<typeof setTimeout> | undefined;
+  const desistir = new Promise<null>((resolve) => {
+    prazo = setTimeout(() => resolve(null), prazoMs);
+  });
+  try {
+    return await Promise.race([leitura, desistir]);
+  } finally {
+    clearTimeout(prazo);
+  }
+}
+
+async function ler(): Promise<DadosDosIndices | null> {
   try {
     const res = await fetch(`${API_URL}/indices/dados`, {
       next: { revalidate: REVALIDAR_EM_SEGUNDOS },
-      signal: AbortSignal.timeout(prazoMs),
+      signal: AbortSignal.timeout(TEMPO_LIMITE_MS),
     });
     if (!res.ok) return null;
     return (await res.json()) as DadosDosIndices;

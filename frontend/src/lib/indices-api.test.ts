@@ -48,11 +48,20 @@ describe("prazo da leitura", () => {
     expect(timeout).toHaveBeenCalledWith(20_000);
   });
 
-  it("prazoMs troca o prazo (a home usa 5 s)", async () => {
+  it("prazoMs (a home usa 5 s) só limita a espera: a leitura segue até 20 s para encher o cache do Next", async () => {
     const timeout = vi.spyOn(AbortSignal, "timeout");
-    fetchFalso.mockResolvedValue(resposta(DADOS_DE_EXEMPLO));
-    await lerDadosDosIndices({ prazoMs: 5_000 });
-    expect(timeout).toHaveBeenCalledWith(5_000);
+    let sinal: AbortSignal | undefined;
+    let responder: (r: Response) => void = () => {};
+    fetchFalso.mockImplementation((_url: string, opcoes: RequestInit) => {
+      sinal = opcoes.signal ?? undefined;
+      return new Promise<Response>((resolve) => (responder = resolve));
+    });
+
+    await expect(lerDadosDosIndices({ prazoMs: 50 })).resolves.toBeNull();
+    // a página desistiu de esperar, mas a requisição não foi cancelada: quando chegar, o Next a guarda
+    expect(timeout).toHaveBeenCalledWith(20_000);
+    expect(sinal?.aborted).toBe(false);
+    responder(resposta(DADOS_DE_EXEMPLO));
   });
 
   it("API que não responde: passado o prazo, vira null em vez de esperar para sempre", async () => {
