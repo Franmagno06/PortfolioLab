@@ -33,7 +33,7 @@ const ACOES = [
   ["CMIG4", "Cemig PN", "Energia elétrica", "PN", 11.4, 0.7, 8.5, 1.3, 9.2, 15.8],
   ["RADL3", "RaiaDrogasil ON", "Farmácias", "ON", 24.1, -0.4, 33.0, 5.9, 1.7, 17.5],
   ["EQTL3", "Equatorial ON", "Energia elétrica", "ON", 33.8, 0.3, 13.6, 2.0, 4.4, 15.0],
-  ["TAEE11", "Taesa Unit", "Transmissão de energia", "Unit", 42.85, 0.5, 9.02, 1.83, 7.02, 20.9],
+  ["TAEE11", "Taesa Unit", "Transmissão de energia", "Unit", 45.87, 0.5, 9.66, 1.96, 6.55, 20.86],
 ];
 
 // [ticker, nome, tipo, segmento, preço, variação, DY 12m, P/VP]

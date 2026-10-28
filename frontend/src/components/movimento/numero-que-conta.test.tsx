@@ -114,7 +114,7 @@ describe("NumeroQueConta", () => {
 
   it("formato brl e pontos passam por format.ts", () => {
     const { container, unmount } = render(<NumeroQueConta valor={1234.5} formato="brl" />);
-    expect(partes(container).leitor.textContent).toBe("R$ 1.234,50");
+    expect(partes(container).leitor.textContent).toBe("R$\u00a01.234,50");
     unmount();
     const outro = render(<NumeroQueConta valor={129876.4} formato="pontos" casas={1} />);
     expect(partes(outro.container).leitor.textContent).toBe("129.876,4");
