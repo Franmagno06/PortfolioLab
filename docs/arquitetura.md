@@ -140,6 +140,9 @@ Next.js com App Router, organização também por feature:
   indicadores, notícias), com o mesmo cabeçalho do site e as abas da carteira
 - `components/` — `ui/` (peças básicas), `site/` (cabeçalho, rodapé, faixa da
   demo), `ativos/`, `indices/` e `aprender/`
+- `components/movimento/`, `lib/movimento.ts` e os tokens de `globals.css` — o kit de movimento
+  (entrada ao rolar, número que conta, minigráfico, explicação que abre, pausa do fundo); todo
+  movimento do site passa por ele, sem `prefers-reduced-motion` (decisão do dono)
 - `lib/api.ts` — cliente HTTP único do navegador
 - `proxy.ts` — manda para o login quem não tem cookie de sessão, guardando a
   página pedida em `?next=` (validado em `lib/navegacao.ts`, que só aceita
