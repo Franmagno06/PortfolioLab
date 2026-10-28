@@ -421,6 +421,8 @@ test.describe("indicadores explicados", () => {
 
   test("o link 'Saiba mais' da ficha de um ativo chega no indicador certo", async ({ page }) => {
     await page.goto("/ativos/acoes/VALE3");
+    // o link mora na explicação do indicador, que começa fechada
+    await page.getByRole("listitem").filter({ hasText: "Preço/lucro (P/L)" }).getByRole("button", { name: "Entender melhor" }).click();
     await page.getByRole("link", { name: "Saiba mais sobre Preço/lucro (P/L)" }).click();
     await expect(page).toHaveURL(/\/aprender\/indicadores#pl$/);
     await expect(page.locator("#pl")).toBeInViewport();

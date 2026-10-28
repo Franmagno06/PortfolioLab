@@ -71,6 +71,8 @@ test.describe("ficha do ETF", () => {
     await expect(indicadores).toContainText("40,4%");
     await expect(indicadores).toContainText("R$ 17,7 bi");
     await expect(indicadores).toContainText("cadastro de classes da CVM (patrimônio, de 05/10/2026)");
+    // a armadilha mora na explicação do indicador, que começa fechada
+    await indicadores.getByRole("button", { name: "Entender melhor" }).first().click();
     await expect(page.getByRole("note").filter({ hasText: "Um ano forte não costuma se repetir" })).toBeVisible();
   });
 

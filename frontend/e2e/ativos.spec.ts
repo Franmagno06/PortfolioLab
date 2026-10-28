@@ -204,8 +204,12 @@ test.describe("ficha da ação", () => {
     }
   });
 
-  test("as duas armadilhas da ação estão sempre visíveis", async ({ page }) => {
+  test("as armadilhas da ação ficam dentro da explicação e aparecem ao abri-la", async ({ page }) => {
     await page.goto("/ativos/acoes/VALE3");
+
+    // fechada, a nota não é lida nem focada
+    await expect(page.getByRole("note")).toHaveCount(0);
+    for (const botao of await page.getByRole("button", { name: "Entender melhor" }).all()) await botao.click();
 
     await expect(page.getByRole("note").filter({ hasText: "Lucro pontual" })).toBeVisible();
     await expect(page.getByRole("note").filter({ hasText: "distorcer o P/L" })).toBeVisible();
@@ -302,8 +306,11 @@ test.describe("ficha do FII", () => {
     semErros();
   });
 
-  test("as armadilhas do FII estão sempre visíveis", async ({ page }) => {
+  test("as armadilhas do FII ficam dentro da explicação e aparecem ao abri-la", async ({ page }) => {
     await page.goto("/ativos/fiis/MXRF11");
+
+    await expect(page.getByRole("note")).toHaveCount(0);
+    for (const botao of await page.getByRole("button", { name: "Entender melhor" }).all()) await botao.click();
 
     await expect(page.getByRole("note").filter({ hasText: "DY muito acima da média do segmento" })).toBeVisible();
     await expect(page.getByRole("note").filter({ hasText: "P/VP abaixo de 1 com DY muito alto exige cuidado" })).toBeVisible();

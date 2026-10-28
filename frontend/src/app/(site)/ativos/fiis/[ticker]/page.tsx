@@ -12,7 +12,7 @@ import {
   SobreOAtivo,
 } from "@/components/ativos/blocos-da-ficha";
 import { GraficoDePreco } from "@/components/ativos/grafico-de-preco";
-import { Armadilha, GrupoDeIndicadores, Indicador } from "@/components/ativos/indicadores-da-ficha";
+import { GrupoDeIndicadores, Indicador } from "@/components/ativos/indicadores-da-ficha";
 import { Anotacao, Migalhas, Voltar } from "@/components/ativos/pecas";
 import { Secao } from "@/components/ativos/secao";
 import { buscarFii } from "@/lib/ativos-api";
@@ -117,13 +117,11 @@ export default async function FichaDoFii({ params }: Props) {
             <div className="space-y-6">
               <GrupoDeIndicadores titulo="Rendimento" pergunta="quanto o fundo paga?">
                 <Indicador rotulo="DY mensal" dica="dyMensal" valor={pctOuTraco(ind.dyMensal, 2)} leitura={leituraDyMensal(ind.dyMensal)} />
-                <Indicador rotulo="Dividend Yield (12 meses)" dica="dyFii" valor={pctOuTraco(ind.dy12m)} leitura={leituraDy(ind.dy12m)} />
-                <Armadilha>{ARMADILHAS.dyFii}</Armadilha>
+                <Indicador rotulo="Dividend Yield (12 meses)" dica="dyFii" valor={pctOuTraco(ind.dy12m)} leitura={leituraDy(ind.dy12m)} armadilha={ARMADILHAS.dyFii} />
               </GrupoDeIndicadores>
 
               <GrupoDeIndicadores titulo="Patrimônio" pergunta="quanto vale o fundo?">
-                <Indicador rotulo="Preço/valor patrimonial (P/VP)" dica="pvpFii" valor={ind.pvp === null ? "—" : numero(ind.pvp, 2)} leitura={leituraPvpFii(ind.pvp)} />
-                <Armadilha>{ARMADILHAS.pvpFii}</Armadilha>
+                <Indicador rotulo="Preço/valor patrimonial (P/VP)" dica="pvpFii" valor={ind.pvp === null ? "—" : numero(ind.pvp, 2)} leitura={leituraPvpFii(ind.pvp)} armadilha={ARMADILHAS.pvpFii} />
                 <Indicador
                   rotulo="Patrimônio líquido"
                   dica="patrimonioLiquido"

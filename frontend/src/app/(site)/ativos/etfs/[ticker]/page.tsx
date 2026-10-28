@@ -11,7 +11,7 @@ import {
   SobreOAtivo,
 } from "@/components/ativos/blocos-da-ficha";
 import { GraficoDePreco } from "@/components/ativos/grafico-de-preco";
-import { Armadilha, GrupoDeIndicadores, Indicador } from "@/components/ativos/indicadores-da-ficha";
+import { GrupoDeIndicadores, Indicador } from "@/components/ativos/indicadores-da-ficha";
 import { Anotacao, Migalhas, Voltar } from "@/components/ativos/pecas";
 import { Secao } from "@/components/ativos/secao";
 import { buscarEtf } from "@/lib/ativos-api";
@@ -105,8 +105,7 @@ export default async function FichaDoEtf({ params }: Props) {
           >
             <div className="space-y-6">
               <GrupoDeIndicadores titulo="Desempenho" pergunta="quanto a cota variou e pagou?">
-                <Indicador rotulo="Variação em 12 meses" dica="retorno12m" valor={pctOuTraco(ficha.retorno12m)} leitura={leituraRetorno12m(ficha.retorno12m)} />
-                <Armadilha>{ARMADILHAS.retornoEtf}</Armadilha>
+                <Indicador rotulo="Variação em 12 meses" dica="retorno12m" valor={pctOuTraco(ficha.retorno12m)} leitura={leituraRetorno12m(ficha.retorno12m)} armadilha={ARMADILHAS.retornoEtf} />
                 <Indicador rotulo="Dividend Yield (12 meses)" dica="dyEtf" valor={pctOuTraco(ficha.dy12m)} leitura={leituraDyEtf(ficha.dy12m)} />
               </GrupoDeIndicadores>
 

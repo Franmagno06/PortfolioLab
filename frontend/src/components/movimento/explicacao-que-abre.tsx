@@ -17,7 +17,8 @@ export function ExplicacaoQueAbre({
   id: string;
   rotulo: string | number;
   valor?: string | number;
-  resumo: ReactNode;
+  /** Texto sempre à vista entre o botão e o corpo; sem ele, o botão fica logo acima do corpo. */
+  resumo?: ReactNode;
   children: ReactNode;
 }) {
   const [aberta, setAberta] = useState(false);
@@ -54,7 +55,7 @@ export function ExplicacaoQueAbre({
         </span>
       </button>
 
-      <div className="text-sm text-mute">{resumo}</div>
+      {resumo !== undefined && <div className="text-sm text-mute">{resumo}</div>}
 
       {/* grid-template-rows 0fr → 1fr abre até a altura do conteúdo sem medir em JS; é a exceção
           de layout aceita para sanfona. Fechado, `inert` tira o corpo do Tab e do leitor de tela. */}
