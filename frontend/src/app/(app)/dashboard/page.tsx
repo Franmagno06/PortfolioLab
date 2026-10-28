@@ -217,7 +217,7 @@ function CardAlocacao({
                   type="button"
                   aria-pressed={classe === c}
                   onClick={() => setClasse(c)}
-                  className={`toque relative inline-flex touch-manipulation items-center rounded-md px-2.5 font-medium before:absolute before:inset-x-0 before:-inset-y-2.5 before:content-[''] ${
+                  className={`toque relative inline-flex touch-manipulation items-center rounded-md px-2.5 py-1 font-medium before:absolute before:inset-x-0 before:-inset-y-2.5 before:content-[''] ${
                     classe === c
                       ? "bg-card text-ink shadow-sm"
                       : "text-mute hover:text-ink focus-visible:text-ink"

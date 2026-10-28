@@ -13,6 +13,9 @@
 }
 
 @theme {
+  /* o transition-* do Tailwind (sem duração própria) usa os tokens do kit, não os 150ms/ease padrão */
+  --default-transition-duration: var(--duracao-rapida);
+  --default-transition-timing-function: var(--curva);
   --color-ink: #0e1b33; /* navy profundo (sidebar, títulos) */
   --color-ink-soft: #16264a; /* navy intermediário */
   --color-ink-lift: #1a2f5c; /* navy do hover dos botões escuros */
@@ -243,7 +246,7 @@ html {
   }
 }
 /* O "?" de dentro do cartão não afunda o cartão inteiro, e o balão aberto mantém o cartão acima do vizinho. */
-.interativo:has([role="tooltip"]) {
+.interativo:has([role="tooltip"]:not([hidden])) {
   z-index: 2;
 }
 .interativo:active:not(:has(button:active)) {

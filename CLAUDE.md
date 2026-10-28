@@ -116,7 +116,7 @@ Em particular, a proteção de rota vive em `src/proxy.ts` (ex-`middleware.ts`).
 classes `.interativo`, `.toque` e `.linha-de-tabela`. Nada de curva ou duração escrita à mão, nada de animar propriedade de
 layout (a única exceção é `grid-template-rows` do `ExplicacaoQueAbre`), e **sem `prefers-reduced-motion`**,
 `motion-reduce:` ou `motion-safe:` (decisão do dono; o teste `app/movimento-css.test.ts` barra). Movimento contínuo
-tem sempre o botão de pausa. A primeira dobra nunca espera animação: `Revelar` só esconde o que o observador viu fora da
+tem sempre o botão de pausa. A primeira dobra nunca espera animação (exceto o `.reveal` legado do dashboard, mantido por decisão do plano): `Revelar` só esconde o que o observador viu fora da
 tela, e número e minigráfico só animam se foram vistos fora antes.
 
 **Aba Aprender** (`/aprender`, artigos, glossário, indicadores, como-calculamos; pública, sem backend). O conteúdo é

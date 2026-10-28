@@ -86,7 +86,7 @@ describe("globals.css: movimento", () => {
 
   it(".interativo levantado sobe de camada para não cobrir o balão da Dica do cartão vizinho", () => {
     expect(css).toMatch(/\.interativo:active\s*\{[^}]*z-index:\s*1/);
-    expect(css).toMatch(/\.interativo:has\(\[role="tooltip"\]\)\s*\{[^}]*z-index:\s*2/);
+    expect(css).toMatch(/\.interativo:has\(\[role="tooltip"\]:not\(\[hidden\]\)\)\s*\{[^}]*z-index:\s*2/);
     expect(css).toMatch(/\.interativo:focus-visible,[^{]*\{[^}]*z-index:\s*1/);
   });
 
@@ -102,6 +102,11 @@ describe("globals.css: movimento", () => {
   it("aba da carteira não sobe nem ganha sombra (só a cor do traço)", () => {
     expect(css).toMatch(/\.interativo\.interativo-aba:focus-visible,[^{]*\{[^}]*transform:\s*none/);
     expect(css).toMatch(/@media \(hover: hover\) and \(pointer: fine\)\s*\{\s*\.interativo\.interativo-aba:hover\s*\{[^}]*transform:\s*none/);
+  });
+
+  it("o transition-* do Tailwind usa os tokens do kit (nada de 150ms/ease padrão)", () => {
+    expect(css).toMatch(/--default-transition-duration:\s*var\(--duracao-rapida\)/);
+    expect(css).toMatch(/--default-transition-timing-function:\s*var\(--curva\)/);
   });
 
   it(".revelar transita; só .revelar-espera esconde e desloca (o servidor entrega o conteúdo visível)", () => {

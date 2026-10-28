@@ -48,16 +48,23 @@ test.describe("área logada", () => {
     await page.goto("/dashboard");
     const aba = abas(page).getByRole("link", { name: "Simular aporte" });
 
-    await aba.hover();
-    await page.waitForTimeout(400);
-    expect(await aba.evaluate((el) => getComputedStyle(el).transform)).toBe("none");
-    expect(await aba.evaluate((el) => getComputedStyle(el).boxShadow)).toBe("none");
+    const estilo = () => aba.evaluate((el) => ({ transform: getComputedStyle(el).transform, sombra: getComputedStyle(el).boxShadow }));
 
+    const corDoTraco = () => aba.evaluate((el) => getComputedStyle(el).borderBottomColor);
+    const emRepouso = await corDoTraco();
+
+    await aba.hover();
+    // o traço ganha cor (muda do repouso) enquanto a aba não sobe nem ganha sombra
+    await expect.poll(corDoTraco).not.toBe(emRepouso);
+    expect(await estilo()).toEqual({ transform: "none", sombra: "none" });
+
+    await page.mouse.move(0, 0);
     await aba.focus();
+    await page.keyboard.press("Shift+Tab");
     await page.keyboard.press("Tab");
-    await aba.focus();
-    await page.waitForTimeout(400);
-    expect(await aba.evaluate((el) => getComputedStyle(el).transform)).toBe("none");
+    await expect(aba).toBeFocused();
+    await expect.poll(corDoTraco).not.toBe(emRepouso);
+    expect(await estilo()).toEqual({ transform: "none", sombra: "none" });
   });
 
   test("o menu Planejar do cabeçalho leva à simulação", async ({ page }) => {

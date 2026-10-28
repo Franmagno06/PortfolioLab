@@ -87,7 +87,7 @@ export function Indicador({
               {ancora && (
                 <Link
                   href={`/aprender/indicadores#${ancora}`}
-                  className="flex min-h-11 w-fit items-center rounded text-[13px] leading-[19px] font-semibold underline decoration-1 underline-offset-4"
+                  className="toque flex min-h-11 w-fit items-center rounded text-[13px] leading-[19px] font-semibold underline decoration-1 underline-offset-4"
                 >
                   Saiba mais<span className="sr-only"> sobre {rotulo}</span>
                 </Link>

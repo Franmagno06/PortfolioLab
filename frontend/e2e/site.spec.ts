@@ -118,7 +118,7 @@ test.describe("site público", () => {
 test.describe("bento Ativos e índices", () => {
   test("os quadros levam às fichas e aos índices, e a explicação sobe no foco", async ({ page }) => {
     await page.goto("/");
-    // o conteúdo ao vivo chega escondido (streaming) até o React trocar o substituto: espera a troca
+    // o substituto do Suspense usa o mesmo id: o goto já espera o load; a contagem só garante que a cópia escondida do streaming sumiu
     await expect(page.locator("#ativos-e-indices")).toHaveCount(1);
     const bento = page.locator("#ativos-e-indices");
     await bento.scrollIntoViewIfNeeded();
