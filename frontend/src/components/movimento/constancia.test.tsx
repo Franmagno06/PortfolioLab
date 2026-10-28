@@ -162,7 +162,8 @@ describe("a mesma microinteração na área logada", () => {
     expect(texto).toMatch(/href=\{`\/simulacao\?ticker=[\s\S]*?className="[^"]*\binterativo\b[^"]*"/);
     // o botão "Simular aporte" e os chips de classe: .toque e min-h-11
     expect(texto).toMatch(/href="\/simulacao"\s+className="[^"]*\btoque\b[^"]*\bmin-h-11\b[^"]*"/);
-    expect(texto).toMatch(/aria-pressed=\{classe === c\}[\s\S]*?className=\{`[^`]*\btoque\b[^`]*\bmin-h-11\b/);
+    // chip: altura visual preservada, alvo de 44 px por um pseudo-elemento (não quebra a linha do título do cartão)
+    expect(texto).toMatch(/aria-pressed=\{classe === c\}[\s\S]*?className=\{`[^`]*\btoque\b[^`]*before:-inset-y-2\.5/);
     expect(texto).not.toContain("transition-colors");
   });
 

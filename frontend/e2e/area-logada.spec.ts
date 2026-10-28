@@ -44,6 +44,22 @@ test.describe("área logada", () => {
     await expect(abas(page).getByRole("link", { name: "Resumo" })).not.toHaveAttribute("aria-current", "page");
   });
 
+  test("a aba não sobe nem ganha sombra no hover e no foco (só a cor do traço muda)", async ({ page }) => {
+    await page.goto("/dashboard");
+    const aba = abas(page).getByRole("link", { name: "Simular aporte" });
+
+    await aba.hover();
+    await page.waitForTimeout(400);
+    expect(await aba.evaluate((el) => getComputedStyle(el).transform)).toBe("none");
+    expect(await aba.evaluate((el) => getComputedStyle(el).boxShadow)).toBe("none");
+
+    await aba.focus();
+    await page.keyboard.press("Tab");
+    await aba.focus();
+    await page.waitForTimeout(400);
+    expect(await aba.evaluate((el) => getComputedStyle(el).transform)).toBe("none");
+  });
+
   test("o menu Planejar do cabeçalho leva à simulação", async ({ page }) => {
     await page.goto("/carteira");
     const principal = page.getByRole("navigation", { name: "Principal" });

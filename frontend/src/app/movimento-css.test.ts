@@ -99,6 +99,11 @@ describe("globals.css: movimento", () => {
     expect(css).toMatch(/-webkit-tap-highlight-color:\s*transparent/);
   });
 
+  it("aba da carteira não sobe nem ganha sombra (só a cor do traço)", () => {
+    expect(css).toMatch(/\.interativo\.interativo-aba:focus-visible,[^{]*\{[^}]*transform:\s*none/);
+    expect(css).toMatch(/@media \(hover: hover\) and \(pointer: fine\)\s*\{\s*\.interativo\.interativo-aba:hover\s*\{[^}]*transform:\s*none/);
+  });
+
   it(".revelar transita; só .revelar-espera esconde e desloca (o servidor entrega o conteúdo visível)", () => {
     const base = css.match(/\n\.revelar\s*\{([^}]*)\}/);
     expect(base?.[1]).not.toContain("opacity: 0");

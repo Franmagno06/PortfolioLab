@@ -51,7 +51,7 @@ export function AbasDaCarteira() {
                   ref={ativa ? atual : undefined}
                   href={aba.href}
                   aria-current={ativa ? "page" : undefined}
-                  className={`interativo flex min-h-11 items-center gap-2 border-b-2 py-4 text-[15px] font-medium whitespace-nowrap ${
+                  className={`interativo interativo-aba flex min-h-11 items-center gap-2 border-b-2 py-4 text-[15px] font-medium whitespace-nowrap ${
                     ativa
                       ? "border-ink text-ink"
                       : "border-transparent text-ink-2 hover:text-ink focus-visible:text-ink"

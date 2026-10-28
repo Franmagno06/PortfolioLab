@@ -213,7 +213,8 @@ html {
     transform var(--duracao-media) var(--curva),
     box-shadow var(--duracao-media) var(--curva),
     border-color var(--duracao-media) var(--curva),
-    background-color var(--duracao-rapida) var(--curva);
+    background-color var(--duracao-rapida) var(--curva),
+    color var(--duracao-rapida) var(--curva);
 }
 .interativo:focus-visible,
 .interativo:has(:focus-visible) {
@@ -271,6 +272,20 @@ html {
 /* Aba da página atual (área logada): quando sobe, o traço continua na cor da tinta. */
 .interativo[aria-current="page"] {
   border-color: var(--color-ink);
+}
+
+/* Aba é um traço de cor, não um cartão: nada de subir nem de sombra (o nav corta os dois). */
+.interativo.interativo-aba:focus-visible,
+.interativo.interativo-aba:has(:focus-visible),
+.interativo.interativo-aba:active:not(:has(button:active)) {
+  transform: none;
+  box-shadow: none;
+}
+@media (hover: hover) and (pointer: fine) {
+  .interativo.interativo-aba:hover {
+    transform: none;
+    box-shadow: none;
+  }
 }
 
 /* Linha de tabela da área logada: não sobe (distrairia a leitura dos números); só ganha

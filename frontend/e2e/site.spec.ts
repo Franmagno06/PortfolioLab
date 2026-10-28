@@ -118,6 +118,8 @@ test.describe("site público", () => {
 test.describe("bento Ativos e índices", () => {
   test("os quadros levam às fichas e aos índices, e a explicação sobe no foco", async ({ page }) => {
     await page.goto("/");
+    // o conteúdo ao vivo chega escondido (streaming) até o React trocar o substituto: espera a troca
+    await expect(page.locator("#ativos-e-indices")).toHaveCount(1);
     const bento = page.locator("#ativos-e-indices");
     await bento.scrollIntoViewIfNeeded();
 
@@ -207,6 +209,7 @@ test.describe("no celular", () => {
   test("o bento a 390px não rola para o lado e mostra a explicação sem hover", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/");
+    await expect(page.locator("#ativos-e-indices")).toHaveCount(1);
     const bento = page.locator("#ativos-e-indices");
     await bento.scrollIntoViewIfNeeded();
 
