@@ -2,37 +2,20 @@ import { createHash } from "node:crypto";
 import { Prisma, type Asset } from "@prisma/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { extractText, getDocumentProxy } from "unpdf";
-import { analisarDadosCvm, analisarRelatorio, perguntarAoRelatorio } from "./gemini.js";
 import { AppError } from "../../shared/errors/AppError.js";
 import { reportsRepository } from "./reports.repository.js";
 import {
-  CONTEXTO_ANALISE,
   COTA_RELATORIOS,
   MENSAGEM_CHAT_INDISPONIVEL,
   reportsService,
 } from "./reports.service.js";
 import { buscarDadosAcao, buscarDadosFii, type DadosAcao } from "./cvm.provider.js";
 import { quotesService } from "../quotes/quotes.service.js";
+import { analiseSemIa } from "./resumo-cvm.js";
 
 vi.mock("unpdf", () => ({
   getDocumentProxy: vi.fn().mockResolvedValue({}),
   extractText: vi.fn().mockResolvedValue({ text: "" }),
-}));
-
-vi.mock("./gemini.js", () => ({
-  analisarRelatorio: vi.fn().mockResolvedValue({
-    tipoDocumento: "Relatório de teste",
-    resumoExecutivo: ["ponto 1"],
-    alertas: [],
-    indicadores: [],
-  }),
-  analisarDadosCvm: vi.fn().mockResolvedValue({
-    tipoDocumento: "o que a IA disser",
-    resumoExecutivo: ["leitura da IA sobre os números da CVM"],
-    alertas: [],
-    indicadores: [{ nome: "número inventado", valor: "999" }],
-  }),
-  perguntarAoRelatorio: vi.fn().mockResolvedValue("resposta"),
 }));
 
 vi.mock("./cvm.provider.js", () => ({
@@ -44,16 +27,10 @@ vi.mock("../quotes/quotes.service.js", () => ({
   quotesService: { buscarOuCadastrar: vi.fn() },
 }));
 
-// Achado 8: além do teto por requisição, uma cota de relatórios ARMAZENADOS por
-// usuário. A cota é uma comparação de inteiro — não precisa de banco para ser
-// provada, e neste repositório *.service.test.ts significa teste puro
-// (cf. portfolio.service.test.ts). O que a suíte precisa saber é quantos
-// relatórios o usuário tem; de onde esse número vem é problema do repository.
 function comRelatoriosGuardados(quantidade: number) {
   return vi.spyOn(reportsRepository, "countByUser").mockResolvedValue(quantidade);
 }
 
-/** Buffer irrelevante: a cota é conferida antes de qualquer leitura dele. */
 const arquivoQualquer = { originalname: "irrelevante.pdf", buffer: Buffer.from("%PDF-") };
 
 const statusDe = async (userId: string) =>
@@ -63,7 +40,6 @@ const statusDe = async (userId: string) =>
     .catch((e: AppError) => e.statusCode);
 
 beforeEach(() => {
-  // Padrão: nenhum PDF igual analisado antes. O bloco do cache sobrescreve.
   vi.spyOn(reportsRepository, "findPdfByContentHash").mockResolvedValue(null);
 });
 
@@ -74,19 +50,16 @@ afterEach(() => {
 describe("cota de relatórios por usuário", () => {
   it("recusa com 429 quem já está na cota", async () => {
     comRelatoriosGuardados(COTA_RELATORIOS);
-
     expect(await statusDe("usuario-qualquer")).toBe(429);
   });
 
   it("recusa também quem passou da cota", async () => {
     comRelatoriosGuardados(COTA_RELATORIOS + 10);
-
     expect(await statusDe("usuario-qualquer")).toBe(429);
   });
 
   it("a mensagem diz o que fazer para voltar a analisar", async () => {
     comRelatoriosGuardados(COTA_RELATORIOS);
-
     await expect(
       reportsService.analisar("usuario-qualquer", arquivoQualquer),
     ).rejects.toThrow(/apag/i);
@@ -94,16 +67,12 @@ describe("cota de relatórios por usuário", () => {
 
   it("quem está um abaixo da cota passa pela checagem", async () => {
     comRelatoriosGuardados(COTA_RELATORIOS - 1);
-
-    // segue o fluxo e falha adiante, no PDF vazio — o que importa é não ser 429
     expect(await statusDe("usuario-qualquer")).not.toBe(429);
   });
 
   it("a cota é contada por usuário", async () => {
     const espia = comRelatoriosGuardados(0);
-
     await statusDe("usuario-especifico");
-
     expect(espia).toHaveBeenCalledWith("usuario-especifico");
   });
 });
@@ -114,7 +83,6 @@ describe("extração de texto do PDF", () => {
     vi.mocked(extractText).mockResolvedValueOnce({ text: "   " } as Awaited<
       ReturnType<typeof extractText>
     >);
-
     expect(await statusDe("usuario-qualquer")).toBe(400);
   });
 
@@ -123,66 +91,39 @@ describe("extração de texto do PDF", () => {
     vi.mocked(extractText).mockResolvedValueOnce({ text: "a".repeat(2_000_001) } as Awaited<
       ReturnType<typeof extractText>
     >);
-
     expect(await statusDe("usuario-qualquer")).toBe(400);
   });
 
-  it("envia o texto extraído para a IA e persiste a análise", async () => {
+  it("processa o texto extraído deterministicamente e persiste a análise", async () => {
     comRelatoriosGuardados(0);
-    vi.mocked(extractText).mockResolvedValueOnce({ text: "conteúdo do relatório" } as Awaited<
+    const textoRelatorio = "Relatório Gerencial do Fundo. A distribuição de rendimentos no mês foi de R$ 0,85 por cota.";
+    vi.mocked(extractText).mockResolvedValueOnce({ text: textoRelatorio } as Awaited<
       ReturnType<typeof extractText>
     >);
     const criar = vi.spyOn(reportsRepository, "create").mockResolvedValue({
       id: "relatorio-1",
       userId: "usuario-qualquer",
       fileName: arquivoQualquer.originalname,
-      extractedText: "conteúdo do relatório",
+      extractedText: textoRelatorio,
       analysis: {},
       createdAt: new Date(),
     } as Awaited<ReturnType<typeof reportsRepository.create>>);
 
     const resultado = await reportsService.analisar("usuario-qualquer", arquivoQualquer);
 
-    // false = documento pequeno, foi inteiro; a IA não precisa se precaver
-    expect(vi.mocked(analisarRelatorio)).toHaveBeenCalledWith("conteúdo do relatório", false);
     expect(criar).toHaveBeenCalledWith(
       expect.objectContaining({
         userId: "usuario-qualquer",
-        extractedText: "conteúdo do relatório",
+        extractedText: textoRelatorio,
       }),
     );
-    expect(resultado.analysis.tipoDocumento).toBe("Relatório de teste");
-  });
-
-  it("recorta o documento grande antes de mandar para a IA, e avisa que recortou", async () => {
-    // O release trimestral do Banco do Brasil tem 760 mil caracteres. Mandado
-    // inteiro, custa ~217 mil tokens e queima a cota de um minuto.
-    comRelatoriosGuardados(0);
-    const gigante = "O lucro liquido somou R$ 3,4 bilhoes, queda de 53,5%. ".repeat(20_000);
-    vi.mocked(extractText).mockResolvedValueOnce({ text: gigante } as Awaited<
-      ReturnType<typeof extractText>
-    >);
-    vi.spyOn(reportsRepository, "create").mockResolvedValue({
-      id: "relatorio-2",
-      userId: "usuario-qualquer",
-      fileName: arquivoQualquer.originalname,
-      extractedText: gigante,
-      analysis: {},
-      createdAt: new Date(),
-    } as Awaited<ReturnType<typeof reportsRepository.create>>);
-
-    await reportsService.analisar("usuario-qualquer", arquivoQualquer);
-
-    const [enviado, recortado] = vi.mocked(analisarRelatorio).mock.calls.at(-1) ?? [];
-    expect(recortado).toBe(true);
-    expect(enviado?.length).toBeLessThanOrEqual(CONTEXTO_ANALISE);
-    expect(enviado?.length).toBeLessThan(gigante.length);
+    expect(resultado.analysis.tipoDocumento).toBe("Relatório Gerencial de FII");
+    expect(resultado.analysis.resumoExecutivo.length).toBeGreaterThan(0);
   });
 });
 
 describe("mesmo PDF enviado de novo", () => {
   const pdfDeTeste = { originalname: "MXRF11-maio.pdf", buffer: Buffer.from("%PDF-1.7 conteúdo") };
-  // calculado aqui, ANTES de o serviço receber o buffer
   const hashReal = () => createHash("sha256").update(pdfDeTeste.buffer).digest("hex");
 
   function espiarCreate() {
@@ -191,23 +132,20 @@ describe("mesmo PDF enviado de novo", () => {
     ) => Promise.resolve({ ...data, id: "novo", createdAt: new Date() })) as unknown as typeof reportsRepository.create);
   }
 
-  it("reaproveita análise e texto sem chamar a IA nem reler o PDF", async () => {
+  it("reaproveita análise e texto sem reler o PDF", async () => {
     comRelatoriosGuardados(0);
     const busca = vi.spyOn(reportsRepository, "findPdfByContentHash").mockResolvedValue({
       extractedText: "texto já extraído",
       analysis: { tipoDocumento: "da vez anterior", resumoExecutivo: [], alertas: [], indicadores: [] },
     });
     const criar = espiarCreate();
-    vi.mocked(analisarRelatorio).mockClear();
     vi.mocked(extractText).mockClear();
 
     const r = await reportsService.analisar("outra-conta", pdfDeTeste);
 
     expect(busca).toHaveBeenCalledWith(hashReal());
-    expect(analisarRelatorio).not.toHaveBeenCalled();
     expect(extractText).not.toHaveBeenCalled();
     expect(r.analysis.tipoDocumento).toBe("da vez anterior");
-    // o relatório é desta conta: ganha registro próprio, com o mesmo hash
     expect(criar).toHaveBeenCalledWith(
       expect.objectContaining({
         userId: "outra-conta",
@@ -217,17 +155,15 @@ describe("mesmo PDF enviado de novo", () => {
     );
   });
 
-  it("PDF inédito vai para a IA e guarda o hash para o próximo envio", async () => {
+  it("PDF inédito guarda o hash para o próximo envio", async () => {
     comRelatoriosGuardados(0);
-    vi.mocked(extractText).mockResolvedValueOnce({ text: "conteúdo novo" } as Awaited<
+    vi.mocked(extractText).mockResolvedValueOnce({ text: "conteúdo novo sobre Fundo Imobiliário" } as Awaited<
       ReturnType<typeof extractText>
     >);
     const criar = espiarCreate();
-    vi.mocked(analisarRelatorio).mockClear();
 
     await reportsService.analisar("u1", pdfDeTeste);
 
-    expect(analisarRelatorio).toHaveBeenCalledTimes(1);
     expect(criar).toHaveBeenCalledWith(expect.objectContaining({ contentHash: hashReal() }));
   });
 
@@ -235,7 +171,7 @@ describe("mesmo PDF enviado de novo", () => {
     comRelatoriosGuardados(0);
     const busca = vi.spyOn(reportsRepository, "findPdfByContentHash").mockResolvedValue(null);
     espiarCreate();
-    const comTexto = { text: "conteúdo" } as Awaited<ReturnType<typeof extractText>>;
+    const comTexto = { text: "conteúdo de fundo" } as Awaited<ReturnType<typeof extractText>>;
     vi.mocked(extractText).mockResolvedValueOnce(comTexto).mockResolvedValueOnce(comTexto);
 
     await reportsService.analisar("u1", { originalname: "a.pdf", buffer: Buffer.from("%PDF- versão 1") });
@@ -289,22 +225,39 @@ const DADOS_ITR: DadosAcao = {
       atual: new Prisma.Decimal("78452578000"),
       anterior: new Prisma.Decimal("71720089000"),
     },
+    {
+      codigo: "3.11",
+      conta: "Lucro Líquido Consolidado",
+      atual: new Prisma.Decimal("9000000000"),
+      anterior: new Prisma.Decimal("8000000000"),
+    },
   ],
-  balanco: [],
+  balanco: [
+    {
+      codigo: "1",
+      conta: "Ativo Total",
+      atual: new Prisma.Decimal("2000000000000"),
+      anterior: new Prisma.Decimal("1900000000000"),
+    },
+    {
+      codigo: "2.03",
+      conta: "Patrimônio Líquido",
+      atual: new Prisma.Decimal("180000000000"),
+      anterior: new Prisma.Decimal("170000000000"),
+    },
+  ],
   link: null,
 };
 
-/** PDF cuja primeira página diz `capa` e cujo texto completo é `completo`. */
 function pdfCom(capa: string, completo = "texto completo do relatório") {
-  vi.mocked(getDocumentProxy).mockResolvedValueOnce({
+  vi.mocked(getDocumentProxy).mockResolvedValue({
     numPages: 1,
     getPage: async () => ({ getTextContent: async () => ({ items: [{ str: capa }] }) }),
   } as unknown as Awaited<ReturnType<typeof getDocumentProxy>>);
-  vi.mocked(extractText).mockResolvedValueOnce({ text: completo } as Awaited<ReturnType<typeof extractText>>);
+  vi.mocked(extractText).mockResolvedValue({ text: completo } as Awaited<ReturnType<typeof extractText>>);
 }
 
 function espiarCreate() {
-  // devolve o que recebeu, como o banco devolveria a linha criada
   return vi.spyOn(reportsRepository, "create").mockImplementation(((
     data: Parameters<typeof reportsRepository.create>[0],
   ) =>
@@ -313,7 +266,7 @@ function espiarCreate() {
 
 const arquivo = { originalname: "BBAS3-1T26.pdf", buffer: Buffer.from("%PDF-") };
 
-describe("relatório com ativo informado", () => {
+describe("relatório com ativo informado ou autodetectado", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     comRelatoriosGuardados(0);
@@ -324,7 +277,7 @@ describe("relatório com ativo informado", () => {
     );
   });
 
-  it("período detectado e documento na CVM: analisa os números oficiais sem ler o PDF inteiro", async () => {
+  it("período detectado e documento na CVM: gera análise determinística oficial CVM", async () => {
     pdfCom("Análise do Desempenho 1T26");
     vi.mocked(buscarDadosAcao).mockResolvedValueOnce(DADOS_ITR);
     const criar = espiarCreate();
@@ -336,27 +289,36 @@ describe("relatório com ativo informado", () => {
       ano: 2026,
       trimestre: 1,
     });
-    expect(analisarDadosCvm).toHaveBeenCalledWith(expect.stringContaining("R$ 78,45 bi"));
-    expect(analisarRelatorio).not.toHaveBeenCalled();
-    expect(extractText).not.toHaveBeenCalled();
     expect(criar).toHaveBeenCalledWith(
       expect.objectContaining({
         source: "CVM",
         period: "2026-T1",
         assetId: "asset-bbas3",
-        extractedText: null,
+        extractedText: "texto completo do relatório",
       }),
     );
     expect(r.source).toBe("CVM");
-    // o texto é da IA; os indicadores saem do cálculo, nunca da IA
-    expect(r.analysis.resumoExecutivo).toEqual(["leitura da IA sobre os números da CVM"]);
-    expect(r.analysis.indicadores).toEqual([
-      { nome: "Receitas de Intermediação Financeira", valor: "R$ 78,45 bi (+9,4%)" },
-    ]);
+    expect(r.analysis.resumoExecutivo[0]).toContain("Análise Fundamentalista Oficial CVM");
+    expect(r.analysis.indicadores).toEqual(
+      expect.arrayContaining([
+        { nome: "Receitas de Intermediação Financeira", valor: "R$ 78,45 bi (+9,4%)" },
+      ]),
+    );
     expect(reportsRepository.saveCvmSummary).toHaveBeenCalledWith("asset-bbas3", "2026-T1", r.analysis);
   });
 
-  it("análise já em cache: não baixa da CVM nem chama a IA", async () => {
+  it("autodetecta ticker pelo nome do arquivo se não fornecido no input", async () => {
+    pdfCom("Release 1T26");
+    vi.mocked(buscarDadosAcao).mockResolvedValueOnce(DADOS_ITR);
+    espiarCreate();
+
+    const r = await reportsService.analisar("u1", { originalname: "relatorio_BBAS3_1T26.pdf", buffer: Buffer.from("%PDF-") });
+
+    expect(quotesService.buscarOuCadastrar).toHaveBeenCalledWith("BBAS3");
+    expect(r.source).toBe("CVM");
+  });
+
+  it("análise já em cache: não baixa da CVM", async () => {
     pdfCom("Análise do Desempenho 1T26");
     const guardada = { tipoDocumento: "cache", resumoExecutivo: [], alertas: [], indicadores: [] };
     vi.mocked(reportsRepository.findCvmSummary).mockResolvedValueOnce({
@@ -368,59 +330,40 @@ describe("relatório com ativo informado", () => {
 
     expect(r.analysis).toEqual(guardada);
     expect(buscarDadosAcao).not.toHaveBeenCalled();
-    expect(analisarDadosCvm).not.toHaveBeenCalled();
   });
 
-  it("IA fora do ar: entrega os números da CVM por template, sem guardar no cache", async () => {
-    pdfCom("Análise do Desempenho 1T26");
-    vi.mocked(buscarDadosAcao).mockResolvedValueOnce(DADOS_ITR);
-    vi.mocked(analisarDadosCvm).mockRejectedValueOnce(new AppError("IA não configurada", 503));
-    espiarCreate();
-
-    const r = await reportsService.analisar("u1", arquivo, { ticker: "BBAS3" });
-
-    expect(r.source).toBe("CVM");
-    expect(r.analysis.indicadores[0]?.valor).toBe("R$ 78,45 bi (+9,4%)");
-    expect(r.analysis.alertas.map((a) => a.titulo)).toContain("Resumo sem leitura da IA");
-    expect(reportsRepository.saveCvmSummary).not.toHaveBeenCalled();
-  });
-
-  it("fallback: sem período na capa, lê o PDF inteiro", async () => {
-    pdfCom("Relatório de Sustentabilidade");
+  it("fallback: sem período na capa, analisa o PDF via unpdf/trechos", async () => {
+    pdfCom("Relatório Geral de Atividades", "Texto completo do relatório de atividades da companhia.");
     const criar = espiarCreate();
 
     const r = await reportsService.analisar("u1", arquivo, { ticker: "BBAS3" });
 
     expect(buscarDadosAcao).not.toHaveBeenCalled();
-    expect(analisarRelatorio).toHaveBeenCalledWith("texto completo do relatório", false);
     expect(criar).toHaveBeenCalledWith(
       expect.objectContaining({
         source: "PDF",
         period: null,
         assetId: "asset-bbas3",
-        extractedText: "texto completo do relatório",
+        extractedText: "Texto completo do relatório de atividades da companhia.",
       }),
     );
     expect(r.source).toBe("PDF");
   });
 
   it("fallback: CVM ainda não tem o documento do período", async () => {
-    pdfCom("Release de Resultados 2T26");
+    pdfCom("Release de Resultados 2T26", "Texto completo do release trimestral.");
     vi.mocked(buscarDadosAcao).mockResolvedValueOnce(null);
     const criar = espiarCreate();
 
     const r = await reportsService.analisar("u1", arquivo, { ticker: "BBAS3" });
 
     expect(buscarDadosAcao).toHaveBeenCalled();
-    expect(analisarDadosCvm).not.toHaveBeenCalled();
-    expect(analisarRelatorio).toHaveBeenCalled();
-    // o período detectado fica registrado mesmo no fallback
     expect(criar).toHaveBeenCalledWith(expect.objectContaining({ source: "PDF", period: "2026-T2" }));
     expect(r.source).toBe("PDF");
   });
 
   it("fallback: ETF não tem documento na CVM", async () => {
-    pdfCom("Relatório mensal março de 2026");
+    pdfCom("Relatório mensal março de 2026", "Texto do fundo de índice.");
     vi.mocked(quotesService.buscarOuCadastrar).mockResolvedValueOnce({
       ...BBAS3,
       ticker: "BOVA11",
@@ -437,11 +380,11 @@ describe("relatório com ativo informado", () => {
   });
 
   it("fallback: ticker que não existe segue sem ativo", async () => {
-    pdfCom("1T26");
+    pdfCom("1T26", "Relatório de empresa sem cotação cadastrada.");
     vi.mocked(quotesService.buscarOuCadastrar).mockResolvedValueOnce(null);
     const criar = espiarCreate();
 
-    await reportsService.analisar("u1", arquivo, { ticker: "XPTO3" });
+    await reportsService.analisar("u1", { originalname: "arquivo.pdf", buffer: Buffer.from("%PDF-") }, { ticker: "XPTO3" });
 
     expect(criar).toHaveBeenCalledWith(expect.objectContaining({ source: "PDF", assetId: null }));
   });
@@ -462,18 +405,18 @@ describe("relatório com ativo informado", () => {
     expect(buscarDadosFii).toHaveBeenCalledWith("97.521.225/0001-25", { tipo: "mes", ano: 2026, mes: 5 });
   });
 
-  it("sem ticker: nem consulta o ativo, vai direto para o PDF inteiro", async () => {
-    pdfCom("1T26");
+  it("sem ticker nem no input nem no arquivo: analisa o PDF diretamente", async () => {
+    pdfCom("1T26", "Relatório sem nenhuma menção a código de negociação.");
     espiarCreate();
 
-    const r = await reportsService.analisar("u1", arquivo);
+    const r = await reportsService.analisar("u1", { originalname: "documento_sem_ticker.pdf", buffer: Buffer.from("%PDF-") });
 
     expect(quotesService.buscarOuCadastrar).not.toHaveBeenCalled();
     expect(r.source).toBe("PDF");
   });
 });
 
-describe("chat do relatório", () => {
+describe("chat e busca contextual do relatório", () => {
   const relatorio = {
     id: "r1",
     userId: "u1",
@@ -485,7 +428,7 @@ describe("chat do relatório", () => {
     createdAt: new Date(),
   };
 
-  it("recusa com 409 o relatório montado com dados da CVM, e diz como conseguir o chat", async () => {
+  it("recusa com 409 quando o relatório não tiver texto extraído", async () => {
     vi.spyOn(reportsRepository, "findByIdAndUser").mockResolvedValueOnce({
       ...relatorio,
       source: "CVM",
@@ -499,18 +442,89 @@ describe("chat do relatório", () => {
     expect(erro).toBeInstanceOf(AppError);
     expect((erro as AppError).statusCode).toBe(409);
     expect((erro as AppError).message).toBe(MENSAGEM_CHAT_INDISPONIVEL);
-    expect(perguntarAoRelatorio).not.toHaveBeenCalled();
   });
 
-  it("responde normalmente no relatório com o PDF inteiro", async () => {
+  it("responde com busca contextual no documento sem IA externa", async () => {
+    const textoDoc = "O lucro líquido contábil somou R$ 9,2 bilhões, crescimento de 12% no trimestre.";
+    vi.spyOn(reportsRepository, "findByIdAndUser").mockResolvedValueOnce({
+      ...relatorio,
+      source: "CVM",
+      extractedText: textoDoc,
+    });
+
+    const r = await reportsService.ask("u1", "r1", { question: "qual o lucro líquido?", history: [] });
+
+    expect(r.answer).toContain("Busca Contextual no Documento");
+    expect(r.answer).toContain("lucro líquido");
+  });
+  it("responde busca contextual quando chamado com campo termo em vez de question", async () => {
+    const textoDoc = "A vacância financeira do fundo encerrou o período em 4,2%.";
     vi.spyOn(reportsRepository, "findByIdAndUser").mockResolvedValueOnce({
       ...relatorio,
       source: "PDF",
-      extractedText: "texto",
+      extractedText: textoDoc,
     });
 
-    const r = await reportsService.ask("u1", "r1", { question: "qual o lucro?", history: [] });
+    const r = await reportsService.ask("u1", "r1", { termo: "vacância", history: [] });
 
-    expect(r.answer).toBe("resposta");
+    expect(r.answer).toContain("Busca Contextual no Documento");
+    expect(r.answer).toContain("vacância");
+  });
+});
+
+describe("reportsService.analisarDiretoCvm", () => {
+  it("recusa com 429 quando atinge a cota de relatórios guardados", async () => {
+    comRelatoriosGuardados(COTA_RELATORIOS);
+
+    await expect(
+      reportsService.analisarDiretoCvm("u1", { ticker: "BBAS3" }),
+    ).rejects.toMatchObject({ statusCode: 429 });
+  });
+
+  it("recusa com 404 quando o ativo não existe", async () => {
+    comRelatoriosGuardados(0);
+    vi.spyOn(quotesService, "buscarOuCadastrar").mockResolvedValueOnce(null);
+
+    await expect(
+      reportsService.analisarDiretoCvm("u1", { ticker: "INEXISTENTE" }),
+    ).rejects.toMatchObject({ statusCode: 404 });
+  });
+
+  it("gera análise direta da CVM aproveitando resumo em cache", async () => {
+    comRelatoriosGuardados(0);
+    const mockAsset = {
+      id: "asset-bbas3",
+      ticker: "BBAS3",
+      type: "ACAO",
+      cnpj: "00.000.000/0001-91",
+    } as any;
+    vi.spyOn(quotesService, "buscarOuCadastrar").mockResolvedValueOnce(mockAsset);
+
+    const analiseMock = {
+      tipoDocumento: "ITR",
+      resumoExecutivo: ["Lucro em alta"],
+      alertas: [],
+      indicadores: [],
+    };
+    vi.spyOn(reportsRepository, "findCvmSummary").mockResolvedValueOnce({
+      id: "cvm-1",
+      assetId: mockAsset.id,
+      period: "2026-T1",
+      analysis: analiseMock as any,
+      createdAt: new Date(),
+    });
+
+    vi.spyOn(reportsRepository, "create").mockImplementationOnce(async (data: any) => ({
+      id: "rep-123",
+      ...data,
+      createdAt: new Date(),
+    }));
+
+    const res = await reportsService.analisarDiretoCvm("u1", { ticker: "BBAS3", periodo: "2026-T1" });
+
+    expect(res.source).toBe("CVM");
+    expect(res.period).toBe("2026-T1");
+    expect(res.asset?.ticker).toBe("BBAS3");
+    expect(res.analysis).toEqual(analiseMock);
   });
 });

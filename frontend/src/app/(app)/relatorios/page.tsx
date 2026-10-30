@@ -23,9 +23,9 @@ type Relatorio = {
   fileName: string;
   createdAt: string;
   analysis: Analise | null;
-  /** CVM: números oficiais, sem o texto do PDF (e sem chat). PDF: documento lido inteiro. */
+  /** CVM: números oficiais estruturados da CVM. PDF: documento lido com busca textual. */
   source: "CVM" | "PDF";
-  /** "2026-T1" ou "2026-03", quando a capa trazia o período. */
+  /** "2026-T1" ou "2026-03", quando identificado o período. */
   period: string | null;
   asset: { ticker: string } | null;
 };
@@ -42,9 +42,6 @@ function rotuloPeriodo(periodo: string): string {
 
 type MensagemChat = { role: "user" | "assistant"; content: string };
 
-// Severidade: barra lateral colorida + texto em tinta cheia. A versão anterior
-// pintava o título na cor da severidade sobre um fundo tingido dela — o âmbar
-// dava menos de 4.5:1. A cor passou a marcar, não a escrever.
 const severidades: Record<Alerta["severidade"], { barra: string; rotulo: string }> = {
   critico: { barra: "var(--color-loss)", rotulo: "Crítico" },
   atencao: { barra: "var(--color-etf)", rotulo: "Atenção" },
@@ -55,6 +52,7 @@ export default function RelatoriosPage() {
   const [relatorios, setRelatorios] = useState<Relatorio[] | null>(null);
   const [selecionado, setSelecionado] = useState<Relatorio | null>(null);
   const [enviando, setEnviando] = useState(false);
+  const [consultandoCvm, setConsultandoCvm] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [chat, setChat] = useState<MensagemChat[]>([]);
   const [pergunta, setPergunta] = useState("");
@@ -70,7 +68,7 @@ export default function RelatoriosPage() {
         if (itens.length > 0) setSelecionado(itens[0] ?? null);
       })
       .catch(() => setRelatorios([]));
-    // só para sugerir no campo; qualquer ticker da B3 é aceito
+    // sugerir no campo; qualquer ticker da B3 é aceito
     api<{ ticker: string }[]>("/assets")
       .then(setMeusAtivos)
       .catch(() => setMeusAtivos([]));
@@ -81,7 +79,6 @@ export default function RelatoriosPage() {
     setEnviando(true);
     try {
       const form = new FormData();
-      // opcional: com ele, ações e FIIs são analisados com os dados da CVM
       if (ticker.trim()) form.append("ticker", ticker.trim().toUpperCase());
       form.append("file", arquivo);
       const novo = await apiUpload<Relatorio>("/reports", form);
@@ -89,10 +86,29 @@ export default function RelatoriosPage() {
       setSelecionado(novo);
       setChat([]);
     } catch (err) {
-      setErro(err instanceof ApiError ? err.message : "Falha ao analisar o PDF");
+      setErro(err instanceof ApiError ? err.message : "Falha ao processar o PDF");
     } finally {
       setEnviando(false);
       if (inputArquivo.current) inputArquivo.current.value = "";
+    }
+  }
+
+  async function consultarCvmDireto() {
+    if (!ticker.trim()) return;
+    setErro(null);
+    setConsultandoCvm(true);
+    try {
+      const novo = await api<Relatorio>("/reports/cvm", {
+        method: "POST",
+        body: JSON.stringify({ ticker: ticker.trim().toUpperCase() }),
+      });
+      setRelatorios((atual) => [novo, ...(atual ?? [])]);
+      setSelecionado(novo);
+      setChat([]);
+    } catch (err) {
+      setErro(err instanceof ApiError ? err.message : "Falha ao consultar dados da CVM");
+    } finally {
+      setConsultandoCvm(false);
     }
   }
 
@@ -107,24 +123,29 @@ export default function RelatoriosPage() {
     try {
       const { answer } = await api<{ answer: string }>(`/reports/${selecionado.id}/ask`, {
         method: "POST",
-        body: JSON.stringify({ question: minhaPergunta, history: chat.slice(-10) }),
+        body: JSON.stringify({
+          question: minhaPergunta,
+          termo: minhaPergunta,
+          history: chat.slice(-10),
+        }),
       });
       setChat((c) => [...c, { role: "assistant", content: answer }]);
     } catch (err) {
-      setErro(err instanceof ApiError ? err.message : "Falha ao perguntar");
-      setChat((c) => c.slice(0, -1)); // remove a pergunta que falhou
+      setErro(err instanceof ApiError ? err.message : "Falha ao buscar no documento");
+      setChat((c) => c.slice(0, -1));
     } finally {
       setPerguntando(false);
     }
   }
 
   const analise = selecionado?.analysis ?? null;
+  const emProgresso = enviando || consultandoCvm;
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       <PageHeader
-        titulo="Relatórios com IA"
-        descricao="Envie o relatório gerencial em PDF e receba resumo, pontos de atenção e um chat para tirar dúvidas"
+        titulo="Relatórios CVM e Documentos"
+        descricao="Consulte demonstrações financeiras oficiais da CVM ou envie relatórios gerenciais em PDF para extrair resumo, indicadores e buscar no documento"
         acao={
           <div className="flex items-center gap-2">
             <input
@@ -132,9 +153,9 @@ export default function RelatoriosPage() {
               onChange={(e) => setTicker(e.target.value.toUpperCase())}
               list="relatorio-ativos"
               aria-label="Ativo do relatório (opcional)"
-              placeholder="Ativo (opcional)"
+              placeholder="Ticker (ex: BBAS3)"
               maxLength={7}
-              disabled={enviando}
+              disabled={emProgresso}
               className={`${estiloCampo} w-40 uppercase placeholder:normal-case`}
             />
             <datalist id="relatorio-ativos">
@@ -142,15 +163,21 @@ export default function RelatoriosPage() {
                 <option key={a.ticker} value={a.ticker} />
               ))}
             </datalist>
-            <Botao onClick={() => inputArquivo.current?.click()} disabled={enviando}>
-              {enviando ? "Analisando…" : "Enviar PDF"}
+            <Botao
+              variante="secundario"
+              onClick={consultarCvmDireto}
+              disabled={emProgresso || !ticker.trim()}
+            >
+              {consultandoCvm ? "Consultando CVM…" : "Consultar CVM"}
+            </Botao>
+            <Botao onClick={() => inputArquivo.current?.click()} disabled={emProgresso}>
+              {enviando ? "Processando…" : "Enviar PDF"}
             </Botao>
           </div>
         }
       />
       <p className="-mt-3 text-xs text-mute">
-        Informando o ativo, ações e FIIs são analisados com os números oficiais entregues à CVM.
-        Sem ele, a IA lê o PDF inteiro, e só nesse caso o chat fica disponível.
+        Informe o ticker para consultar balanços oficiais da CVM sem enviar arquivo, ou anexe o PDF do relatório gerencial para processamento estruturado e busca textual.
       </p>
       <input
         ref={inputArquivo}
@@ -165,12 +192,15 @@ export default function RelatoriosPage() {
 
       {erro && <MensagemErro>{erro}</MensagemErro>}
 
-      {enviando && (
+      {emProgresso && (
         <Card>
-          <p className="font-semibold">Lendo e analisando o relatório</p>
+          <p className="font-semibold">
+            {consultandoCvm ? "Consultando dados na CVM" : "Lendo e processando o documento"}
+          </p>
           <p className="mt-1 text-sm text-mute">
-            A IA está extraindo o resumo executivo e os pontos de atenção. Isso leva alguns
-            segundos.
+            {consultandoCvm
+              ? "Buscando demonstrações financeiras e consolidando indicadores oficiais."
+              : "Extraindo dados financeiros, resumo executivo e pontos de atenção."}
           </p>
           <div className="mt-4 h-1.5 w-full overflow-hidden rounded-full bg-paper">
             <div className="h-full w-1/3 animate-pulse rounded-full bg-gain" />
@@ -220,15 +250,15 @@ export default function RelatoriosPage() {
           )}
         </Card>
 
-        {/* Análise + chat */}
+        {/* Análise + busca */}
         <div className="col-span-12 space-y-6 lg:col-span-9">
           {!analise ? (
             <EmptyState
-              titulo="Envie um relatório gerencial em PDF"
-              descricao="Funciona melhor com relatórios de FIIs e releases de resultados. A análise é educacional, não é recomendação de investimento."
+              titulo="Consulte a CVM ou envie um relatório em PDF"
+              descricao="Funciona com ações e fundos imobiliários da B3. Obtenha resumo executivo, alertas e indicadores estruturados de forma educacional."
             >
-              <Botao onClick={() => inputArquivo.current?.click()} disabled={enviando}>
-                {enviando ? "Analisando…" : "Enviar PDF"}
+              <Botao onClick={() => inputArquivo.current?.click()} disabled={emProgresso}>
+                {enviando ? "Processando…" : "Enviar PDF"}
               </Botao>
             </EmptyState>
           ) : (
@@ -245,8 +275,8 @@ export default function RelatoriosPage() {
                 </TituloCard>
                 <p className="mt-1 text-xs text-mute">
                   {selecionado?.source === "CVM"
-                    ? `Números oficiais entregues à CVM${selecionado.period ? ` (${rotuloPeriodo(selecionado.period)})` : ""}, comentados pela IA. O PDF enviado serviu para identificar o período.`
-                    : "Leitura do PDF enviado, feita pela IA."}
+                    ? `Demonstrações financeiras oficiais da CVM${selecionado.period ? ` (${rotuloPeriodo(selecionado.period)})` : ""}. Indicadores e balanço patrimonial estruturados.`
+                    : "Extração direta e análise dos dados do documento PDF enviado."}
                 </p>
                 <ul className="mt-4 space-y-2.5">
                   {analise.resumoExecutivo.map((topico, i) => (
@@ -305,18 +335,16 @@ export default function RelatoriosPage() {
 
               {selecionado?.source === "CVM" ? (
                 <Card>
-                  <TituloCard>Pergunte ao relatório</TituloCard>
+                  <TituloCard>Buscar no relatório</TituloCard>
                   <p className="mt-1 text-sm text-mute">
-                    O chat não está disponível para este relatório: ele foi montado com os dados da
-                    CVM, e o texto do PDF não foi guardado. Para conversar sobre o documento, envie o
-                    PDF de novo sem informar o ativo.
+                    A busca textual direta está disponível para documentos enviados em PDF. Para relatórios da CVM, os números e indicadores oficiais do período estão consolidados acima.
                   </p>
                 </Card>
               ) : (
                 <Card>
-                  <TituloCard>Pergunte ao relatório</TituloCard>
+                  <TituloCard>Buscar no relatório</TituloCard>
                   <p className="mt-1 text-sm text-mute">
-                    A IA responde apenas com base no que está escrito no documento.
+                    Localize termos e informações com base no conteúdo textual extraído do documento.
                   </p>
 
                   {chat.length > 0 && (
@@ -333,7 +361,7 @@ export default function RelatoriosPage() {
                       ))}
                       {perguntando && (
                         <p className="max-w-[85%] rounded-md bg-paper px-4 py-2.5 text-sm text-mute">
-                          Consultando o relatório...
+                          Buscando no documento...
                         </p>
                       )}
                     </div>
@@ -343,8 +371,8 @@ export default function RelatoriosPage() {
                     <input
                       value={pergunta}
                       onChange={(e) => setPergunta(e.target.value)}
-                      aria-label="Sua pergunta sobre o relatório"
-                      placeholder="Ex: Como está a vacância? Houve emissão de cotas?"
+                      aria-label="Sua busca ou pergunta sobre o relatório"
+                      placeholder="Ex: vacância, dividendos, receita, inadimplência..."
                       className={`${estiloCampo} min-w-0 flex-1`}
                     />
                     <Botao
@@ -352,7 +380,7 @@ export default function RelatoriosPage() {
                       variante="acento"
                       disabled={perguntando || !pergunta.trim()}
                     >
-                      Perguntar
+                      Buscar
                     </Botao>
                   </form>
                 </Card>

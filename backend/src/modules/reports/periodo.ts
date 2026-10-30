@@ -123,9 +123,39 @@ export function chaveDoPeriodo(p: Periodo): string {
   return p.tipo === "trimestre" ? `${p.ano}-T${p.trimestre}` : `${p.ano}-${String(p.mes).padStart(2, "0")}`;
 }
 
+/** Ticker B3 a partir de texto livre ou nome de arquivo: PETR4, BBAS3, MXRF11, HGLG11, etc. */
+export function detectarTicker(textoOuNome: string): string | null {
+  if (!textoOuNome) return null;
+  const match = textoOuNome.toUpperCase().match(/(?:^|[^A-Z0-9])([A-Z]{4}(?:3|4|5|6|11|12))(?:[^A-Z0-9]|$)/);
+  return match ? match[1]! : null;
+}
+
 /** Como o mercado escreve: "1T26" ou "março de 2026". */
 export function rotuloDoPeriodo(p: Periodo): string {
   if (p.tipo === "trimestre") return `${p.trimestre}T${String(p.ano).slice(-2)}`;
   const nome = MESES[p.mes - 1] === "marco" ? "março" : MESES[p.mes - 1];
   return `${nome} de ${p.ano}`;
+}
+/** Converte string de período ("2026-T1", "1T26", "2026-03", "03/2026") em Periodo. */
+export function parsearPeriodo(texto: string): Periodo | null {
+  if (!texto) return null;
+  const t = texto.trim().toUpperCase();
+  const mTri1 = t.match(/^(\d{4})[-/]?T?([1-4])$/);
+  if (mTri1) {
+    return { tipo: "trimestre", ano: Number(mTri1[1]), trimestre: Number(mTri1[2]) as 1 | 2 | 3 | 4 };
+  }
+  const mTri2 = t.match(/^([1-4])T(\d{2,4})$/);
+  if (mTri2) {
+    const ano = mTri2[2].length === 2 ? 2000 + Number(mTri2[2]) : Number(mTri2[2]);
+    return { tipo: "trimestre", ano, trimestre: Number(mTri2[1]) as 1 | 2 | 3 | 4 };
+  }
+  const mMes1 = t.match(/^(\d{4})[-/](0?[1-9]|1[0-2])$/);
+  if (mMes1) {
+    return { tipo: "mes", ano: Number(mMes1[1]), mes: Number(mMes1[2]) };
+  }
+  const mMes2 = t.match(/^(0?[1-9]|1[0-2])[-/](\d{4})$/);
+  if (mMes2) {
+    return { tipo: "mes", ano: Number(mMes2[2]), mes: Number(mMes2[1]) };
+  }
+  return null;
 }

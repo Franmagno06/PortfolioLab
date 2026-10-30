@@ -23,7 +23,18 @@ export const reportsRoutes = Router();
 
 // Achado 8: as duas rotas que gastam cota paga do Gemini. O limite vem antes
 // do multer em POST / — não faz sentido receber 25 MB para depois recusar.
-reportsRoutes.post("/", limitadorRelatorios, upload.single("file"), reportsController.create);
+reportsRoutes.post(
+  "/",
+  limitadorRelatorios,
+  (req, res, next) => {
+    if (req.is("multipart/form-data")) {
+      return upload.single("file")(req, res, next);
+    }
+    next();
+  },
+  reportsController.create,
+);
+reportsRoutes.post("/cvm", limitadorRelatorios, reportsController.consultarCvm);
 reportsRoutes.get("/", reportsController.list);
 reportsRoutes.post("/:id/ask", limitadorRelatorios, reportsController.ask);
 reportsRoutes.delete("/:id", reportsController.remove);

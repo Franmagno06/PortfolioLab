@@ -1,16 +1,27 @@
 import type { Request, Response } from "express";
 import { AppError } from "../../shared/errors/AppError.js";
-import { askSchema, uploadSchema } from "./reports.schemas.js";
+import { askSchema, consultaCvmSchema, uploadSchema } from "./reports.schemas.js";
 import { reportsService } from "./reports.service.js";
 import { paginacaoSchema } from "../../shared/paginacao.js";
 
 export const reportsController = {
   async create(req: Request, res: Response) {
     if (!req.file) {
+      if (req.body && req.body.ticker) {
+        const input = consultaCvmSchema.parse(req.body);
+        const resultado = await reportsService.analisarDiretoCvm(req.userId as string, input);
+        return res.status(201).json(resultado);
+      }
       throw new AppError("Envie o PDF no campo 'file' (multipart/form-data)", 400);
     }
     const input = uploadSchema.parse(req.body ?? {});
     const resultado = await reportsService.analisar(req.userId as string, req.file, input);
+    res.status(201).json(resultado);
+  },
+
+  async consultarCvm(req: Request, res: Response) {
+    const input = consultaCvmSchema.parse(req.body);
+    const resultado = await reportsService.analisarDiretoCvm(req.userId as string, input);
     res.status(201).json(resultado);
   },
 

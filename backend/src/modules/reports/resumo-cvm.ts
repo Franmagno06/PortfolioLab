@@ -231,47 +231,209 @@ export function tipoDocumentoCvm(d: DadosCvm, rotulo: string): string {
     : `Informações trimestrais (ITR/CVM) — ${rotulo}`;
 }
 
+function pctVariacao(atual: Prisma.Decimal | null, anterior: Prisma.Decimal | null): number | null {
+  if (!atual || !anterior || anterior.isZero()) return null;
+  return atual.minus(anterior).div(anterior.abs()).mul(CEM).toNumber();
+}
+
 /**
- * Análise sem IA: os indicadores e tópicos montados por template. É o que o
- * usuário recebe quando a IA está fora do ar ou sem cota — os números
- * oficiais já foram baixados, não faz sentido falhar o upload por causa do
- * texto corrido.
+ * Análise determinística oficial CVM: indicadores, resumo executivo rico e
+ * alertas inteligentes baseados em regras contábeis e financeiras da CVM.
  */
 export function analiseSemIa(d: DadosCvm, rotulo: string): Analise {
   const indicadores = indicadoresCvm(d);
   const alertas: Analise["alertas"] = [];
+  const resumoExecutivo: string[] = [];
 
   if (d.tipo === "ACAO") {
+    const r = receita(d);
     const l = lucro(d);
+    const pl = patrimonioLiquido(d);
+    const at = ativoTotal(d);
+
+    resumoExecutivo.push(`Análise Fundamentalista Oficial CVM (${d.denominacao}).`);
+
+    if (r?.atual) {
+      const v = variacao(r.atual, r.anterior);
+      resumoExecutivo.push(
+        `${r.conta}: ${formatarReais(r.atual)}${v ? ` (variação de ${v} YoY)` : ""}.`,
+      );
+    }
+    if (l?.atual) {
+      const nomeLucro = /controladora/i.test(l.conta) ? "Lucro líquido aos controladores" : l.conta;
+      const v = variacao(l.atual, l.anterior);
+      resumoExecutivo.push(
+        `${nomeLucro}: ${formatarReais(l.atual)}${v ? ` (variação de ${v} YoY)` : ""}.`,
+      );
+    }
+    if (r?.atual && l?.atual && !r.atual.isZero() && temReceitaDeVenda(r)) {
+      const margem = l.atual.div(r.atual);
+      resumoExecutivo.push(`Margem líquida do período: ${formatarFracao(margem, 1)}.`);
+    }
+    if (pl?.atual && l?.atual && !pl.atual.isZero()) {
+      const roe = l.atual.div(pl.atual);
+      resumoExecutivo.push(`Retorno sobre Patrimônio Líquido (ROE do período): ${formatarFracao(roe, 1)}.`);
+    }
+    if (pl?.atual) {
+      const v = variacao(pl.atual, pl.anterior);
+      resumoExecutivo.push(
+        `Patrimônio Líquido: ${formatarReais(pl.atual)}${v ? ` (${v} frente à base anterior)` : ""}.`,
+      );
+    }
+    if (at?.atual) {
+      const v = variacao(at.atual, at.anterior);
+      resumoExecutivo.push(
+        `Ativo Total: ${formatarReais(at.atual)}${v ? ` (${v} frente à base anterior)` : ""}.`,
+      );
+    }
+
+    // Alertas determinísticos inteligentes para Ações:
     if (l?.atual?.isNegative()) {
       alertas.push({
-        titulo: "Prejuízo no período",
+        titulo: "Prejuízo contábil no período",
         severidade: "critico",
-        detalhe: `${l.conta}: ${formatarReais(l.atual)}.`,
+        detalhe: `${l.conta}: ${formatarReais(l.atual)}. A empresa operou no vermelho no período reportado.`,
       });
     }
-  } else if (d.mesAnterior) {
-    const dyAtual = d.mes.dividendYieldMes;
-    const dyAnterior = d.mesAnterior.dividendYieldMes;
-    if (dyAtual && dyAnterior && dyAtual.lt(dyAnterior)) {
+
+    if (r?.atual && r.anterior) {
+      const varReceita = pctVariacao(r.atual, r.anterior);
+      if (varReceita !== null && varReceita <= -15) {
+        alertas.push({
+          titulo: "Queda expressiva de receita YoY",
+          severidade: "atencao",
+          detalhe: `${r.conta} recuou ${Math.abs(varReceita).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% em relação ao mesmo período do ano anterior.`,
+        });
+      }
+    }
+
+    if (l?.atual && l.anterior && !l.atual.isNegative()) {
+      const varLucro = pctVariacao(l.atual, l.anterior);
+      if (varLucro !== null && varLucro <= -15) {
+        alertas.push({
+          titulo: "Queda acentuada de lucro YoY",
+          severidade: "atencao",
+          detalhe: `O lucro reportado recuou ${Math.abs(varLucro).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% na comparação anual.`,
+        });
+      } else if (varLucro !== null && varLucro >= 10) {
+        alertas.push({
+          titulo: "Crescimento consistente de lucro",
+          severidade: "info",
+          detalhe: `Lucro líquido avançou +${varLucro.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% frente ao período homólogo anterior.`,
+        });
+      }
+    }
+
+    if (r?.atual && l?.atual && !r.atual.isZero() && temReceitaDeVenda(r) && !l.atual.isNegative()) {
+      const margemPct = l.atual.div(r.atual).mul(CEM).toNumber();
+      if (margemPct >= 15) {
+        alertas.push({
+          titulo: "Margem líquida saudável",
+          severidade: "info",
+          detalhe: `Margem líquida robusta de ${margemPct.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% no período.`,
+        });
+      }
+    }
+  } else {
+    // FIIs
+    const m = d.mes;
+    const a = d.mesAnterior;
+
+    resumoExecutivo.push(`Análise Fundamentalista Oficial CVM (${d.nome}).`);
+
+    if (m.patrimonioLiquido) {
+      const v = a ? variacao(m.patrimonioLiquido, a.patrimonioLiquido) : null;
+      resumoExecutivo.push(
+        `Patrimônio Líquido: ${formatarReais(m.patrimonioLiquido)}${v ? ` (${v} MoM)` : ""}.`,
+      );
+    }
+    if (m.valorPatrimonialCota) {
+      const v = a ? variacao(m.valorPatrimonialCota, a.valorPatrimonialCota) : null;
+      resumoExecutivo.push(
+        `VPA por cota: ${formatarReais(m.valorPatrimonialCota)}${v ? ` (${v} MoM)` : ""}.`,
+      );
+    }
+    if (m.dividendYieldMes) {
+      resumoExecutivo.push(`Dividend Yield do mês: ${formatarFracao(m.dividendYieldMes)}.`);
+    }
+    if (m.rentabilidadeEfetivaMes || m.rentabilidadePatrimonialMes) {
+      const ef = m.rentabilidadeEfetivaMes ? `efetiva de ${formatarFracao(m.rentabilidadeEfetivaMes)}` : "";
+      const pat = m.rentabilidadePatrimonialMes ? `patrimonial de ${formatarFracao(m.rentabilidadePatrimonialMes)}` : "";
+      const partes = [ef, pat].filter(Boolean).join(" e ");
+      resumoExecutivo.push(`Rentabilidade no mês: ${partes}.`);
+    }
+    if (m.cotistas) {
+      const v = a ? variacao(m.cotistas, a.cotistas) : null;
+      resumoExecutivo.push(`Base de cotistas: ${inteiro(m.cotistas)}${v ? ` (${v} MoM)` : ""}.`);
+    }
+    if (m.cotasEmitidas) {
+      resumoExecutivo.push(`Total de cotas emitidas: ${inteiro(m.cotasEmitidas)}.`);
+    }
+
+    // Composição de carteira:
+    const carteira: string[] = [];
+    if (m.imoveisParaRenda && !m.imoveisParaRenda.isZero()) carteira.push(`Imóveis: ${formatarReais(m.imoveisParaRenda)}`);
+    if (m.cri && !m.cri.isZero()) carteira.push(`CRI: ${formatarReais(m.cri)}`);
+    if (m.cotasDeFii && !m.cotasDeFii.isZero()) carteira.push(`Cotas FII: ${formatarReais(m.cotasDeFii)}`);
+    if (m.disponibilidades && !m.disponibilidades.isZero()) carteira.push(`Caixa/Disponibilidades: ${formatarReais(m.disponibilidades)}`);
+    if (carteira.length > 0) {
+      resumoExecutivo.push(`Composição da carteira: ${carteira.join(", ")}.`);
+    }
+
+    if (m.totalPassivo && !m.totalPassivo.isZero()) {
+      resumoExecutivo.push(`Passivo e obrigações totais: ${formatarReais(m.totalPassivo)}.`);
+    }
+    if (m.taxaAdministracaoMes) {
+      resumoExecutivo.push(`Taxa de administração no mês: ${formatarFracao(m.taxaAdministracaoMes)} do PL.`);
+    }
+
+    // Alertas determinísticos inteligentes para FIIs:
+    if (a?.dividendYieldMes && m.dividendYieldMes && m.dividendYieldMes.lt(a.dividendYieldMes)) {
       alertas.push({
-        titulo: "Dividend yield menor que no mês anterior",
+        titulo: "Queda de DY MoM",
         severidade: "atencao",
-        detalhe: `${formatarFracao(dyAtual)} contra ${formatarFracao(dyAnterior)} no mês anterior.`,
+        detalhe: `Dividend Yield mensal reduziu de ${formatarFracao(a.dividendYieldMes)} para ${formatarFracao(m.dividendYieldMes)}.`,
       });
+    }
+
+    // Alavancagem: Passivo / Ativo > 15%
+    if (m.totalPassivo && m.valorAtivo && !m.valorAtivo.isZero()) {
+      const alavancagem = m.totalPassivo.div(m.valorAtivo);
+      if (alavancagem.gt(new Prisma.Decimal("0.15"))) {
+        alertas.push({
+          titulo: "Alavancagem elevada",
+          severidade: "atencao",
+          detalhe: `O passivo total representa ${formatarFracao(alavancagem, 1)} dos ativos do fundo.`,
+        });
+      }
+    }
+
+    // Queda no número de cotistas
+    if (a?.cotistas && m.cotistas && m.cotistas.lt(a.cotistas)) {
+      const varCotistas = a.cotistas.minus(m.cotistas);
+      alertas.push({
+        titulo: "Queda no número de cotistas",
+        severidade: "info",
+        detalhe: `Redução de ${inteiro(varCotistas)} cotistas no mês (${inteiro(a.cotistas)} para ${inteiro(m.cotistas)}).`,
+      });
+    }
+
+    // Caixa apertado: Disponibilidades < 1% do Ativo (ou PL)
+    if (m.disponibilidades && m.valorAtivo && !m.valorAtivo.isZero()) {
+      const fracaoCaixa = m.disponibilidades.div(m.valorAtivo);
+      if (fracaoCaixa.lt(new Prisma.Decimal("0.01"))) {
+        alertas.push({
+          titulo: "Caixa apertado",
+          severidade: "info",
+          detalhe: `Disponibilidades em caixa representam apenas ${formatarFracao(fracaoCaixa, 1)} do ativo total (${formatarReais(m.disponibilidades)}).`,
+        });
+      }
     }
   }
 
-  alertas.push({
-    titulo: "Resumo sem leitura da IA",
-    severidade: "info",
-    detalhe:
-      "A IA não respondeu no momento do envio. Os números acima vêm direto da CVM; envie o relatório de novo mais tarde para receber a análise comentada.",
-  });
-
   return {
     tipoDocumento: tipoDocumentoCvm(d, rotulo),
-    resumoExecutivo: indicadores.map((i) => `${i.nome}: ${i.valor}.`),
+    resumoExecutivo,
     alertas,
     indicadores,
   };
