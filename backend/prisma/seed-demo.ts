@@ -1,4 +1,4 @@
-import { AssetType, PrismaClient, TransactionKind } from "@prisma/client";
+import { Asset, AssetType, PrismaClient, ReportSource, TransactionKind } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import "dotenv/config";
 import { assertDatabaseUrlIsLocal, descreverBanco } from "../src/config/dbGuard.js";
@@ -236,6 +236,7 @@ async function main() {
   });
 
   let comCotacaoReal = 0;
+  const assetsPorTicker = new Map<string, Asset>();
   const semCotacao: string[] = [];
 
   for (const ativo of CARTEIRA) {
@@ -282,6 +283,137 @@ async function main() {
 
     await prisma.assetGoal.create({
       data: { userId: user.id, assetId: asset.id, targetWeight: ativo.meta },
+    });
+
+    assetsPorTicker.set(ativo.ticker, asset);
+  }
+
+  // Relatórios CVM pré-analisados para permitir ao visitante testar /relatorios de imediato
+  const relatoriosDemo = [
+    {
+      ticker: "BBAS3",
+      fileName: "BBAS3-Demonstracoes-Financeiras-1T26.pdf",
+      period: "2026-T1",
+      analysis: {
+        tipoDocumento: "ITR — Informações Trimestrais (CVM)",
+        resumoExecutivo: [
+          "Lucro líquido ajustado atingiu R$ 9,3 bilhões no trimestre, mantendo rentabilidade consistente.",
+          "Retorno sobre o patrimônio líquido (ROE) permaneceu em patamar elevado de 21,4%.",
+          "Carteira de crédito ampliada continuou com forte participação do agronegócio e crédito consignado.",
+          "Índice de inadimplência acima de 90 dias controlado em 2,8%, abaixo da média do Sistema Financeiro Nacional.",
+          "Margem financeira bruta apresentou expansão refletindo reprecificação da carteira de crédito.",
+        ],
+        alertas: [
+          {
+            titulo: "Custo de captação e provisões (PDD)",
+            severidade: "atencao",
+            detalhe: "Despesas com provisão para créditos de liquidação duvidosa acompanham o ciclo de juros e expansão da carteira.",
+          },
+          {
+            titulo: "Índice de Basileia confortável",
+            severidade: "info",
+            detalhe: "Capital principal e índice de Basileia situam-se com folga acima dos requerimentos mínimos regulatórios.",
+          },
+        ],
+        indicadores: [
+          { nome: "Receitas de Intermediação Financeira", valor: "R$ 48,20 bi (+12,5%)" },
+          { nome: "Lucro líquido atribuído aos controladores", valor: "R$ 9,30 bi (+8,2%)" },
+          { nome: "ROE", valor: "21,40%" },
+          { nome: "Patrimônio Líquido", valor: "R$ 178,50 bi (+9,1%)" },
+          { nome: "Ativo Total", valor: "R$ 2,20 tri" },
+        ],
+      },
+    },
+    {
+      ticker: "TAEE11",
+      fileName: "TAEE11-Release-Resultados-1T26.pdf",
+      period: "2026-T1",
+      analysis: {
+        tipoDocumento: "ITR — Informações Trimestrais (CVM)",
+        resumoExecutivo: [
+          "Receita líquida IFRS refletiu a atualização monetária das concessões pela inflação (IPCA e IGP-M).",
+          "EBITDA regulatório manteve margem elevada superior a 80%, característica da previsibilidade das transmissoras.",
+          "Ciclo da RAP (Receita Anual Permitida) sem perdas materiais de disponibilidade de linhas.",
+          "Endividamento com perfil alongado e custo médio atrelado a NTN-B / IPCA + spread.",
+          "Manutenção da prática de distribuição de proventos intercalares conforme estatuto social.",
+        ],
+        alertas: [
+          {
+            titulo: "Alavancagem financeira (Dívida Líquida / EBITDA)",
+            severidade: "atencao",
+            detalhe: "Relação dívida líquida sobre EBITDA encerrou em 3,7x, exigindo monitoramento diante de novos investimentos.",
+          },
+          {
+            titulo: "Vencimento de concessões nos próximos anos",
+            severidade: "info",
+            detalhe: "Lotes pioneiros entram no terço final de vigência da concessão contratual.",
+          },
+        ],
+        indicadores: [
+          { nome: "Receita Líquida", valor: "R$ 720,40 mi (+5,3%)" },
+          { nome: "Lucro Líquido", valor: "R$ 385,20 mi (+4,1%)" },
+          { nome: "Margem EBITDA Regulatório", valor: "83,50%" },
+          { nome: "Dívida Líquida / EBITDA", valor: "3,70x" },
+          { nome: "Patrimônio Líquido", valor: "R$ 7,12 bi" },
+        ],
+      },
+    },
+    {
+      ticker: "MXRF11",
+      fileName: "MXRF11-Informe-Mensal-2026-03.pdf",
+      period: "2026-03",
+      analysis: {
+        tipoDocumento: "Informe Mensal Estruturado (CVM)",
+        resumoExecutivo: [
+          "Patrimônio líquido do fundo encerrou o período em R$ 3,25 bilhões, distribuído em mais de 1 milhão de cotistas.",
+          "Alocação preponderante em Certificados de Recebíveis Imobiliários (CRI) com garantias reais e indexação ao CDI e IPCA.",
+          "Rendimentos distribuídos em linha com a média histórica, proporcionando retorno isento a pessoas físicas.",
+          "Inadimplência na carteira de crédito imobiliário mantida em zero, sem perdas de principal no período.",
+          "Reserva de contingência acumulada para amortecimento de oscilações de inflação e deflação pontuais.",
+        ],
+        alertas: [
+          {
+            titulo: "Sensibilidade à curva de juros futura",
+            severidade: "info",
+            detalhe: "A parcela prefixada e atrelada a IPCA sofre marcação a mercado conforme abertura ou fechamento da curva de juros.",
+          },
+          {
+            titulo: "Concentração em devedores e setores imobiliários",
+            severidade: "info",
+            detalhe: "Maior exposição individual representa menos de 7% do patrimônio líquido do fundo.",
+          },
+        ],
+        indicadores: [
+          { nome: "Patrimônio Líquido", valor: "R$ 3,25 bi (+0,8%)" },
+          { nome: "Valor Patrimonial por Cota (VP)", valor: "R$ 9,85" },
+          { nome: "Número de Cotistas", valor: "1.120.450" },
+          { nome: "Dividend Yield Anualizado", valor: "12,40%" },
+          { nome: "Ativo Total", valor: "R$ 3,31 bi" },
+        ],
+      },
+    },
+  ];
+
+  for (const rel of relatoriosDemo) {
+    const asset = assetsPorTicker.get(rel.ticker);
+    if (!asset) continue;
+
+    await prisma.cvmSummary.upsert({
+      where: { assetId_period: { assetId: asset.id, period: rel.period } },
+      create: { assetId: asset.id, period: rel.period, analysis: rel.analysis },
+      update: { analysis: rel.analysis },
+    });
+
+    await prisma.report.create({
+      data: {
+        userId: user.id,
+        assetId: asset.id,
+        fileName: rel.fileName,
+        source: ReportSource.CVM,
+        period: rel.period,
+        extractedText: null,
+        analysis: rel.analysis,
+      },
     });
   }
 

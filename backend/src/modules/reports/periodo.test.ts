@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { chaveDoPeriodo, detectarPeriodos, rotuloDoPeriodo } from "./periodo.js";
+import { chaveDoPeriodo, detectarPeriodos, detectarTicker, parsearPeriodo, rotuloDoPeriodo } from "./periodo.js";
 
 // Data fixa: a detecção descarta período que ainda não começou.
 const HOJE = new Date(2026, 8, 24);
@@ -83,5 +83,37 @@ describe("chave e rótulo", () => {
     const p = { tipo: "mes", ano: 2026, mes: 3 } as const;
     expect(chaveDoPeriodo(p)).toBe("2026-03");
     expect(rotuloDoPeriodo(p)).toBe("março de 2026");
+  });
+});
+
+describe("detectarTicker", () => {
+  it.each([
+    ["PETR4_1T26.pdf", "PETR4"],
+    ["bbas3-relatorio.pdf", "BBAS3"],
+    ["MXRF11 Relatório Gerencial Maio 2026", "MXRF11"],
+    ["capa com HGLG11 em destaque", "HGLG11"],
+    ["VALE3_demonstracoes.pdf", "VALE3"],
+    ["XPML11_informe.pdf", "XPML11"],
+    ["relatorio_sem_ticker.pdf", null],
+    ["", null],
+  ])("%s -> %s", (texto, esperado) => {
+    expect(detectarTicker(texto)).toBe(esperado);
+  });
+});
+describe("parsearPeriodo", () => {
+  it.each([
+    ["2026-T1", { tipo: "trimestre", ano: 2026, trimestre: 1 }],
+    ["2025-4", { tipo: "trimestre", ano: 2025, trimestre: 4 }],
+    ["1T26", { tipo: "trimestre", ano: 2026, trimestre: 1 }],
+    ["4T2025", { tipo: "trimestre", ano: 2025, trimestre: 4 }],
+    ["2026-03", { tipo: "mes", ano: 2026, mes: 3 }],
+    ["05/2026", { tipo: "mes", ano: 2026, mes: 5 }],
+  ])("%s -> %o", (texto, esperado) => {
+    expect(parsearPeriodo(texto)).toEqual(esperado);
+  });
+
+  it("retorna null para formato inválido", () => {
+    expect(parsearPeriodo("invalido")).toBeNull();
+    expect(parsearPeriodo("")).toBeNull();
   });
 });

@@ -2,30 +2,27 @@ import { createHash } from "node:crypto";
 import type { Asset } from "@prisma/client";
 import { extractText, getDocumentProxy } from "unpdf";
 import { AppError } from "../../shared/errors/AppError.js";
-import { analisarDadosCvm, analisarRelatorio, perguntarAoRelatorio, type Analise } from "./gemini.js";
-import { selecionarSecoesRelevantes } from "./trechos.js";
-import type { AskInput, UploadInput } from "./reports.schemas.js";
+import {
+  analisarRelatorioDeterministico,
+  analisarRelatorio,
+  responderBuscaContextual,
+  perguntarAoRelatorio,
+  type Analise,
+} from "./gemini.js";
+import { selecionarTrechos } from "./trechos.js";
+import type { AskInput, ConsultaCvmInput, UploadInput } from "./reports.schemas.js";
 import { reportsRepository } from "./reports.repository.js";
 import { montarPagina, type PaginacaoInput } from "../../shared/paginacao.js";
 import { quotesService } from "../quotes/quotes.service.js";
 import { cnpjDoTicker } from "../assets/cnpj.js";
 import { buscarDadosAcao, buscarDadosFii } from "./cvm.provider.js";
-import { chaveDoPeriodo, detectarPeriodos, rotuloDoPeriodo } from "./periodo.js";
-import {
-  analiseSemIa,
-  contextoParaIa,
-  indicadoresCvm,
-  tipoDocumentoCvm,
-} from "./resumo-cvm.js";
+import { chaveDoPeriodo, detectarPeriodos, detectarTicker, parsearPeriodo, rotuloDoPeriodo, type Periodo } from "./periodo.js";
+import { analiseSemIa } from "./resumo-cvm.js";
 
 // Releases trimestrais de banco passam de 300 páginas (o do Banco do Brasil
 // tem 760 mil caracteres), então o limite precisa acomodar documentos grandes.
-// ~2 milhões de caracteres ≈ 570 mil tokens — dentro da janela do modelo,
-// mas ainda barra arquivos absurdos.
 const LIMITE_CARACTERES = 2_000_000;
 
-// Achado 8: cada análise custa cota paga do Gemini e cada relatório guardado
-// carrega o texto inteiro do PDF no banco. A cota limita os dois de uma vez.
 export const COTA_RELATORIOS = 50;
 
 // Assinatura de arquivo PDF ("%PDF-"). O multer só confere o Content-Type
@@ -37,9 +34,6 @@ function pareceUmPdf(buffer: Buffer): boolean {
   return buffer.subarray(0, ASSINATURA_PDF.length).equals(ASSINATURA_PDF);
 }
 
-// Teto de tempo para o parsing do PDF em si (pdf.js/unpdf). As chamadas de
-// rede (Yahoo, Gemini) já têm timeout próprio; um PDF adversarial (muitas
-// fontes, objetos aninhados) pode prender CPU sem passar por rede nenhuma.
 const TIMEOUT_PARSING_MS = 30_000;
 
 async function comTimeout<T>(promessa: Promise<T>): Promise<T> {
@@ -63,64 +57,18 @@ async function comTimeout<T>(promessa: Promise<T>): Promise<T> {
   }
 }
 
-// Teto do que a análise inicial manda para a IA. O release trimestral do Banco
-// do Brasil tem 760 mil caracteres: mandado inteiro levava ~70s e consumia a
-// cota de um minuto inteiro numa tacada.
-//
-// O teto anterior, 150 mil, foi estimado em ~43 mil tokens. Medido com o
-// countTokens (scripts/medir-tokens-relatorios.ts), eram 93 mil no release do
-// BB e 30 mil no relatório gerencial do MXRF11 — texto cheio de números rende
-// mais token por caractere do que prosa. Um único envio do BB tomava quase
-// todo o limite por minuto.
-//
-// 30 mil caracteres ficam em ~20 mil tokens no BB e ~14 mil no MXRF11. O
-// recorte escolhe abertura, destaques e as seções mais densas em resultado,
-// que é o que um resumo de 5 a 8 tópicos usa; o resto viaja só no chat, sob
-// demanda, recortado pela pergunta.
 export const CONTEXTO_ANALISE = 30_000;
 
-/** Extrai o PDF inteiro e manda o recorte relevante para a IA. */
-async function lerEAnalisarPdf(pdf: DocumentoPdf): Promise<{ texto: string; analise: Analise }> {
-  const texto = (await extrairTexto(pdf)).trim();
-
-  if (!texto) {
-    throw new AppError(
-      "Não foi possível extrair texto deste PDF — ele pode ser digitalizado como imagem",
-      400,
-    );
-  }
-  if (texto.length > LIMITE_CARACTERES) {
-    throw new AppError(
-      `Relatório muito grande para análise: ${texto.length.toLocaleString("pt-BR")} caracteres (limite de ${LIMITE_CARACTERES.toLocaleString("pt-BR")}).`,
-      400,
-    );
-  }
-
-  // Documento grande é recortado antes de ir para o Gemini. O recorte fica
-  // com as seções de maior densidade financeira, e o prompt avisa a IA de que
-  // ela não recebeu o documento completo.
-  const paraAnalise = selecionarSecoesRelevantes(texto, CONTEXTO_ANALISE);
-  const analise = await analisarRelatorio(paraAnalise, paraAnalise.length < texto.length);
-  return { texto, analise };
-}
-
-// Páginas lidas para achar o período. A capa do release do BB diz "1T26" na
-// primeira; a do MXRF11 diz "Maio de 2026" na primeira e repete na segunda.
+// Páginas lidas para achar o período.
 const PAGINAS_DA_CAPA = 2;
 
 export const MENSAGEM_CHAT_INDISPONIVEL =
-  "O chat não está disponível para este relatório: a análise foi montada com os dados oficiais da CVM " +
-  "e o texto do PDF não foi guardado. Para conversar sobre o documento, envie o PDF de novo sem informar o ativo.";
+  "O chat não está disponível para este relatório: o documento não possui texto extraído.";
 
 type DocumentoPdf = Awaited<ReturnType<typeof getDocumentProxy>>;
 
 /**
  * Roda uma leitura do PDF silenciando os avisos do pdf.js.
- *
- * A biblioteca imprime coisas como "Warning: TT: undefined function: 21" ao
- * interpretar programas de fontes TrueType que ela não reconhece. O aviso é
- * inofensivo — o texto sai completo mesmo assim —, mas assusta quem lê o log e
- * some no meio de erros de verdade. Um relatório de banco produz dezenas deles.
  */
 async function semRuidoDePdf<T>(leitura: () => Promise<T>): Promise<T> {
   const avisoOriginal = console.warn;
@@ -148,7 +96,7 @@ async function extrairTexto(pdf: DocumentoPdf): Promise<string> {
   return text;
 }
 
-/** Texto só das primeiras páginas — o release de 301 páginas do BB não precisa ser lido inteiro para achar "1T26". */
+/** Texto só das primeiras páginas — o release de 301 páginas do BB não precisa ser lido inteiro para achar período e ticker. */
 async function extrairCapa(pdf: DocumentoPdf): Promise<string> {
   try {
     return await semRuidoDePdf(async () => {
@@ -172,12 +120,9 @@ type ResultadoCvm = {
 };
 
 /**
- * Tenta montar a análise com os dados oficiais da CVM. Qualquer coisa que
- * falte — ativo desconhecido, sem CNPJ, classe sem documento na CVM, período
- * não detectado, documento ainda não publicado — devolve analise = null, e o
- * chamador segue para a leitura do PDF inteiro. Nunca lança.
+ * Monta a análise com os dados oficiais da CVM deterministicamente.
  */
-async function tentarViaCvm(pdf: DocumentoPdf, ticker: string): Promise<ResultadoCvm> {
+async function tentarViaCvm(capa: string, ticker: string): Promise<ResultadoCvm> {
   const resultado: ResultadoCvm = { asset: null, periodo: null, analise: null };
 
   try {
@@ -191,7 +136,7 @@ async function tentarViaCvm(pdf: DocumentoPdf, ticker: string): Promise<Resultad
     const cnpj = asset.cnpj ?? cnpjDoTicker(asset.ticker);
     if (!cnpj) return resultado;
 
-    const { trimestre, mes } = detectarPeriodos(await extrairCapa(pdf));
+    const { trimestre, mes } = detectarPeriodos(capa);
     const periodo = asset.type === "ACAO" ? trimestre : mes;
     if (!periodo) return resultado;
     resultado.periodo = chaveDoPeriodo(periodo);
@@ -209,27 +154,15 @@ async function tentarViaCvm(pdf: DocumentoPdf, ticker: string): Promise<Resultad
     if (!dados) return resultado;
 
     const rotulo = rotuloDoPeriodo(periodo);
-    try {
-      const daIa = await analisarDadosCvm(contextoParaIa(dados, rotulo));
-      // A IA escreve o resumo e os alertas; tipo de documento e indicadores
-      // são calculados aqui, direto dos números oficiais.
-      resultado.analise = {
-        ...daIa,
-        tipoDocumento: tipoDocumentoCvm(dados, rotulo),
-        indicadores: indicadoresCvm(dados),
-      };
-      // Só a análise com leitura da IA vai para o cache. A de template fica
-      // de fora para que o próximo envio tente a IA de novo.
-      await reportsRepository
-        .saveCvmSummary(asset.id, resultado.periodo, resultado.analise)
-        .catch((err: unknown) => console.error("[CVM] falha ao guardar o cache:", err));
-    } catch (err) {
-      console.error("[CVM] IA indisponível, usando o template:", err instanceof Error ? err.message : err);
-      resultado.analise = analiseSemIa(dados, rotulo);
-    }
+    resultado.analise = analiseSemIa(dados, rotulo);
+
+    await reportsRepository
+      .saveCvmSummary(asset.id, resultado.periodo, resultado.analise)
+      .catch((err: unknown) => console.error("[CVM] falha ao guardar o cache:", err));
+
     return resultado;
   } catch (err) {
-    console.error("[CVM] caminho da CVM falhou, lendo o PDF inteiro:", err);
+    console.error("[CVM] caminho da CVM falhou:", err);
     return { ...resultado, analise: null };
   }
 }
@@ -240,11 +173,6 @@ export const reportsService = {
     arquivo: { originalname: string; buffer: Buffer },
     input: UploadInput = {},
   ) {
-    // 0. a checagem mais barata primeiro: nem lê o PDF, nem chama a IA.
-    // Entre esta contagem e o create lá embaixo há uma janela em que uploads
-    // simultâneos passam juntos — escolha consciente: o limitadorRelatorios
-    // (20/h por usuário) contém o estrago, e uma transação aqui seguraria a
-    // conexão durante a chamada à IA, que é a parte lenta.
     const guardados = await reportsRepository.countByUser(userId);
     if (guardados >= COTA_RELATORIOS) {
       throw new AppError(
@@ -258,30 +186,42 @@ export const reportsService = {
       throw new AppError("O arquivo enviado não é um PDF válido", 400);
     }
 
-    // Antes de o pdf.js tocar no buffer: ele pode transferir o ArrayBuffer
-    // para dentro da biblioteca e deixar o original vazio.
     const contentHash = createHash("sha256").update(arquivo.buffer).digest("hex");
 
     const pdf = await comTimeout(
       semRuidoDePdf(() => getDocumentProxy(new Uint8Array(arquivo.buffer))),
     );
 
-    // 1. com o ativo informado, o PDF só identifica o período e os números
-    // vêm da CVM. Sem ativo, ou sem o documento na CVM, lê o PDF inteiro.
-    const viaCvm = input.ticker
-      ? await tentarViaCvm(pdf, input.ticker)
+    // Extrair capa do PDF para detectar período e ticker (se não informado)
+    const capa = await extrairCapa(pdf);
+    const tickerIdentificado =
+      input.ticker ?? detectarTicker(arquivo.originalname) ?? detectarTicker(capa);
+
+    // Tentar via CVM se houver ticker identificado
+    const viaCvm = tickerIdentificado
+      ? await tentarViaCvm(capa, tickerIdentificado)
       : { asset: null, periodo: null, analise: null };
 
     if (viaCvm.analise && viaCvm.asset && viaCvm.periodo) {
+      // Mesmo com CVM, guardamos o texto extraído do PDF para a ferramenta de busca no documento funcionar!
+      let textoPdf: string | null = null;
+      try {
+        textoPdf = (await extrairTexto(pdf)).trim();
+      } catch {
+        textoPdf = null;
+      }
+
       const relatorio = await reportsRepository.create({
         userId,
         fileName: arquivo.originalname,
         source: "CVM",
         assetId: viaCvm.asset.id,
         period: viaCvm.periodo,
-        extractedText: null,
+        extractedText: textoPdf,
+        contentHash,
         analysis: viaCvm.analise,
       });
+
       return {
         id: relatorio.id,
         fileName: relatorio.fileName,
@@ -293,17 +233,32 @@ export const reportsService = {
       };
     }
 
-    // 2. o mesmo arquivo já foi analisado antes? Reaproveita a análise e o
-    // texto, sem chamar a IA. Testar o app com os mesmos PDFs — ou dois
-    // cotistas enviando o mesmo relatório gerencial — custava uma análise
-    // inteira a cada envio.
+    // 2. Se o mesmo arquivo já foi analisado antes, reaproveita análise e texto
     const anterior = await reportsRepository.findPdfByContentHash(contentHash);
-    const { texto, analise } =
-      anterior?.extractedText && anterior.analysis
-        ? { texto: anterior.extractedText, analise: anterior.analysis as Analise }
-        : await lerEAnalisarPdf(pdf);
+    let texto: string;
+    let analise: Analise;
 
-    // 3. persiste (o texto extraído alimenta o chat depois)
+    if (anterior?.extractedText && anterior.analysis) {
+      texto = anterior.extractedText;
+      analise = anterior.analysis as Analise;
+    } else {
+      texto = (await extrairTexto(pdf)).trim();
+      if (!texto) {
+        throw new AppError(
+          "Não foi possível extrair texto deste PDF — ele pode ser digitalizado como imagem",
+          400,
+        );
+      }
+      if (texto.length > LIMITE_CARACTERES) {
+        throw new AppError(
+          `Relatório muito grande para análise: ${texto.length.toLocaleString("pt-BR")} caracteres (limite de ${LIMITE_CARACTERES.toLocaleString("pt-BR")}).`,
+          400,
+        );
+      }
+      analise = await analisarRelatorio(texto, arquivo.originalname);
+    }
+
+    // 3. Persiste
     const relatorio = await reportsRepository.create({
       userId,
       fileName: arquivo.originalname,
@@ -340,20 +295,120 @@ export const reportsService = {
       throw new AppError("Relatório não encontrado", 404);
     }
 
-    // Relatório da CVM não guardou o texto do PDF: não há o que consultar.
-    // 409 e não 404 — o relatório existe, o que falta é o conteúdo do chat.
-    if (relatorio.source === "CVM" || !relatorio.extractedText) {
+    if (!relatorio.extractedText) {
       throw new AppError(MENSAGEM_CHAT_INDISPONIVEL, 409);
     }
 
+    // Busca contextual e destaques no documento via trechos.ts (sem IA externa)
     const resposta = await perguntarAoRelatorio(
       relatorio.fileName,
       relatorio.extractedText,
       input.question,
-      input.history,
     );
 
     return { answer: resposta };
+  },
+
+
+  async analisarDiretoCvm(userId: string, input: ConsultaCvmInput) {
+    const guardados = await reportsRepository.countByUser(userId);
+    if (guardados >= COTA_RELATORIOS) {
+      throw new AppError(
+        `Você atingiu o limite de ${COTA_RELATORIOS} relatórios guardados. ` +
+          `Apague algum em /reports antes de analisar outro.`,
+        429,
+      );
+    }
+
+    const asset = await quotesService.buscarOuCadastrar(input.ticker);
+    if (!asset) {
+      throw new AppError(`Ativo ${input.ticker} não encontrado`, 404);
+    }
+
+    if (asset.type !== "ACAO" && asset.type !== "FII") {
+      throw new AppError("Apenas ações e fundos imobiliários possuem demonstrações na CVM", 400);
+    }
+
+    const cnpj = asset.cnpj ?? cnpjDoTicker(asset.ticker);
+    if (!cnpj) {
+      throw new AppError(`CNPJ não disponível para o ativo ${asset.ticker}`, 400);
+    }
+
+    let periodo: Periodo | null = null;
+    if (input.periodo) {
+      periodo = parsearPeriodo(input.periodo);
+      if (!periodo) {
+        throw new AppError("Formato de período inválido. Use AAAA-T1 a T4, 1T26 ou AAAA-MM", 400);
+      }
+    } else {
+      const hoje = new Date();
+      const anoHoje = hoje.getFullYear();
+      const mesHoje = hoje.getMonth() + 1;
+      if (asset.type === "ACAO") {
+        let tri = Math.floor((mesHoje - 1) / 3);
+        let ano = anoHoje;
+        if (tri === 0) {
+          tri = 4;
+          ano = anoHoje - 1;
+        }
+        periodo = { tipo: "trimestre", ano, trimestre: tri as 1 | 2 | 3 | 4 };
+      } else {
+        let mes = mesHoje - 1;
+        let ano = anoHoje;
+        if (mes === 0) {
+          mes = 12;
+          ano = anoHoje - 1;
+        }
+        periodo = { tipo: "mes", ano, mes };
+      }
+    }
+
+    const chave = chaveDoPeriodo(periodo);
+    const rotulo = rotuloDoPeriodo(periodo);
+
+    const guardada = await reportsRepository.findCvmSummary(asset.id, chave);
+    let analise: Analise | null = guardada ? (guardada.analysis as Analise) : null;
+
+    if (!analise) {
+      const dados =
+        periodo.tipo === "trimestre"
+          ? await buscarDadosAcao(cnpj, periodo)
+          : await buscarDadosFii(cnpj, periodo);
+
+      if (!dados) {
+        throw new AppError(
+          `Não foram encontrados dados na CVM para ${asset.ticker} no período ${rotulo}.`,
+          404,
+        );
+      }
+
+      analise = analiseSemIa(dados, rotulo);
+
+      await reportsRepository
+        .saveCvmSummary(asset.id, chave, analise)
+        .catch((err: unknown) => console.error("[CVM] falha ao guardar o cache:", err));
+    }
+
+    const fileName = `${asset.ticker}_CVM_${chave}.pdf`;
+    const relatorio = await reportsRepository.create({
+      userId,
+      fileName,
+      source: "CVM",
+      assetId: asset.id,
+      period: chave,
+      extractedText: null,
+      analysis: analise,
+    });
+
+    return {
+      id: relatorio.id,
+      fileName: relatorio.fileName,
+      source: relatorio.source,
+      period: relatorio.period,
+      asset: { ticker: asset.ticker },
+      createdAt: relatorio.createdAt,
+      analysis: analise,
+    };
   },
 
   async remove(userId: string, reportId: string) {
@@ -366,3 +421,5 @@ export const reportsService = {
 };
 
 export type { Analise };
+
+
