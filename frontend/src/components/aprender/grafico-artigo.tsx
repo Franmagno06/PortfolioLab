@@ -1,19 +1,26 @@
 "use client";
 
-import { forwardRef, useId, useState } from "react";
+import { forwardRef, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import {
   Area,
   AreaChart,
   Bar,
   BarChart,
   CartesianGrid,
+  LabelList,
   ResponsiveContainer,
   Tooltip,
+  useActiveTooltipCoordinate,
+  useActiveTooltipDataPoints,
+  usePlotArea,
+  useYAxisScale,
   XAxis,
   YAxis,
 } from "recharts";
+import type { Props as PropsDoRotulo } from "recharts/types/component/Label";
+import { escalaDoEixo } from "@/lib/escala-do-grafico";
 import { brl, multiplo, numero, percentual } from "@/lib/format";
-import { CURVA, DURACAO_GRAFICO_MS } from "@/lib/movimento";
+import { CURVA, DURACAO_GRAFICO_MS, DURACAO_RAPIDA, DURACAO_RAPIDA_MS } from "@/lib/movimento";
 import {
   CenarioGraficoArtigo,
   FormatoGraficoArtigo,
@@ -31,34 +38,99 @@ export type {
   SerieGraficoArtigo,
 };
 
-/** Cores padrão para SVG inspiradas no design editorial do PortfolioLab */
-const COR = {
+/**
+ * Cores em hex para o SVG do Recharts — espelham pecas-do-grafico.tsx:
+ * ink (#0e1b33), pauta/grade (#dce3ee), eixo (#5d6b7f), texto2 (#4b5a73),
+ * barra (#7359e5), linha (#5b3fd0) e mira.
+ */
+export const COR = {
   ink: "#0e1b33",
   pauta: "#dce3ee",
+  grade: "#dce3ee",
   eixo: "#5d6b7f",
   texto2: "#4b5a73",
+  barra: "#7359e5",
   linha: "#5b3fd0",
-  mira: "rgba(14, 27, 51, 0.4)",
+  mira: "rgba(14, 27, 51, 0.5)",
 } as const;
 
-/**
- * Pílula deslizante com física de mola (spring: stiffness 400, damping 30).
- * Compatível com a API de layout do Framer Motion e renderizada de forma segura.
- */
-type MotionSpanProps = {
+const LARGURA_DO_CARACTERE = 6.8;
+const LARGURA_PARA_ROTULO = 30;
+const DURACAO_TRANSICAO_CENARIO_MS = 380;
+
+const useIsomorphicLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
+
+/** Guarda a última posição de cada layoutId para animar o deslize (FLIP) via WAAPI. */
+const ultimoRectPorLayoutId = new Map<string, DOMRect>();
+
+type MotionTransition = {
+  duration?: number;
+  ease?: string;
+  type?: string;
+  stiffness?: number;
+  damping?: number;
+  [key: string]: unknown;
+};
+
+type MotionCommonProps = {
   layoutId?: string;
-  transition?: { type?: string; stiffness?: number; damping?: number; [key: string]: unknown };
+  transition?: MotionTransition;
   className?: string;
   style?: React.CSSProperties;
   children?: React.ReactNode;
 };
 
 const motion = {
-  span: forwardRef<HTMLSpanElement, MotionSpanProps & React.HTMLAttributes<HTMLSpanElement>>(
-    function MotionSpan({ layoutId, transition, className, style, children, ...props }, ref) {
+  span: forwardRef<HTMLSpanElement, MotionCommonProps & React.HTMLAttributes<HTMLSpanElement>>(
+    function MotionSpan({ layoutId, transition, className, style, children, ...props }, refExterna) {
+      const refInterna = useRef<HTMLSpanElement | null>(null);
+
+      useIsomorphicLayoutEffect(() => {
+        const el = refInterna.current;
+        if (!el || !layoutId) return;
+        const atual = el.getBoundingClientRect();
+        const anterior = ultimoRectPorLayoutId.get(layoutId);
+        if (atual.width > 0) {
+          ultimoRectPorLayoutId.set(layoutId, atual);
+        }
+        if (
+          anterior &&
+          anterior.width > 0 &&
+          atual.width > 0 &&
+          typeof el.animate === "function"
+        ) {
+          const dx = anterior.left - atual.left;
+          const dy = anterior.top - atual.top;
+          const sx = anterior.width / atual.width;
+          if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5 || Math.abs(sx - 1) > 0.02) {
+            el.style.transformOrigin = "left center";
+            el.animate(
+              [
+                { transform: `translate(${dx}px, ${dy}px) scaleX(${sx})` },
+                { transform: "translate(0px, 0px) scaleX(1)" },
+              ],
+              {
+                duration: DURACAO_RAPIDA_MS,
+                easing: CURVA,
+              },
+            );
+          }
+        }
+        return () => {
+          const r = el.getBoundingClientRect();
+          if (r.width > 0) {
+            ultimoRectPorLayoutId.set(layoutId, r);
+          }
+        };
+      }, [layoutId]);
+
       return (
         <span
-          ref={ref}
+          ref={(node) => {
+            refInterna.current = node;
+            if (typeof refExterna === "function") refExterna(node);
+            else if (refExterna) refExterna.current = node;
+          }}
           data-layout-id={layoutId}
           data-transition={transition ? JSON.stringify(transition) : undefined}
           className={className}
@@ -67,6 +139,44 @@ const motion = {
         >
           {children}
         </span>
+      );
+    },
+  ),
+
+  div: forwardRef<HTMLDivElement, MotionCommonProps & React.HTMLAttributes<HTMLDivElement>>(
+    function MotionDiv({ layoutId, transition, className, style, children, ...props }, refExterna) {
+      const refInterna = useRef<HTMLDivElement | null>(null);
+
+      useIsomorphicLayoutEffect(() => {
+        const el = refInterna.current;
+        if (!el || typeof el.animate !== "function") return;
+        el.animate(
+          [
+            { opacity: 0.35, transform: "translateY(3px)" },
+            { opacity: 1, transform: "translateY(0px)" },
+          ],
+          {
+            duration: DURACAO_RAPIDA_MS,
+            easing: CURVA,
+          },
+        );
+      }, []);
+
+      return (
+        <div
+          ref={(node) => {
+            refInterna.current = node;
+            if (typeof refExterna === "function") refExterna(node);
+            else if (refExterna) refExterna.current = node;
+          }}
+          data-layout-id={layoutId}
+          data-transition={transition ? JSON.stringify(transition) : undefined}
+          className={className}
+          style={style}
+          {...props}
+        >
+          {children}
+        </div>
       );
     },
   ),
@@ -111,9 +221,22 @@ function formatarEixoY(v: number, formato: FormatoGraficoArtigo): string {
   return numero(v, 0);
 }
 
+/** Rótulo legível para o cabeçalho da coluna do eixo X na tabela acessível */
+function rotuloColunaEixoX(chave: string): string {
+  const mapa: Record<string, string> = {
+    rotulo: "Período",
+    ano: "Ano",
+    setor: "Setor",
+    prazo: "Prazo",
+    ativo: "Categoria",
+    mes: "Mês",
+  };
+  return mapa[chave] ?? chave.charAt(0).toUpperCase() + chave.slice(1);
+}
+
 /**
- * Balão interativo (tooltip): exibe o rótulo da coordenada no topo
- * e os valores formatados de cada série ativa com ponto colorido de identificação.
+ * O balão escuro do tooltip, no padrão de pecas-do-grafico.tsx:
+ * região "status" sempre montada para o leitor de tela anunciar o ponto ativo.
  */
 function BalaoGraficoArtigo({
   ativo,
@@ -122,42 +245,110 @@ function BalaoGraficoArtigo({
   formato,
 }: {
   ativo?: boolean;
-  payload?: any[];
+  payload?: ReadonlyArray<{ name?: string; dataKey?: string; value?: unknown; color?: string; fill?: string }>;
   rotuloX?: string;
   formato: FormatoGraficoArtigo;
 }) {
-  if (!ativo || !payload || payload.length === 0) return null;
+  const itens = ativo && payload && payload.length > 0 ? payload : undefined;
 
   return (
-    <div
-      role="status"
-      aria-live="polite"
-      data-balao-grafico-artigo
-      className="min-w-[150px] rounded-lg bg-ink px-3.5 py-2.5 text-white shadow-folha"
-    >
-      {rotuloX && (
-        <p className="mb-1.5 border-b border-white/15 pb-1 text-xs font-semibold text-white/90">
-          {rotuloX}
-        </p>
+    <div role="status" aria-live="polite" data-balao-grafico-artigo data-balao-do-grafico>
+      {itens && (
+        <div className="rounded-lg bg-ink px-3.5 py-2 whitespace-nowrap text-white shadow-folha">
+          {itens.length === 1 ? (
+            <>
+              <p className="tnum text-[19px] leading-[26px] font-semibold">
+                {formatarValorArtigo(itens[0]?.value, formato)}
+              </p>
+              <p className="tnum text-xs leading-[17px] text-white/85">
+                {rotuloX}
+                {itens[0]?.name ? ` · ${itens[0].name}` : ""}
+              </p>
+            </>
+          ) : (
+            <>
+              {rotuloX && (
+                <p className="tnum mb-1.5 border-b border-white/15 pb-1 text-xs leading-[17px] font-semibold text-white">
+                  {rotuloX}
+                </p>
+              )}
+              <div className="flex flex-col gap-1 text-xs leading-[17px]">
+                {itens.map((item, idx) => (
+                  <div key={idx} className="flex items-center justify-between gap-4">
+                    <span className="flex items-center gap-1.5 text-white/85">
+                      <span
+                        className="inline-block h-2 w-2 shrink-0 rounded-full"
+                        style={{ backgroundColor: item.color || item.fill || COR.linha }}
+                        aria-hidden
+                      />
+                      {item.name || item.dataKey}
+                    </span>
+                    <span className="tnum font-semibold text-white">
+                      {formatarValorArtigo(item.value, formato)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
       )}
-      <div className="flex flex-col gap-1 text-xs">
-        {payload.map((item, idx) => (
-          <div key={idx} className="flex items-center justify-between gap-3">
-            <span className="flex items-center gap-1.5 text-white/80">
-              <span
-                className="inline-block h-2 w-2 rounded-full"
-                style={{ backgroundColor: item.color || item.fill || COR.linha }}
-                aria-hidden
-              />
-              {item.name || item.dataKey}
-            </span>
-            <span className="tnum font-semibold text-white">
-              {formatarValorArtigo(item.value, formato)}
-            </span>
-          </div>
-        ))}
-      </div>
     </div>
+  );
+}
+
+/** Rótulo escuro sobre o eixo: valor ou coordenada do ponto que a mira marca (pecas-do-grafico.tsx). */
+function Etiqueta({ x, y, texto }: { x: number; y: number; texto: string }) {
+  const largura = texto.length * LARGURA_DO_CARACTERE + 12;
+  return (
+    <g>
+      <rect x={x} y={y} width={largura} height={21} rx={4} fill={COR.ink} />
+      <text x={x + 6} y={y + 15} fontSize={12} fill="#ffffff">
+        {texto}
+      </text>
+    </g>
+  );
+}
+
+/**
+ * A mira nos eixos, padronizada com pecas-do-grafico.tsx:
+ * linhas vertical e horizontal no ponto ativo, com etiquetas no eixo vertical e horizontal.
+ */
+function MiraGraficoArtigo({
+  chaveEixoX,
+  chaveValor,
+  formato,
+}: {
+  chaveEixoX: string;
+  chaveValor: string;
+  formato: FormatoGraficoArtigo;
+}) {
+  const ativos = useActiveTooltipDataPoints<Record<string, unknown>>();
+  const coordenada = useActiveTooltipCoordinate();
+  const area = usePlotArea();
+  const escalaY = useYAxisScale();
+  const ponto = ativos?.[0];
+  if (!ponto || !coordenada || !area || !escalaY) return null;
+
+  const valorNumerico = Number(ponto[chaveValor]);
+  if (!Number.isFinite(valorNumerico)) return null;
+  const y = escalaY(valorNumerico);
+  if (typeof y !== "number" || Number.isNaN(y)) return null;
+
+  const x = coordenada.x;
+  const textoY = formatarEixoY(valorNumerico, formato);
+  const textoX = String(ponto[chaveEixoX] ?? "");
+  const larguraX = textoX.length * LARGURA_DO_CARACTERE + 12;
+  const larguraY = textoY.length * LARGURA_DO_CARACTERE + 12;
+  const xDaData = Math.min(Math.max(x - larguraX / 2, area.x), area.x + area.width - larguraX);
+
+  return (
+    <g pointerEvents="none" aria-hidden>
+      <line x1={x} x2={x} y1={area.y} y2={area.y + area.height} stroke={COR.mira} strokeWidth={1} />
+      <line x1={area.x} x2={area.x + area.width} y1={y} y2={y} stroke={COR.mira} strokeWidth={1} />
+      <Etiqueta x={Math.max(0, area.x - larguraY - 4)} y={y - 10.5} texto={textoY} />
+      <Etiqueta x={xDaData} y={area.y + area.height + 4} texto={textoX} />
+    </g>
   );
 }
 
@@ -201,10 +392,10 @@ export function GraficoArtigo({
   altura,
   className = "",
 }: GraficoArtigoProps) {
-  const [desenhou, setDesenhou] = useState(false);
   const [estaAtivo, setEstaAtivo] = useState(false);
   const [tabelaAberta, setTabelaAberta] = useState(false);
   const idUnico = useId().replace(/:/g, "");
+  const layoutIdCenario = `cenario-grafico-artigo-${idUnico}`;
 
   // Resolução da configuração (preset vs props manuais)
   const definicaoPreset = preset ? PRESETS_GRAFICO_ARTIGO[preset] : undefined;
@@ -232,11 +423,44 @@ export function GraficoArtigo({
   const [cenarioId, setCenarioId] = useState<string>(
     () => cenarioPadrao ?? cenarios[0]?.id ?? "padrao",
   );
+  const [jaTrocouCenario, setJaTrocouCenario] = useState(false);
+  const refAreaGrafica = useRef<HTMLDivElement | null>(null);
+  const cenarioAnteriorRef = useRef<string>(cenarioId);
+
+  useIsomorphicLayoutEffect(() => {
+    if (cenarioAnteriorRef.current === cenarioId) return;
+    cenarioAnteriorRef.current = cenarioId;
+    const el = refAreaGrafica.current;
+    if (el && typeof el.animate === "function") {
+      el.animate(
+        [
+          { opacity: 0.72, transform: "translateY(2px)" },
+          { opacity: 1, transform: "translateY(0px)" },
+        ],
+        {
+          duration: DURACAO_RAPIDA_MS,
+          easing: CURVA,
+        },
+      );
+    }
+  }, [cenarioId]);
+
+  const duracaoAnimacaoGrafico = jaTrocouCenario
+    ? DURACAO_TRANSICAO_CENARIO_MS
+    : DURACAO_GRAFICO_MS;
 
   const cenarioAtual = cenarios.find((c) => c.id === cenarioId) ?? cenarios[0];
   const dados = cenarioAtual?.dados ?? [];
   const series = cenarioAtual?.series ?? [];
   const chaveEixoX = cenarioAtual?.eixoX ?? eixoXProp ?? "rotulo";
+  const chavePrincipalMira = series[series.length - 1]?.chave ?? series[0]?.chave ?? "valor";
+
+  // Escala do eixo Y padronizada com escalaDoEixo (passos redondos como nos gráficos de índices)
+  const valoresNumericos = dados.flatMap((d) =>
+    series.map((s) => Number(d[s.chave])).filter((v) => Number.isFinite(v)),
+  );
+  const maximoY = valoresNumericos.length > 0 ? Math.max(...valoresNumericos, 0) : 0;
+  const marcasY = valoresNumericos.length > 0 ? escalaDoEixo(0, maximoY, 4) : undefined;
 
   // Resumo descritivo acessível para leitores de tela e role="img"
   const resumoAcessivel = (() => {
@@ -248,28 +472,44 @@ export function GraficoArtigo({
 
   const alturaGrafico = altura ?? (modo === "area" ? 280 : 300);
 
+  // Rótulo no topo da barra (quando há série única e largura suficiente, igual a grafico-de-barras.tsx)
+  const renderizarRotuloBarra = (props: PropsDoRotulo) => {
+    const caixa = props.viewBox as { x?: number; y?: number; width?: number } | undefined;
+    const largura = Number(caixa?.width ?? props.width ?? 0);
+    if (largura < LARGURA_PARA_ROTULO) return null;
+    const x = Number(caixa?.x ?? props.x ?? 0) + largura / 2;
+    const y = Number(caixa?.y ?? props.y ?? 0) - 6;
+    return (
+      <text x={x} y={y} textAnchor="middle" fontSize={11} fill={COR.texto2} className="tnum">
+        {formatarValorArtigo(props.value, formato)}
+      </text>
+    );
+  };
+
   return (
     <figure
-      className={`my-6 rounded-xl border border-pauta bg-card p-4 sm:p-6 shadow-sm ${className}`}
+      className={`my-6 min-w-0 rounded-md border border-pauta bg-card p-5 sm:p-6 ${className}`}
       data-grafico-artigo
       data-preset={preset}
       data-modo={modo}
     >
-      {/* Cabeçalho: Título, descrição e pílulas de alternância de cenários */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="space-y-1">
-          <figcaption className="font-leitura text-base font-semibold leading-snug text-ink sm:text-lg">
+      {/* Cabeçalho: título, descrição e seletor padronizado em linha única */}
+      <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
+        <div className="min-w-[320px] flex-1">
+          <figcaption className="font-leitura text-xl leading-[26px] font-semibold text-ink">
             {titulo}
           </figcaption>
-          {descricao && <p className="text-xs text-ink-2 sm:text-sm">{descricao}</p>}
+          {descricao && (
+            <p className="mt-0.5 text-[13px] leading-[19px] text-mute">{descricao}</p>
+          )}
         </div>
 
-        {/* Pílulas de cenários deslizantes com spring e layoutId */}
+        {/* Seletor de cenários padronizado com SeletorDePeriodo: sempre em linha única, nunca quebra */}
         {cenarios.length > 1 && (
           <div
             role="tablist"
             aria-label="Cenários do gráfico"
-            className="relative flex flex-wrap items-center gap-1 self-start rounded-full border border-pauta bg-paper p-1"
+            className="relative inline-flex max-w-full shrink-0 flex-nowrap items-center gap-1 self-start overflow-x-auto rounded-lg border border-pauta bg-paper p-1"
           >
             {cenarios.map((cen) => {
               const ativo = cen.id === cenarioAtual?.id;
@@ -279,16 +519,21 @@ export function GraficoArtigo({
                   role="tab"
                   type="button"
                   aria-selected={ativo}
-                  onClick={() => setCenarioId(cen.id)}
-                  className={`toque relative z-10 min-h-9 touch-manipulation rounded-full px-3.5 py-1 text-xs font-medium transition-colors ${
-                    ativo ? "text-white" : "text-ink hover:text-ink-soft"
+                  onClick={() => {
+                    if (cen.id !== cenarioAtual?.id) {
+                      setJaTrocouCenario(true);
+                      setCenarioId(cen.id);
+                    }
+                  }}
+                  className={`toque relative z-10 inline-flex min-h-9 shrink-0 items-center justify-center whitespace-nowrap touch-manipulation rounded-md px-3 py-1.5 text-[13px] leading-4 font-semibold transition-colors ${
+                    ativo ? "text-white" : "text-ink-2 hover:text-ink"
                   }`}
                 >
                   {ativo && (
                     <motion.span
-                      layoutId="cenario-grafico-artigo"
-                      transition={{ type: "spring", stiffness: 400, damping: 30 }}
-                      className="absolute inset-0 -z-10 rounded-full bg-ink shadow-sm"
+                      layoutId={layoutIdCenario}
+                      transition={{ duration: DURACAO_RAPIDA, ease: CURVA }}
+                      className="absolute inset-0 -z-10 rounded-md bg-ink"
                     />
                   )}
                   {cen.rotulo}
@@ -299,8 +544,39 @@ export function GraficoArtigo({
         )}
       </div>
 
-      {/* Área gráfica acessível com Recharts e suporte a mouse/touch */}
-      <div
+      {/* Legenda das séries e síntese do cenário ativo com transição suave */}
+      {(cenarioAtual?.descricao || series.length > 0) && (
+        <motion.div
+          key={cenarioAtual?.id ?? "padrao"}
+          transition={{ duration: DURACAO_RAPIDA, ease: CURVA }}
+          className="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-1.5 text-xs leading-[18px] text-ink-2"
+        >
+          {cenarioAtual?.descricao ? (
+            <p className="text-[13px] leading-[19px] text-ink-2">{cenarioAtual.descricao}</p>
+          ) : (
+            <span />
+          )}
+          {series.length > 0 && (
+            <div className="flex flex-wrap items-center gap-3" aria-hidden>
+              {series.map((s) => (
+                <span key={s.chave} className="inline-flex items-center gap-1.5 font-medium text-ink">
+                  <span
+                    className="inline-block h-2.5 w-2.5 shrink-0 rounded-xs"
+                    style={{ backgroundColor: s.cor }}
+                  />
+                  {s.nome}
+                </span>
+              ))}
+            </div>
+          )}
+        </motion.div>
+      )}
+
+      {/* Área gráfica acessível com Recharts mantida montada entre cenários do mesmo modo */}
+      <motion.div
+        ref={refAreaGrafica}
+        key={modo}
+        transition={{ duration: DURACAO_RAPIDA, ease: CURVA }}
         role="img"
         aria-label={resumoAcessivel}
         tabIndex={0}
@@ -310,7 +586,7 @@ export function GraficoArtigo({
         onPointerLeave={() => {
           if (estaAtivo) setEstaAtivo(false);
         }}
-        className="mt-4 w-full touch-pan-y focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ink focus-visible:rounded-lg"
+        className="mt-4 w-full touch-pan-y focus-visible:rounded focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ink [&_.recharts-surface:focus-visible]:rounded [&_.recharts-surface:focus-visible]:outline-2 [&_.recharts-surface:focus-visible]:outline-offset-4 [&_.recharts-surface:focus-visible]:outline-ink [&_.recharts-surface]:outline-none"
         style={{ height: alturaGrafico }}
       >
         <ResponsiveContainer
@@ -321,184 +597,218 @@ export function GraficoArtigo({
           initialDimension={{ width: 600, height: alturaGrafico }}
         >
           {modo === "area" ? (
-            <AreaChart data={dados} margin={{ top: 16, right: 12, bottom: 4, left: 0 }}>
+            <AreaChart
+              data={dados}
+              margin={{ top: 12, right: 12, bottom: 4, left: 0 }}
+              title={titulo}
+              desc={resumoAcessivel}
+            >
               <defs>
                 {series.map((s, idx) => {
-                  const gradId = `area-grad-${idUnico}-${s.chave}-${idx}`;
+                  const gradId = `area-grad-${idUnico}-${idx}`;
                   return (
                     <linearGradient key={gradId} id={gradId} x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={s.cor} stopOpacity={0.25} />
+                      <stop offset="0%" stopColor={s.cor} stopOpacity={0.2} />
                       <stop offset="100%" stopColor={s.cor} stopOpacity={0.02} />
                     </linearGradient>
                   );
                 })}
               </defs>
-              <CartesianGrid stroke={COR.pauta} vertical={false} />
+              <CartesianGrid stroke={COR.grade} strokeDasharray="2 4" vertical={false} />
               <XAxis
                 dataKey={chaveEixoX}
+                interval="preserveStartEnd"
+                minTickGap={12}
                 tickLine={false}
                 axisLine={false}
-                tick={{ fontSize: 11, fill: COR.eixo }}
-                height={28}
+                tick={{ fontSize: 12, fill: COR.eixo }}
+                height={30}
               />
               <YAxis
-                width={formato === "moeda" ? 64 : 44}
+                width={formato === "moeda" ? 64 : 48}
+                ticks={marcasY}
+                domain={[0, marcasY?.[marcasY.length - 1] ?? "auto"]}
                 tickLine={false}
                 axisLine={false}
-                tick={{ fontSize: 11, fill: COR.eixo }}
+                tick={{ fontSize: 12, fill: COR.eixo }}
                 tickFormatter={(v: number) => formatarEixoY(v, formato)}
               />
               <Tooltip
-                cursor={{ stroke: COR.mira, strokeWidth: 1, strokeDasharray: "4 4" }}
+                cursor={false}
                 isAnimationActive={false}
                 offset={16}
                 wrapperStyle={{ outline: "none", zIndex: 20 }}
                 content={({ active, payload, label }) => (
                   <BalaoGraficoArtigo
                     ativo={active}
-                    payload={payload as any}
+                    payload={payload as ReadonlyArray<{ name?: string; dataKey?: string; value?: unknown; color?: string; fill?: string }>}
                     rotuloX={String(label ?? "")}
                     formato={formato}
                   />
                 )}
               />
               {series.map((s, idx) => {
-                const gradId = `area-grad-${idUnico}-${s.chave}-${idx}`;
+                const gradId = `area-grad-${idUnico}-${idx}`;
                 return (
                   <Area
-                    key={s.chave}
+                    key={`serie-area-${idx}`}
                     type="monotone"
                     dataKey={s.chave}
                     name={s.nome}
                     stroke={s.cor}
                     strokeWidth={2}
                     fill={`url(#${gradId})`}
-                    isAnimationActive={!desenhou}
-                    onAnimationEnd={() => setDesenhou(true)}
-                    animationDuration={DURACAO_GRAFICO_MS}
+                    isAnimationActive={true}
+                    animationDuration={duracaoAnimacaoGrafico}
                     animationEasing={CURVA}
                     activeDot={{ r: 5, fill: s.cor, stroke: "#ffffff", strokeWidth: 2 }}
                   />
                 );
               })}
+              <MiraGraficoArtigo
+                chaveEixoX={chaveEixoX}
+                chaveValor={chavePrincipalMira}
+                formato={formato}
+              />
             </AreaChart>
           ) : (
             <BarChart
               data={dados}
-              margin={{ top: 20, right: 12, bottom: 4, left: 0 }}
+              margin={{ top: 24, right: 8, bottom: 4, left: 0 }}
               barCategoryGap="18%"
+              title={titulo}
+              desc={resumoAcessivel}
             >
-              <CartesianGrid stroke={COR.pauta} vertical={false} />
+              <CartesianGrid stroke={COR.grade} strokeDasharray="2 4" vertical={false} />
               <XAxis
                 dataKey={chaveEixoX}
+                interval="preserveStartEnd"
+                minTickGap={10}
                 tickLine={false}
                 axisLine={false}
-                tick={{ fontSize: 11, fill: COR.eixo }}
-                height={28}
+                tick={{ fontSize: 12, fill: COR.eixo }}
+                height={30}
               />
               <YAxis
-                width={formato === "moeda" ? 64 : 44}
+                width={formato === "moeda" ? 64 : 48}
+                ticks={marcasY}
+                domain={[0, marcasY?.[marcasY.length - 1] ?? "auto"]}
                 tickLine={false}
                 axisLine={false}
-                tick={{ fontSize: 11, fill: COR.eixo }}
+                tick={{ fontSize: 12, fill: COR.eixo }}
                 tickFormatter={(v: number) => formatarEixoY(v, formato)}
               />
               <Tooltip
-                cursor={{ fill: "rgba(14, 27, 51, 0.04)" }}
+                cursor={false}
                 isAnimationActive={false}
                 offset={16}
                 wrapperStyle={{ outline: "none", zIndex: 20 }}
                 content={({ active, payload, label }) => (
                   <BalaoGraficoArtigo
                     ativo={active}
-                    payload={payload as any}
+                    payload={payload as ReadonlyArray<{ name?: string; dataKey?: string; value?: unknown; color?: string; fill?: string }>}
                     rotuloX={String(label ?? "")}
                     formato={formato}
                   />
                 )}
               />
-              {series.map((s) => (
+              {series.map((s, idx) => (
                 <Bar
-                  key={s.chave}
+                  key={`serie-barra-${idx}`}
                   dataKey={s.chave}
                   name={s.nome}
                   fill={s.cor}
-                  fillOpacity={0.88}
-                  radius={[3, 3, 0, 0]}
+                  fillOpacity={0.85}
+                  radius={[2, 2, 0, 0]}
                   activeBar={{ fill: COR.ink, fillOpacity: 1 }}
-                  isAnimationActive={!desenhou}
-                  onAnimationEnd={() => setDesenhou(true)}
-                  animationDuration={DURACAO_GRAFICO_MS}
+                  isAnimationActive={true}
+                  animationDuration={duracaoAnimacaoGrafico}
                   animationEasing={CURVA}
-                />
+                >
+                  {series.length === 1 && (
+                    <LabelList
+                      key={`rotulo-${cenarioAtual?.id}-${s.chave}`}
+                      dataKey={s.chave}
+                      position="top"
+                      content={renderizarRotuloBarra}
+                    />
+                  )}
+                </Bar>
               ))}
+              <MiraGraficoArtigo
+                chaveEixoX={chaveEixoX}
+                chaveValor={chavePrincipalMira}
+                formato={formato}
+              />
             </BarChart>
           )}
         </ResponsiveContainer>
-      </div>
+      </motion.div>
 
       {/* Resumo invisível mas lido diretamente pelo leitor de tela */}
       <div className="sr-only" aria-live="polite">
         {resumoAcessivel}
       </div>
 
-      {/* Tabela de dados equivalente para acessibilidade e inspeção precisa */}
-      <details
-        className="group mt-3 border-t border-pauta pt-2.5 text-xs text-ink-2"
-        onToggle={(e) => setTabelaAberta(e.currentTarget.open)}
-      >
-        <summary className="inline-flex min-h-11 cursor-pointer items-center gap-1.5 font-medium text-ink hover:text-linha">
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            aria-hidden
-            className="transition-transform group-open:rotate-90"
-          >
-            <path d="m9 18 6-6-6-6" />
-          </svg>
-          Ver dados do gráfico em tabela ({cenarioAtual?.rotulo ?? "Dados"})
-        </summary>
-        {tabelaAberta && (
-          <div className="mt-2 max-h-72 overflow-auto rounded-lg border border-pauta bg-card">
-            <table className="w-full border-collapse text-left text-xs">
-              <caption className="sr-only">
-                {titulo} - {cenarioAtual?.rotulo}
-              </caption>
-              <thead className="sticky top-0 bg-paper text-mute font-medium">
-                <tr>
-                  <th scope="col" className="px-3.5 py-2">
-                    {chaveEixoX}
-                  </th>
-                  {series.map((s) => (
-                    <th key={s.chave} scope="col" className="px-3.5 py-2 text-right">
-                      {s.nome}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-pauta text-ink">
-                {dados.map((d, i) => (
-                  <tr key={i} className="hover:bg-paper/50">
-                    <th scope="row" className="px-3.5 py-1.5 font-normal">
-                      {String(d[chaveEixoX] ?? "")}
+      {/* Tabela de dados acessível no rodapé, padronizada com TabelaDosDados de pecas-do-grafico.tsx */}
+      <div className="mt-2">
+        <details
+          className="group"
+          onToggle={(e) => setTabelaAberta(e.currentTarget.open)}
+        >
+          <summary className="inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded text-sm font-medium text-ink underline decoration-1 underline-offset-4">
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              aria-hidden
+              className="transition-transform group-open:rotate-90"
+            >
+              <path d="m9 18 6-6-6-6" />
+            </svg>
+            Ver dados do gráfico em tabela ({cenarioAtual?.rotulo ?? "Dados"})
+          </summary>
+          {tabelaAberta && (
+            <div className="mt-2 max-h-80 overflow-auto rounded-md border border-pauta">
+              <table className="w-full text-left text-[13px]">
+                <caption className="sr-only">
+                  {titulo} — {cenarioAtual?.rotulo}
+                </caption>
+                <thead className="sticky top-0 bg-paper text-xs font-medium text-ink">
+                  <tr>
+                    <th scope="col" className="px-4 py-2.5 font-medium">
+                      {rotuloColunaEixoX(chaveEixoX)}
                     </th>
                     {series.map((s) => (
-                      <td key={s.chave} className="tnum px-3.5 py-1.5 text-right font-medium">
-                        {formatarValorArtigo(d[s.chave], formato)}
-                      </td>
+                      <th key={s.chave} scope="col" className="px-4 py-2.5 text-right font-medium">
+                        {s.nome}
+                      </th>
                     ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </details>
+                </thead>
+                <tbody>
+                  {dados.map((d, i) => (
+                    <tr key={i} className="border-t border-pauta">
+                      <th scope="row" className="tnum px-4 py-2 font-normal text-ink-2">
+                        {String(d[chaveEixoX] ?? "")}
+                      </th>
+                      {series.map((s) => (
+                        <td key={s.chave} className="tnum px-4 py-2 text-right text-ink">
+                          {formatarValorArtigo(d[s.chave], formato)}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </details>
+      </div>
     </figure>
   );
 }

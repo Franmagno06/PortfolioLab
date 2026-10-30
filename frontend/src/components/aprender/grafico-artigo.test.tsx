@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { CURVA, DURACAO_RAPIDA } from "@/lib/movimento";
 import { formatarValorArtigo, GraficoArtigo } from "./grafico-artigo";
 
 // Mock de ResizeObserver e dimensões para o ResponsiveContainer do Recharts no JSDOM
@@ -11,7 +12,7 @@ class MockResizeObserver {
 }
 
 beforeEach(() => {
-  globalThis.ResizeObserver = MockResizeObserver as any;
+  globalThis.ResizeObserver = MockResizeObserver as unknown as typeof ResizeObserver;
   vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(600);
   vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(300);
   vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({
@@ -56,11 +57,11 @@ describe("GraficoArtigo: formatarValorArtigo", () => {
   });
 });
 
-describe("GraficoArtigo: Presets didáticos", () => {
-  it("renderiza o preset juros-compostos no modo área com pílulas de cenários", () => {
+describe("GraficoArtigo: Presets didáticos e padronização do seletor", () => {
+  it("renderiza o preset juros-compostos no modo área com seletor padronizado e transição nos tokens", () => {
     const { container } = render(<GraficoArtigo preset="juros-compostos" />);
 
-    expect(container.querySelector('[data-grafico-artigo]')).not.toBeNull();
+    expect(container.querySelector("[data-grafico-artigo]")).not.toBeNull();
     expect(container.querySelector('[data-preset="juros-compostos"]')).not.toBeNull();
     expect(container.querySelector('[data-modo="area"]')).not.toBeNull();
 
@@ -68,7 +69,7 @@ describe("GraficoArtigo: Presets didáticos", () => {
     const figcaption = container.querySelector("figcaption");
     expect(figcaption?.textContent).toContain("Evolução dos juros compostos");
 
-    // Pílulas de cenários
+    // Seletor de cenários
     const tablist = screen.getByRole("tablist", { name: "Cenários do gráfico" });
     expect(tablist).not.toBeNull();
 
@@ -80,11 +81,46 @@ describe("GraficoArtigo: Presets didáticos", () => {
     expect(tabs[0]?.getAttribute("aria-selected")).toBe("true");
     expect(tabs[1]?.getAttribute("aria-selected")).toBe("false");
 
-    // Indicador com Framer Motion layoutId e spring transition
-    const indicador = container.querySelector('[data-layout-id="cenario-grafico-artigo"]');
+    // Indicador deslizante com layoutId único por instância e tokens DURACAO_RAPIDA + CURVA
+    const indicador = tabs[0]?.querySelector('[data-layout-id^="cenario-grafico-artigo-"]');
     expect(indicador).not.toBeNull();
-    expect(indicador?.getAttribute("data-transition")).toContain('"stiffness":400');
-    expect(indicador?.getAttribute("data-transition")).toContain('"damping":30');
+    expect(indicador?.getAttribute("data-transition")).toContain(`"duration":${DURACAO_RAPIDA}`);
+    expect(indicador?.getAttribute("data-transition")).toContain(`"ease":"${CURVA}"`);
+  });
+
+  it("impede quebra em duas linhas no seletor usando flex-nowrap, shrink-0 e whitespace-nowrap", () => {
+    render(<GraficoArtigo preset="pl-setorial" />);
+
+    const tablist = screen.getByRole("tablist", { name: "Cenários do gráfico" });
+    expect(tablist.className).toContain("flex-nowrap");
+    expect(tablist.className).toContain("shrink-0");
+    expect(tablist.className).toContain("rounded-lg");
+    expect(tablist.className).not.toContain("flex-wrap");
+    expect(tablist.className).not.toContain("rounded-full");
+
+    const tabs = screen.getAllByRole("tab");
+    for (const tab of tabs) {
+      expect(tab.className).toContain("whitespace-nowrap");
+      expect(tab.className).toContain("shrink-0");
+      expect(tab.className).toContain("rounded-md");
+    }
+  });
+
+  it("gera layoutId distintos quando dois gráficos são renderizados no mesmo artigo", () => {
+    const { container } = render(
+      <div>
+        <GraficoArtigo preset="juros-compostos" />
+        <GraficoArtigo preset="pl-setorial" />
+      </div>,
+    );
+
+    const indicadores = container.querySelectorAll('[data-layout-id^="cenario-grafico-artigo-"]');
+    expect(indicadores).toHaveLength(2);
+    const id1 = indicadores[0]?.getAttribute("data-layout-id");
+    const id2 = indicadores[1]?.getAttribute("data-layout-id");
+    expect(id1).toBeTruthy();
+    expect(id2).toBeTruthy();
+    expect(id1).not.toBe(id2);
   });
 
   it("renderiza o preset pl-setorial no modo barras", () => {
@@ -172,12 +208,14 @@ describe("GraficoArtigo: Acessibilidade", () => {
 });
 
 describe("GraficoArtigo: Alternância de cenários e interatividade", () => {
-  it("alterna de cenário ao clicar em outra pílula", () => {
+  it("alterna de cenário ao clicar em outra opção mantendo o contêiner do gráfico montado", () => {
     const { container } = render(<GraficoArtigo preset="juros-compostos" />);
 
     const tabs = screen.getAllByRole("tab");
     expect(tabs[0]?.getAttribute("aria-selected")).toBe("true");
     expect(tabs[1]?.getAttribute("aria-selected")).toBe("false");
+
+    const imgAntes = screen.getByRole("img");
 
     // Clica no cenário "20 anos"
     fireEvent.click(tabs[1]!);
@@ -185,8 +223,12 @@ describe("GraficoArtigo: Alternância de cenários e interatividade", () => {
     expect(tabs[0]?.getAttribute("aria-selected")).toBe("false");
     expect(tabs[1]?.getAttribute("aria-selected")).toBe("true");
 
-    // O indicador deslizante com spring agora está na tab ativa
-    const indicador = tabs[1]?.querySelector('[data-layout-id="cenario-grafico-artigo"]');
+    // O contêiner do gráfico permanece a mesma instância DOM para interpolar suavemente
+    const imgDepois = screen.getByRole("img");
+    expect(imgDepois).toBe(imgAntes);
+
+    // O indicador deslizante agora está na tab ativa
+    const indicador = tabs[1]?.querySelector('[data-layout-id^="cenario-grafico-artigo-"]');
     expect(indicador).not.toBeNull();
 
     // Abre a tabela e verifica os dados do novo cenário (20 anos possui até Ano 20)
