@@ -1,10 +1,12 @@
 import { Prisma } from "@prisma/client";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   calcularEvolucaoPatrimonial,
   calcularPosicao,
+  portfolioService,
   type TransacaoParaCalculo,
 } from "./portfolio.service.js";
+import { portfolioRepository } from "./portfolio.repository.js";
 
 // Testes UNITÁRIOS do cálculo de preço médio: função pura, sem banco.
 // Cada cenário é uma regra da matemática financeira da carteira.
@@ -313,5 +315,110 @@ describe("calcularEvolucaoPatrimonial", () => {
       1,
     );
     expect(pontos[0]).toEqual({ mes: "2026-09", aplicado: 200, patrimonio: 150, resultado: -50 });
+  });
+});
+
+describe("portfolioService.getSummary — consolidação Decimal e centavos", () => {
+  it("carteira vazia consolida zeros sem divisão por zero", async () => {
+    const spyCarteira = vi.spyOn(portfolioService, "getCarteira").mockResolvedValueOnce([]);
+    const spyProventos = vi
+      .spyOn(portfolioRepository, "totalProventos")
+      .mockResolvedValueOnce(new Prisma.Decimal(0));
+    const spyTaxas = vi
+      .spyOn(portfolioService, "totalTaxasPagas")
+      .mockResolvedValueOnce(new Prisma.Decimal(0));
+
+    const summary = await portfolioService.getSummary("user-1");
+
+    expect(summary).toEqual({
+      patrimonioTotal: 0,
+      totalAplicado: 0,
+      lucroTotal: 0,
+      lucroPct: 0,
+      totalProventos: 0,
+      totalTaxas: 0,
+      quantidadeAtivos: 0,
+      alocacaoPorClasse: [],
+    });
+
+    spyCarteira.mockRestore();
+    spyProventos.mockRestore();
+    spyTaxas.mockRestore();
+  });
+
+  it("soma valores fracionários sem imprecisão de float e calcula alocação com Decimal", async () => {
+    // 0.1 + 0.2 em float nativo daria 0.30000000000000004
+    const ativosMock = [
+      {
+        ticker: "ITUB4",
+        name: "Itaú Unibanco",
+        type: "ACAO",
+        quantidade: 10,
+        precoMedio: 33.33,
+        precoAtual: 35.01,
+        valorAplicado: 333.3,
+        valorAtual: 350.1,
+        lucro: 16.8,
+        lucroPct: 5.04,
+      },
+      {
+        ticker: "PETR4",
+        name: "Petrobras",
+        type: "ACAO",
+        quantidade: 10,
+        precoMedio: 30.15,
+        precoAtual: 36.25,
+        valorAplicado: 301.5,
+        valorAtual: 362.5,
+        lucro: 61.0,
+        lucroPct: 20.23,
+      },
+      {
+        ticker: "HGLG11",
+        name: "CSHG Logística",
+        type: "FII",
+        quantidade: 5,
+        precoMedio: 160.05,
+        precoAtual: 165.25,
+        valorAplicado: 800.25,
+        valorAtual: 826.25,
+        lucro: 26.0,
+        lucroPct: 3.25,
+      },
+    ];
+
+    const spyCarteira = vi.spyOn(portfolioService, "getCarteira").mockResolvedValueOnce(ativosMock);
+    const spyProventos = vi
+      .spyOn(portfolioRepository, "totalProventos")
+      .mockResolvedValueOnce(new Prisma.Decimal("45.67"));
+    const spyTaxas = vi
+      .spyOn(portfolioService, "totalTaxasPagas")
+      .mockResolvedValueOnce(new Prisma.Decimal("12.34"));
+
+    const summary = await portfolioService.getSummary("user-2");
+
+    // Total Aplicado: 333.30 + 301.50 + 800.25 = 1435.05
+    // Patrimônio Total: 350.10 + 362.50 + 826.25 = 1538.85
+    // Lucro Total: 1538.85 - 1435.05 = 103.80
+    // Lucro Pct: (103.80 / 1435.05) * 100 = 7.23319... -> 7.23%
+    // ACAO: 350.10 + 362.50 = 712.60 -> (712.60 / 1538.85) * 100 = 46.307... -> 46.31%
+    // FII: 826.25 -> (826.25 / 1538.85) * 100 = 53.692... -> 53.69%
+
+    expect(summary.patrimonioTotal).toBe(1538.85);
+    expect(summary.totalAplicado).toBe(1435.05);
+    expect(summary.lucroTotal).toBe(103.8);
+    expect(summary.lucroPct).toBe(7.23);
+    expect(summary.totalProventos).toBe(45.67);
+    expect(summary.totalTaxas).toBe(12.34);
+    expect(summary.quantidadeAtivos).toBe(3);
+
+    expect(summary.alocacaoPorClasse).toEqual([
+      { classe: "FII", valor: 826.25, percentual: 53.69 },
+      { classe: "ACAO", valor: 712.6, percentual: 46.31 },
+    ]);
+
+    spyCarteira.mockRestore();
+    spyProventos.mockRestore();
+    spyTaxas.mockRestore();
   });
 });
