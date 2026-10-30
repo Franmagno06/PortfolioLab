@@ -1,0 +1,74 @@
+---
+titulo: "Curva de Juros e DI Futuro: O que Precifica o Mercado"
+tituloCurto: "Curva de juros e DI"
+subtitulo: "A diferença entre a Selic do Copom e as taxas negociadas na B3 para os próximos anos."
+categoria: renda-fixa
+nivel: intermediario
+slug: curva-de-juros-e-di-futuro
+tempoLeitura: 5
+atualizadoEm: 2026-10-30
+resumo:
+  - "A Selic Meta vale para um único dia útil, enquanto os contratos de DI Futuro refletem expectativas de anos à frente."
+  - "A inclinação da curva expressa o prêmio de risco exigido pelos investidores para emprestar dinheiro no longo prazo."
+  - "Oscilações na curva afetam a marcação a mercado dos títulos e alteram a taxa de desconto no valuation de ações e FIIs."
+fontes:
+  - rotulo: "Banco Central do Brasil, O que é a Taxa Selic e como funciona o Copom"
+    url: "https://www.bcb.gov.br/controleinflacao/taxaselic"
+  - rotulo: "B3, Contrato Futuro de Taxa DI (DI1)"
+    url: "https://www.b3.com.br/pt_br/produtos-e-servicos/negociacao/renda-variavel/mercado-de-balcao-organizado/taxa-di.htm"
+  - rotulo: "Tesouro Direto, Como Funciona a Marcação a Mercado"
+    url: "https://www.tesourodireto.com.br/como-investir/conheca-os-titulos.htm"
+relacionados:
+  - selic-cdi-sem-misterio
+  - tesouro-direto
+  - imposto-na-renda-fixa
+---
+
+Quando o Comitê de Política Monetária (Copom) do Banco Central se reúne a cada 45 dias para divulgar a taxa Selic Meta, o noticiário costuma tratar esse anúncio como se determinasse todos os juros do país. No entanto, a Selic fixada pelo Copom é uma taxa de curtíssimo prazo: ela remunera apenas os empréstimos interbancários com lastro em títulos públicos de um dia útil para o outro.
+
+Para prazos de um, cinco ou dez anos, a taxa não é decidida em uma reunião de governo, mas sim negociada diariamente na bolsa pelos agentes de mercado por meio dos contratos de Depósito Interfinanceiro Futuro (DI Futuro).
+
+## Selic do Copom versus contratos de DI Futuro
+
+O contrato DI Futuro da B3 (cujo código base é o DI1) é um instrumento derivativo onde os participantes do mercado financeiro compram e vendem compromissos sobre qual será a taxa média de juros entre hoje e uma data futura de vencimento.
+
+Existem contratos com vencimentos para o início de cada mês e ano futuros (como janeiro de 2027, janeiro de 2029 ou janeiro de 2033). Cada vencimento possui sua própria cotação de mercado, expressa em taxa percentual ao ano.
+
+<GraficoArtigo preset="renda-fixa-curva" />
+
+Enquanto a Selic Meta representa o presente imediato, o DI Futuro representa a expectativa coletiva para a trajetória da economia nos próximos anos. Se os analistas projetam aceleração da inflação ou aumento dos gastos públicos, as taxas dos contratos com vencimentos longos sobem imediatamente, mesmo que o Banco Central ainda não tenha alterado a taxa do dia.
+
+## A inclinação da curva e o prêmio de risco
+
+A união gráfica das taxas de juros de todos os vencimentos de DI negociados na bolsa forma a Estrutura a Termo da Taxa de Juros (ETTJ), popularmente conhecida como **curva de juros**.
+
+Em condições econômicas saudáveis, a curva de juros apresenta inclinação positiva (ascendente): as taxas para prazos longos são maiores do que as taxas para prazos curtos. Essa diferença entre o juro de curto prazo e o juro de longo prazo recebe o nome de **prêmio de risco**.
+
+<Trecho nota="Quanto mais distante for o vencimento do título, maior é a incerteza inflacionária e fiscal enfrentada pelo credor.">
+
+O prêmio de risco remunera três componentes fundamentais:
+
+1. **Risco de prazo e inflação:** Dificuldade em antecipar o poder de compra da moeda daqui a dez anos.
+2. **Risco fiscal:** A incerteza quanto à capacidade do governo de honrar suas dívidas e manter as contas equilibradas no longo prazo.
+3. **Prêmio de liquidez:** A compensação exigida por imobilizar capital por períodos estendidos.
+
+</Trecho>
+
+Quando a confiança nas contas públicas piora, a curva de juros sofre o que os economistas chamam de **empinamento** (*steepening*): os juros longos disparam em relação aos juros curtos.
+
+## Marcação a mercado no Tesouro Direto
+
+A oscilação contínua da curva de juros futuros explica o funcionamento da marcação a mercado nos títulos públicos do Tesouro Direto, especialmente o **Tesouro Prefixado** e o **Tesouro IPCA+**.
+
+A precificação de um título segue uma regra matemática estrita:
+
+> Quando a taxa de juros do mercado sobe, o preço unitário (PU) atual do título cai. Quando a taxa de juros do mercado cai, o preço unitário do título sobe.
+
+Se você comprou um título do Tesouro Prefixado prometendo 12% ao ano e, no dia seguinte, as tensões no mercado fazem os juros futuros para aquele prazo subirem para 14% ao ano, o seu título de 12% passa a valer menos no mercado secundário. Caso precise resgatá-lo antecipadamente, o investidor sofrerá uma perda temporária no saldo. Se carregar o título até a data final pactuada, receberá exatamente a rentabilidade contratada.
+
+## O impacto da curva no valuation de ações e FIIs
+
+A curva de juros não afeta apenas a renda fixa; ela é o alicerce de precificação de todo o mercado de capitais:
+
+- **Ações:** No modelo fundamentalista de Fluxo de Caixa Descontado (DCF), o valor justo de uma companhia é a soma de todos os seus lucros futuros trazidos a valor presente por uma taxa de desconto. Quando os juros futuros sobem, a taxa de desconto aumenta, reduzindo o valor presente dos fluxos de caixa futuros e derrubando as cotações das ações na bolsa.
+- **Fundos Imobiliários:** Os proventos pagos pelos FIIs competem diretamente com a rentabilidade oferecida pelos títulos do Tesouro IPCA+. Se um título público do governo passa a pagar IPCA + 6,5% ao ano com garantia soberana, o investidor exige que os FIIs negociem a preços menores para que o Dividend Yield compense o risco adicional do empreendimento.

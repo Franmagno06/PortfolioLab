@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Children } from "react";
 import { Armadilha } from "@/components/aprender/armadilha";
 import { Conta, Parcela, Sinal } from "@/components/aprender/conta";
+import { GraficoArtigo } from "@/components/aprender/grafico-artigo";
 import { Trecho } from "@/components/aprender/trecho";
 import { VejaNoSite } from "@/components/aprender/veja-no-site";
 import { slugify } from "@/lib/aprender/texto";
@@ -74,6 +75,7 @@ const components: MDXComponents = {
   Armadilha,
   Trecho,
   VejaNoSite,
+  GraficoArtigo,
 };
 
 export function useMDXComponents(): MDXComponents {

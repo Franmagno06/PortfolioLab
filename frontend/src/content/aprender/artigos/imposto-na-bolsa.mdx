@@ -1,0 +1,83 @@
+---
+titulo: "Imposto de Renda na Bolsa: Ações, FIIs e ETFs"
+tituloCurto: "Imposto na bolsa"
+subtitulo: "Como funcionam as alíquotas, a isenção de R$ 20 mil, o DARF e a compensação de prejuízos."
+categoria: estrategia
+nivel: intermediario
+slug: imposto-na-bolsa
+tempoLeitura: 4
+atualizadoEm: 2026-10-30
+resumo:
+  - "Vendas comuns de ações até R$ 20 mil por mês são isentas de Imposto de Renda sobre o ganho de capital."
+  - "FIIs pagam 20% sobre o ganho de venda de cotas, mas seus rendimentos periódicos são isentos para pessoa física."
+  - "Prejuízos apurados na bolsa podem ser acumulados para abater lucros futuros na mesma classe e modalidade."
+fontes:
+  - rotulo: "Receita Federal do Brasil, Instrução Normativa RFB nº 1.585/2015"
+    url: "https://www.gov.br/receitafederal/pt-br/assuntos/orientacao-tributaria/tributos/irpf-imposto-de-renda-pessoa-fisica"
+  - rotulo: "Planalto, Lei 11.033/2004 (Tributação no mercado financeiro e de capitais)"
+    url: "https://www.planalto.gov.br/ccivil_03/_ato2004-2006/2004/lei/l11033.htm"
+  - rotulo: "B3, Tributação em Renda Variável"
+    url: "https://www.b3.com.br/pt_br/para-voce/investir/como-investir/tributacao/"
+relacionados:
+  - imposto-na-renda-fixa
+  - preco-medio
+  - fiis-tijolo-ou-papel
+---
+
+Investir em renda variável exige entender as regras fiscais antes de vender qualquer ativo. A tributação na bolsa não é retida automaticamente pela corretora no caso de ganho de capital: o investidor é o único responsável por apurar seus resultados, calcular o imposto devido e recolher a guia até o último dia útil do mês seguinte.
+
+## A isenção de vinte mil reais em ações
+
+A regra mais famosa da bolsa brasileira beneficia o investidor pessoa física que negocia ações em operações comuns (quando a compra e a venda ocorrem em datas distintas). Se o valor total das vendas de ações dentro do mesmo mês civil for igual ou inferior a R$ 20.000,00, todo o lucro obtido com essas vendas fica isento de Imposto de Renda.
+
+<Trecho nota="O teto de R$ 20 mil se refere ao valor total vendido no mês civil, e não ao lucro obtido.">
+
+<Conta rotulo="Exemplo de apuração de vendas no mês">
+  <Parcela rotulo="Total de vendas de ações">R$ 18.500,00</Parcela>
+  <Sinal>com</Sinal>
+  <Parcela rotulo="Lucro líquido">R$ 2.400,00</Parcela>
+  <Sinal>→</Sinal>
+  <Parcela rotulo="Imposto devido" resultado>R$ 0,00 (Isento)</Parcela>
+</Conta>
+
+</Trecho>
+
+Se a soma de todas as vendas de ações no mês ultrapassar R$ 20.000,00 por um único centavo, a isenção deixa de existir para aquele mês: a alíquota de 15% incide sobre o lucro total de todas as vendas realizadas no período, e não apenas sobre o valor que excedeu o teto.
+
+<Armadilha>A isenção de R$ 20 mil se aplica exclusivamente a ações em operações comuns. Ela não vale para day trade, nem para FIIs, nem para ETFs de ações.</Armadilha>
+
+## Alíquotas por classe de ativo
+
+Cada produto negociado na B3 possui suas próprias alíquotas e particularidades fiscais. Compreender a diferença entre operações comuns e day trade evita autuações fiscais da Receita Federal.
+
+<GraficoArtigo preset="ir-aliquotas" />
+
+As regras dividem-se em quatro grandes grupos:
+
+1. **Ações em operações comuns:** Alíquota de 15% sobre o lucro líquido para meses com vendas superiores a R$ 20.000,00.
+2. **Ações em Day Trade:** Alíquota de 20% sobre o ganho líquido de operações iniciadas e encerradas no mesmo pregão, sem qualquer faixa de isenção.
+3. **Fundos Imobiliários (FIIs):** O ganho de capital obtido na venda de cotas é tributado em 20%, independentemente do volume financeiro vendido no mês. Em contrapartida, os rendimentos mensais distribuídos pelo fundo são isentos de IR para a pessoa física, desde que o fundo possua cotas negociadas exclusivamente em bolsa ou mercado de balcão organizado, tenha ao menos 100 cotistas e o investidor detenha menos de 10% do total de cotas.
+4. **ETFs de Ações:** O ganho de capital na alienação de cotas de ETFs de ações é tributado em 15%, sem a isenção dos R$ 20 mil mensais.
+
+## Proventos de ações: dividendos e JCP
+
+Além do ganho de capital na negociação das cotas, as ações remuneram seus acionistas por meio de duas formas principais de proventos:
+
+- **Dividendos:** Pela legislação brasileira atual, os dividendos distribuídos por empresas listadas na bolsa são isentos de Imposto de Renda para a pessoa física. O valor creditado na conta da corretora já é livre de tributos.
+- **Juros sobre Capital Próprio (JCP):** O JCP possui alíquota de 15% de Imposto de Renda retida na fonte pela própria empresa pagadora. Isso significa que, quando o anúncio informa um JCP bruto por ação, a corretora deposita o valor líquido com o desconto tributário já recolhido.
+
+## Como compensar prejuízos acumulados
+
+Se você vender um ativo com prejuízo, esse resultado negativo não é perdido. A Receita Federal permite abater prejuízos acumulados de lucros futuros para reduzir ou zerar o imposto a pagar nos meses seguintes.
+
+<Trecho nota="O controle do prejuízo acumulado deve ser feito na planilha ou no relatório mensal, além de informado na declaração anual de ajuste.">
+
+No entanto, a legislação impõe uma separação rígida entre modalidades e classes de ativos:
+
+- **Operações comuns de ações e ETFs:** Prejuízos de operações normais só podem ser compensados com ganhos de operações normais de renda variável.
+- **Day trade:** Prejuízos de day trade só abatem ganhos obtidos em outras operações de day trade.
+- **Fundos Imobiliários:** Prejuízos com cotas de FIIs só abatem ganhos com outros FIIs. Você não pode abater o prejuízo de um FII do lucro de uma ação comum.
+
+</Trecho>
+
+O imposto devido deve ser apurado até o último dia útil do mês subsequente ao da alienação e recolhido via Documento de Arrecadação de Receitas Federais (DARF) sob o código de receita 6015 para pessoa física.
