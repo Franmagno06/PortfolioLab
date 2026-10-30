@@ -1,6 +1,7 @@
 import cookieParser from "cookie-parser";
 import express from "express";
 import helmet from "helmet";
+import { env } from "./config/env.js";
 import { verificarConexao } from "./database/prisma.js";
 import { assetsRoutes } from "./modules/assets/assets.routes.js";
 import { ativosRoutes } from "./modules/ativos/ativos.routes.js";
@@ -27,7 +28,7 @@ export const app = express();
 // Achado 8: atrás do Render/Vercel, sem isto todos os IPs viram o do proxy e o
 // limite que deveria ser por visitante passa a valer para a aplicação inteira
 // de uma vez. O 1 é a quantidade de proxies confiáveis à frente da API.
-app.set("trust proxy", 1);
+app.set("trust proxy", env.TRUST_PROXY);
 
 // Cabeçalhos de segurança. Esta API só responde JSON, então o CSP que importa
 // é o do Next, que serve o HTML (frontend/src/proxy.ts) — aqui ele é desligado

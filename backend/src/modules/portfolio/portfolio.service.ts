@@ -17,6 +17,7 @@ export type TransacaoParaCalculo = {
 };
 
 const ZERO = new Prisma.Decimal(0);
+const CEM = new Prisma.Decimal(100);
 
 // converte Decimal para número com 2 casas — só na hora de responder ao cliente
 function em2Casas(d: Prisma.Decimal): number {
@@ -282,31 +283,41 @@ export const portfolioService = {
       this.totalTaxasPagas(userId),
     ]);
 
-    const patrimonioTotal = ativos.reduce((soma, a) => soma + a.valorAtual, 0);
-    const totalAplicado = ativos.reduce((soma, a) => soma + a.valorAplicado, 0);
-    const lucroTotal = patrimonioTotal - totalAplicado;
+    const patrimonioTotal = ativos.reduce(
+      (soma, a) => soma.plus(new Prisma.Decimal(a.valorAtual)),
+      ZERO,
+    );
+    const totalAplicado = ativos.reduce(
+      (soma, a) => soma.plus(new Prisma.Decimal(a.valorAplicado)),
+      ZERO,
+    );
+    const lucroTotal = patrimonioTotal.minus(totalAplicado);
+    const lucroPct = totalAplicado.isZero()
+      ? ZERO
+      : lucroTotal.div(totalAplicado).times(CEM);
 
     // agrupa o valor atual por classe de ativo (ACAO, FII, ETF, RENDA_FIXA)
-    const valorPorClasse = new Map<string, number>();
+    const valorPorClasse = new Map<string, Prisma.Decimal>();
     for (const a of ativos) {
-      valorPorClasse.set(a.type, (valorPorClasse.get(a.type) ?? 0) + a.valorAtual);
+      const acumulado = valorPorClasse.get(a.type) ?? ZERO;
+      valorPorClasse.set(a.type, acumulado.plus(new Prisma.Decimal(a.valorAtual)));
     }
 
     const alocacaoPorClasse = [...valorPorClasse.entries()]
-      .map(([classe, valor]) => ({
+      .map(([classe, valorDecimal]) => ({
         classe,
-        valor: Number(valor.toFixed(2)),
-        percentual:
-          patrimonioTotal === 0 ? 0 : Number(((valor / patrimonioTotal) * 100).toFixed(2)),
+        valor: em2Casas(valorDecimal),
+        percentual: patrimonioTotal.isZero()
+          ? 0
+          : em2Casas(valorDecimal.div(patrimonioTotal).times(CEM)),
       }))
       .sort((a, b) => b.valor - a.valor);
 
     return {
-      patrimonioTotal: Number(patrimonioTotal.toFixed(2)),
-      totalAplicado: Number(totalAplicado.toFixed(2)),
-      lucroTotal: Number(lucroTotal.toFixed(2)),
-      lucroPct:
-        totalAplicado === 0 ? 0 : Number(((lucroTotal / totalAplicado) * 100).toFixed(2)),
+      patrimonioTotal: em2Casas(patrimonioTotal),
+      totalAplicado: em2Casas(totalAplicado),
+      lucroTotal: em2Casas(lucroTotal),
+      lucroPct: em2Casas(lucroPct),
       totalProventos: proventos ? em2Casas(proventos) : 0,
       totalTaxas: em2Casas(taxasPagas),
       quantidadeAtivos: ativos.length,

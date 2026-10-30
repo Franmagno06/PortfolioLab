@@ -152,6 +152,7 @@ model AssetGoal {
 
   // Um usuário só pode ter UMA meta por ativo
   @@unique([userId, assetId])
+  @@index([assetId])
   @@map("asset_goals")
 }
 
@@ -190,6 +191,7 @@ model Report {
   asset Asset? @relation(fields: [assetId], references: [id], onDelete: SetNull)
 
   @@index([userId])
+  @@index([assetId])
   @@index([contentHash])
   @@map("reports")
 }
@@ -278,6 +280,7 @@ model Dividend {
   asset Asset @relation(fields: [assetId], references: [id], onDelete: Restrict)
 
   @@index([userId])
+  @@index([assetId])
   /// Torna a sincronização idempotente: rodar de novo atualiza a linha em vez
   /// de duplicar o provento. Não atrapalha o manual, que fica noutra origem.
   @@unique([userId, assetId, paidAt, source])
