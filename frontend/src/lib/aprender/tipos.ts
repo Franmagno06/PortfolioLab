@@ -45,6 +45,8 @@ export type Frontmatter = {
   destaque?: boolean;
   /** A folha de caderno do destaque: a conta em duas linhas e uma anotação. Só o destaque usa. */
   ilustracao?: { linhas: [string, string]; nota: string };
+  /** Nível de complexidade do artigo (opcional, ex: intermediario). */
+  nivel?: string;
 };
 
 export type Titulo = { id: string; texto: string };
@@ -67,4 +69,8 @@ export const SLUGS_PLANEJADOS = [
   "preco-medio",
   "etfs-uma-cota-varios-ativos",
   "rebalancear-com-aportes",
+  "imposto-na-bolsa",
+  "setores-da-b3",
+  "curva-de-juros-e-di-futuro",
+  "como-ler-balanco-e-informe-cvm",
 ] as const;

@@ -4,6 +4,8 @@
  */
 
 /** Espelham `--duracao-grafico` do globals.css; se um mudar, o outro muda junto. */
+export const DURACAO_RAPIDA = 0.16;
+export const DURACAO_RAPIDA_MS = 160;
 export const DURACAO_GRAFICO_MS = 1100;
 export const DURACAO_CONTAGEM_MS = 1100;
 /** Espelha `--curva` do globals.css, no formato que o Recharts aceita em `animationEasing`. */

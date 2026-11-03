@@ -18,6 +18,8 @@ import {
   razaoPct,
   rendimentoDeUmAno,
   rendimentoLiquido,
+  PRESETS_GRAFICO_ARTIGO,
+  simularJurosCompostosAportes,
 } from "./exemplos";
 
 const artigo = (slug: string) => readFileSync(join(process.cwd(), "src", "content", "aprender", "artigos", `${slug}.mdx`), "utf8");
@@ -220,5 +222,45 @@ describe("os números escritos nos artigos são os que a conta dá", () => {
   it("o FGC usado nos textos é o conferido no site do FGC", () => {
     expect(fgc).toMatchObject({ porInstituicaoReais: 250_000, tetoGlobalReais: 1_000_000, janelaAnos: 4 });
     expect(artigo("cdb-lci-lca-e-fgc")).toContain("R$ 1 milhão por CPF num período de 4 anos");
+  });
+});
+
+
+describe("presets do GraficoArtigo", () => {
+  it("simulação de juros compostos em 10, 20 e 30 anos com aportes de R$ 500", () => {
+    const dezAnos = simularJurosCompostosAportes(emCentavos(500), 10, 10);
+    expect(dezAnos).toHaveLength(11);
+    expect(dezAnos[0]).toEqual({ ano: 0, rotulo: "Ano 0", investido: 0, juros: 0, total: 0 });
+    const p10 = dezAnos[10]!;
+    expect(p10.investido).toBe(60000);
+    expect(p10.total).toBeGreaterThan(100000);
+    expect(p10.juros).toBe(p10.total - p10.investido);
+
+    const trintaAnos = simularJurosCompostosAportes(emCentavos(500), 10, 30);
+    const p30 = trintaAnos[30]!;
+    expect(p30.investido).toBe(180000);
+    expect(p30.total).toBeGreaterThan(1000000); // Mais de 1 milhão
+    expect(p30.juros).toBeGreaterThan(p30.investido * 4); // Juros superam em mais de 4x o investido
+  });
+
+  it("todos os 5 presets estão catalogados e possuem dados válidos", () => {
+    const chaves = ["juros-compostos", "pl-setorial", "renda-fixa-curva", "ir-aliquotas", "fiis-proventos"] as const;
+    for (const c of chaves) {
+      const p = PRESETS_GRAFICO_ARTIGO[c];
+      expect(p).toBeDefined();
+      expect(p.titulo.length).toBeGreaterThan(5);
+      expect(p.cenarios.length).toBeGreaterThanOrEqual(2);
+      for (const cen of p.cenarios) {
+        expect(cen.dados.length).toBeGreaterThan(0);
+        expect(cen.series.length).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it("renda-fixa-curva usa a taxa Selic conferida no Banco Central", () => {
+    const curva = PRESETS_GRAFICO_ARTIGO["renda-fixa-curva"];
+    const atual = curva.cenarios.find((c) => c.id === "curva-atual")!;
+    const selicPonto = atual.dados.find((d) => d.prazo === "Hoje (Selic)");
+    expect(selicPonto?.taxa).toBe(DADOS_PUBLICOS.selicMeta.valorPct);
   });
 });

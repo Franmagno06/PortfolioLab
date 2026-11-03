@@ -1,4 +1,4 @@
-import { ehCategoria, type Fonte, type Frontmatter } from "./tipos";
+import { ehCategoria, type Fonte, type Frontmatter, type IdDeCategoria } from "./tipos";
 
 /**
  * Confere o cabeçalho de um artigo e devolve com o tipo certo. Falha alto, com o nome do arquivo:
@@ -17,8 +17,11 @@ export function validarFrontmatter(dados: Record<string, unknown>, arquivo: stri
   if (slug !== arquivo.replace(/\.mdx$/, "")) erro(`"slug" (${slug}) tem de ser igual ao nome do arquivo`);
   if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(slug)) erro(`"slug" só aceita minúsculas, números e hífen`);
 
-  const categoria = dados.categoria;
-  if (!ehCategoria(categoria)) erro(`"categoria" inválida: ${String(categoria)}`);
+  let categoria = dados.categoria;
+  if (categoria === "acoes") categoria = "acoes-e-fiis";
+  if (categoria === "estrategia") categoria = "montar-a-carteira";
+
+  if (!ehCategoria(categoria)) erro(`"categoria" inválida: ${String(dados.categoria)}`);
 
   const tempoLeitura = dados.tempoLeitura;
   if (typeof tempoLeitura !== "number" || !Number.isInteger(tempoLeitura) || tempoLeitura < 1) {
@@ -66,7 +69,7 @@ export function validarFrontmatter(dados: Record<string, unknown>, arquivo: stri
     titulo: texto("titulo"),
     ...(typeof dados.tituloCurto === "string" && dados.tituloCurto.trim() && { tituloCurto: dados.tituloCurto.trim() }),
     subtitulo: texto("subtitulo"),
-    categoria: categoria as Frontmatter["categoria"],
+    categoria: categoria as IdDeCategoria,
     slug,
     tempoLeitura: tempoLeitura as number,
     atualizadoEm: atualizadoEm as string,
@@ -75,5 +78,6 @@ export function validarFrontmatter(dados: Record<string, unknown>, arquivo: stri
     relacionados: relacionados as string[],
     ...(dados.destaque === true && { destaque: true }),
     ...(ilustracao && { ilustracao }),
+    ...(typeof dados.nivel === "string" && { nivel: dados.nivel }),
   };
 }

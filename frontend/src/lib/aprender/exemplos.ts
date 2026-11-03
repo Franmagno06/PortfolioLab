@@ -147,3 +147,307 @@ export const DADOS_PUBLICOS = {
     conferidoEm: "2026-10-15",
   },
 } as const;
+
+
+/** Ponto da simulação de juros compostos com aportes mensais regulares. */
+export type PontoJurosCompostos = {
+  ano: number;
+  rotulo: string;
+  investido: number;
+  juros: number;
+  total: number;
+};
+
+/**
+ * Simula a evolução patrimonial com aportes mensais constantes a uma taxa anual fixa.
+ * O aporte mensal é capitalizado todo mês pela taxa efetiva mensal equivalente: i = (1 + taxaAnual)^(1/12) - 1.
+ */
+export function simularJurosCompostosAportes(
+  aporteMensalCentavos: Centavos,
+  taxaAnualPct: number,
+  anos: number,
+): PontoJurosCompostos[] {
+  const taxaMensal = (1 + taxaAnualPct / 100) ** (1 / 12) - 1;
+  const aporteReais = aporteMensalCentavos / 100;
+  const pontos: PontoJurosCompostos[] = [
+    { ano: 0, rotulo: "Ano 0", investido: 0, juros: 0, total: 0 },
+  ];
+
+  let acumulado = 0;
+  for (let ano = 1; ano <= anos; ano++) {
+    for (let mes = 1; mes <= 12; mes++) {
+      acumulado = (acumulado + aporteReais) * (1 + taxaMensal);
+    }
+    const investido = Math.round(ano * 12 * aporteReais);
+    const total = Math.round(acumulado);
+    const juros = Math.max(0, total - investido);
+    pontos.push({
+      ano,
+      rotulo: `Ano ${ano}`,
+      investido,
+      juros,
+      total,
+    });
+  }
+
+  return pontos;
+}
+
+export type PresetGraficoArtigo =
+  | "juros-compostos"
+  | "pl-setorial"
+  | "renda-fixa-curva"
+  | "ir-aliquotas"
+  | "fiis-proventos";
+
+export type ModoGraficoArtigo = "area" | "barras";
+export type FormatoGraficoArtigo = "moeda" | "percentual" | "multiplicador" | "numero";
+
+export type SerieGraficoArtigo = {
+  chave: string;
+  nome: string;
+  cor: string;
+};
+
+export type CenarioGraficoArtigo = {
+  id: string;
+  rotulo: string;
+  descricao?: string;
+  dados: Record<string, unknown>[];
+  series: SerieGraficoArtigo[];
+  eixoX: string;
+};
+
+export type DefinicaoPresetGrafico = {
+  modoPadrao: ModoGraficoArtigo;
+  titulo: string;
+  descricao: string;
+  formato: FormatoGraficoArtigo;
+  cenarios: CenarioGraficoArtigo[];
+};
+
+export const PRESETS_GRAFICO_ARTIGO: Record<PresetGraficoArtigo, DefinicaoPresetGrafico> = {
+  "juros-compostos": {
+    modoPadrao: "area",
+    titulo: "Evolução dos juros compostos: R$ 500/mês a 10% a.a.",
+    descricao: "Comparação entre o total investido do próprio bolso e o montante gerado pelos juros sobre juros ao longo do tempo.",
+    formato: "moeda",
+    cenarios: [
+      {
+        id: "10-anos",
+        rotulo: "10 anos",
+        descricao: "Em 10 anos, os juros acumulados já começam a se aproximar do total investido.",
+        eixoX: "rotulo",
+        dados: simularJurosCompostosAportes(emCentavos(500), 10, 10),
+        series: [
+          { chave: "investido", nome: "Total investido", cor: "#5d6b7f" },
+          { chave: "juros", nome: "Juros acumulados", cor: "#1e9e63" },
+          { chave: "total", nome: "Patrimônio total", cor: "#5b3fd0" },
+        ],
+      },
+      {
+        id: "20-anos",
+        rotulo: "20 anos",
+        descricao: "Em 20 anos, os juros acumulados ultrapassam o dobro de todo o valor investido.",
+        eixoX: "rotulo",
+        dados: simularJurosCompostosAportes(emCentavos(500), 10, 20),
+        series: [
+          { chave: "investido", nome: "Total investido", cor: "#5d6b7f" },
+          { chave: "juros", nome: "Juros acumulados", cor: "#1e9e63" },
+          { chave: "total", nome: "Patrimônio total", cor: "#5b3fd0" },
+        ],
+      },
+      {
+        id: "30-anos",
+        rotulo: "30 anos",
+        descricao: "Em 30 anos, mais de 80% do patrimônio final é composto exclusivamente de juros acumulados.",
+        eixoX: "rotulo",
+        dados: simularJurosCompostosAportes(emCentavos(500), 10, 30),
+        series: [
+          { chave: "investido", nome: "Total investido", cor: "#5d6b7f" },
+          { chave: "juros", nome: "Juros acumulados", cor: "#1e9e63" },
+          { chave: "total", nome: "Patrimônio total", cor: "#5b3fd0" },
+        ],
+      },
+    ],
+  },
+
+  "pl-setorial": {
+    modoPadrao: "barras",
+    titulo: "Comparação de múltiplos médios entre setores da B3",
+    descricao: "Setores maduros e de receita previsível ou commodities negociam a múltiplos menores do que setores de crescimento.",
+    formato: "multiplicador",
+    cenarios: [
+      {
+        id: "pl",
+        rotulo: "P/L Médio",
+        descricao: "Preço sobre Lucro médio estimado para empresas de cada setor da B3.",
+        eixoX: "setor",
+        dados: [
+          { setor: "Commodities", valor: 5.8, descricao: "Petróleo, minério e celulose (alta ciclicidade)" },
+          { setor: "Bancos", valor: 7.8, descricao: "Grandes bancos comerciais consolidados" },
+          { setor: "Elétricas", valor: 10.2, descricao: "Transmissão e geração com receita previsível" },
+          { setor: "Varejo", valor: 16.5, descricao: "Empresas com margem menor e expectativa de crescimento" },
+        ],
+        series: [{ chave: "valor", nome: "P/L Médio (vezes)", cor: "#5b3fd0" }],
+      },
+      {
+        id: "pvp",
+        rotulo: "P/VP Médio",
+        descricao: "Preço sobre Valor Patrimonial médio dos principais setores da bolsa.",
+        eixoX: "setor",
+        dados: [
+          { setor: "Commodities", valor: 1.1, descricao: "Intensivo em capital físico e equipamentos" },
+          { setor: "Bancos", valor: 1.3, descricao: "Rentabilidade elevada (ROE) sobre o patrimônio" },
+          { setor: "Elétricas", valor: 1.96, descricao: "Múltiplo da TAEE11 no exemplo de referência" },
+          { setor: "Varejo", valor: 2.4, descricao: "Ativos intangíveis, logística e marca" },
+        ],
+        series: [{ chave: "valor", nome: "P/VP Médio (vezes)", cor: "#7359e5" }],
+      },
+    ],
+  },
+
+  "renda-fixa-curva": {
+    modoPadrao: "area",
+    titulo: "Curva de juros: taxa presente vs expectativas de mercado",
+    descricao: "Como a taxa básica de hoje se compara aos contratos futuros de juros (DI) negociados para 2 e 5 anos.",
+    formato: "percentual",
+    cenarios: [
+      {
+        id: "curva-atual",
+        rotulo: "Curva Atual (Em queda)",
+        descricao: "O mercado projeta taxas menores no longo prazo do que a taxa Selic presente.",
+        eixoX: "prazo",
+        dados: [
+          { prazo: "Hoje (Selic)", taxa: DADOS_PUBLICOS.selicMeta.valorPct },
+          { prazo: "DI 2 anos", taxa: 12.5 },
+          { prazo: "DI 5 anos", taxa: 12.1 },
+        ],
+        series: [{ chave: "taxa", nome: "Taxa anual (DI/Selic)", cor: "#5b3fd0" }],
+      },
+      {
+        id: "curva-normal",
+        rotulo: "Curva Normal (Em alta)",
+        descricao: "Prazos mais longos exigem prêmio maior de risco e liquidez.",
+        eixoX: "prazo",
+        dados: [
+          { prazo: "Hoje (Selic)", taxa: 10.5 },
+          { prazo: "DI 2 anos", taxa: 11.8 },
+          { prazo: "DI 5 anos", taxa: 12.9 },
+        ],
+        series: [{ chave: "taxa", nome: "Taxa anual projetada", cor: "#7359e5" }],
+      },
+    ],
+  },
+
+  "ir-aliquotas": {
+    modoPadrao: "barras",
+    titulo: "Tabela comparativa de alíquotas de Imposto de Renda",
+    descricao: "As alíquotas aplicadas sobre o ganho de capital e rendimentos em cada classe de investimento.",
+    formato: "percentual",
+    cenarios: [
+      {
+        id: "renda-variavel",
+        rotulo: "Renda Variável",
+        descricao: "Tributação sobre o ganho de capital líquido na alienação de ativos.",
+        eixoX: "ativo",
+        dados: [
+          { ativo: "Ações (até 20k/mês)", aliquota: 0, detalhe: "Isenção para vendas totais até R$ 20.000 no mês" },
+          { ativo: "Ações (> 20k/mês)", aliquota: 15, detalhe: "Swing trade com vendas acima de R$ 20.000 no mês" },
+          { ativo: "ETFs de Ações", aliquota: 15, detalhe: "Não possui faixa de isenção de 20k" },
+          { ativo: "FIIs (alienação)", aliquota: 20, detalhe: "Venda de cotas com ganho de capital" },
+          { ativo: "Day Trade", aliquota: 20, detalhe: "Qualquer operação iniciada e zerada no mesmo dia" },
+        ],
+        series: [{ chave: "aliquota", nome: "Alíquota de IR (%)", cor: "#d94f5c" }],
+      },
+      {
+        id: "renda-fixa",
+        rotulo: "Renda Fixa (Prazo)",
+        descricao: "Tabela regressiva pela Lei 11.033/2004 para títulos não isentos (CDB, Tesouro Direto).",
+        eixoX: "ativo",
+        dados: [
+          { ativo: "Até 180 dias", aliquota: aliquotaDeIrNaRendaFixa(180), detalhe: "Prazo mais curto, alíquota máxima" },
+          { ativo: "181 a 360 dias", aliquota: aliquotaDeIrNaRendaFixa(300), detalhe: "De 6 meses a 1 ano" },
+          { ativo: "361 a 720 dias", aliquota: aliquotaDeIrNaRendaFixa(500), detalhe: "De 1 a 2 anos" },
+          { ativo: "Acima de 720 dias", aliquota: aliquotaDeIrNaRendaFixa(800), detalhe: "Alíquota mínima definitiva após 2 anos" },
+        ],
+        series: [{ chave: "aliquota", nome: "Alíquota de IR (%)", cor: "#7a5af8" }],
+      },
+    ],
+  },
+
+  "fiis-proventos": {
+    modoPadrao: "barras",
+    titulo: "Série histórica de 12 meses: FII de Tijolo vs FII de Papel",
+    descricao: "Contraste entre a estabilidade dos aluguéis de tijolo e a volatilidade dos proventos atrelados a inflação/CDI em fundos de papel.",
+    formato: "moeda",
+    cenarios: [
+      {
+        id: "comparativo",
+        rotulo: "Comparativo",
+        descricao: "FII de tijolo mantém pagamentos lineares; FII de papel acompanha a variação mensal da inflação e CDI.",
+        eixoX: "mes",
+        dados: [
+          { mes: "Out/25", tijolo: 0.72, papel: 1.1 },
+          { mes: "Nov/25", tijolo: 0.73, papel: 1.15 },
+          { mes: "Dez/25", tijolo: 0.72, papel: 0.95 },
+          { mes: "Jan/26", tijolo: 0.74, papel: 0.8 },
+          { mes: "Fev/26", tijolo: 0.73, papel: 0.65 },
+          { mes: "Mar/26", tijolo: 0.73, papel: 0.7 },
+          { mes: "Abr/26", tijolo: 0.74, papel: 0.85 },
+          { mes: "Mai/26", tijolo: 0.75, papel: 1.05 },
+          { mes: "Jun/26", tijolo: 0.73, papel: 1.12 },
+          { mes: "Jul/26", tijolo: 0.74, papel: 1.18 },
+          { mes: "Ago/26", tijolo: 0.73, papel: 0.98 },
+          { mes: "Set/26", tijolo: 0.75, papel: 0.92 },
+        ],
+        series: [
+          { chave: "tijolo", nome: "FII Tijolo (aluguéis)", cor: "#3b6fe0" },
+          { chave: "papel", nome: "FII Papel (CRIs)", cor: "#7359e5" },
+        ],
+      },
+      {
+        id: "tijolo",
+        rotulo: "FII de Tijolo",
+        descricao: "Foco nos proventos previsíveis com reajustes anuais por IGP-M ou IPCA.",
+        eixoX: "mes",
+        dados: [
+          { mes: "Out/25", tijolo: 0.72 },
+          { mes: "Nov/25", tijolo: 0.73 },
+          { mes: "Dez/25", tijolo: 0.72 },
+          { mes: "Jan/26", tijolo: 0.74 },
+          { mes: "Fev/26", tijolo: 0.73 },
+          { mes: "Mar/26", tijolo: 0.73 },
+          { mes: "Abr/26", tijolo: 0.74 },
+          { mes: "Mai/26", tijolo: 0.75 },
+          { mes: "Jun/26", tijolo: 0.73 },
+          { mes: "Jul/26", tijolo: 0.74 },
+          { mes: "Ago/26", tijolo: 0.73 },
+          { mes: "Set/26", tijolo: 0.75 },
+        ],
+        series: [{ chave: "tijolo", nome: "FII Tijolo (R$/cota)", cor: "#3b6fe0" }],
+      },
+      {
+        id: "papel",
+        rotulo: "FII de Papel",
+        descricao: "Foco na variação direta com a marcação a mercado dos papéis e correção monetária.",
+        eixoX: "mes",
+        dados: [
+          { mes: "Out/25", papel: 1.1 },
+          { mes: "Nov/25", papel: 1.15 },
+          { mes: "Dez/25", papel: 0.95 },
+          { mes: "Jan/26", papel: 0.8 },
+          { mes: "Fev/26", papel: 0.65 },
+          { mes: "Mar/26", papel: 0.7 },
+          { mes: "Abr/26", papel: 0.85 },
+          { mes: "Mai/26", papel: 1.05 },
+          { mes: "Jun/26", papel: 1.12 },
+          { mes: "Jul/26", papel: 1.18 },
+          { mes: "Ago/26", papel: 0.98 },
+          { mes: "Set/26", papel: 0.92 },
+        ],
+        series: [{ chave: "papel", nome: "FII Papel (R$/cota)", cor: "#7359e5" }],
+      },
+    ],
+  },
+};
