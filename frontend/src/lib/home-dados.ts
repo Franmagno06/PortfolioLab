@@ -39,8 +39,9 @@ export function artigosParaComecar<T extends ArtigoParaComecar>(artigos: T[], de
  * Os números do bento e o minigráfico do Ibovespa. `numeros` é o mesmo `numerosDoMes` do resto da home.
  *
  * O minigráfico é o último fechamento de cada um dos 12 últimos meses da série do Ibovespa na MESMA resposta.
- * É `null` quando os números caíram no conjunto fixo (nunca misturar uma linha ao vivo com números fixos de
- * outra data) e quando há menos de 2 meses (um ponto só não é linha).
+ * É `null` quando os números caíram no conjunto fixo inteiro (sem Ibovespa não há linha a desenhar) e quando
+ * há menos de 2 meses (um ponto só não é linha). Selic, IPCA ou IFIX em falta não tiram o minigráfico: ele é
+ * só do Ibovespa, e o quadro que ficou sem dado mostra o número fixo com a data dele.
  *
  * Ponto com valor não finito (NaN, Infinity) é DESCARTADO antes de tudo: o último fechamento válido do mês
  * fica no lugar. Buraco de mês dentro da janela (ex.: falta março entre fevereiro e abril) devolve `null`:

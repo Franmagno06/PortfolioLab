@@ -30,3 +30,6 @@ relatorios-para-teste/*.pdf
 docs/superpowers/
 # Área de trabalho do plugin superpowers (ledgers, esboços, chaves de sessão do navegador de esboços)
 .superpowers/
+
+# Cache do vitest quando ele roda da raiz; as dependências de verdade ficam em backend/ e frontend/.
+/node_modules/

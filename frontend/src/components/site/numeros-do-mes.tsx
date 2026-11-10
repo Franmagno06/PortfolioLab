@@ -18,11 +18,10 @@ export function NumerosDoMesFixos() {
 }
 
 /**
- * Lê os índices (Banco Central e Yahoo, via backend). Se o servidor não consegue a tempo, entrega a
- * referência fixa e o navegador tenta de novo (NumerosDoMesRecuperaveis); se consegue, mostra os reais.
+ * Lê os índices (Banco Central e Yahoo, via backend). Se o servidor não consegue a tempo ou recebe alguma
+ * série vazia, o navegador recupera (NumerosDoMesRecuperaveis) e mantém os números atualizados a cada 60 s.
  */
 export async function NumerosDoMesAoVivo() {
   const dados = await lerDadosDosIndices({ prazoMs: PRAZO_DA_HOME_MS });
-  if (dados === null) return <NumerosDoMesRecuperaveis />;
-  return <BentoAtivosIndices dados={numerosDoBento(dados)} />;
+  return <NumerosDoMesRecuperaveis dadosIniciais={dados} />;
 }

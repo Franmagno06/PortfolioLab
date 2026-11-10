@@ -31,6 +31,41 @@ describe("bento Ativos e índices", () => {
     expect(secao().textContent).not.toContain("Referência fixa");
   });
 
+  it("ao vivo e completo, nenhum quadro leva a marca de referência", () => {
+    render(<BentoAtivosIndices dados={aoVivo()} />);
+
+    expect(secao().textContent).not.toContain("ref. ");
+  });
+
+  it("indicador que caiu no número fixo diz a data dele, e o juro real que depende dele também", () => {
+    render(<BentoAtivosIndices dados={numerosDoBento({ ...DADOS_DE_EXEMPLO, selicMensal: [] })} />);
+
+    expect(quadro(/^Selic/).textContent).toContain("13,75%");
+    expect(quadro(/^Selic/).textContent).toContain("ao ano · ref. 2/10");
+    expect(quadro(/Juro real/).textContent).toContain("· ref. 2/10");
+    expect(quadro(/IPCA 12 meses/).textContent).not.toContain("ref. ");
+    expect(quadro(/IFIX/).textContent).not.toContain("ref. ");
+    expect(secao().textContent).not.toContain("Referência fixa"); // o parágrafo segue ao vivo, com a data do Ibovespa
+  });
+
+  it("IPCA e IFIX fixos: cada quadro com a sua marca", () => {
+    render(
+      <BentoAtivosIndices
+        dados={numerosDoBento({ ...DADOS_DE_EXEMPLO, ipcaMensal: [], pontos: { ...DADOS_DE_EXEMPLO.pontos, ifix: [] } })}
+      />,
+    );
+
+    expect(quadro(/IPCA 12 meses/).textContent).toContain("até setembro · ref. 2/10");
+    expect(quadro(/IFIX/).textContent).toContain("pontos · ref. 2/10");
+    expect(quadro(/^Selic/).textContent).not.toContain("ref. ");
+  });
+
+  it("na referência fixa inteira não há marca por quadro: a data já está no parágrafo", () => {
+    render(<BentoAtivosIndices dados={fixo()} />);
+
+    expect(secao().textContent).not.toContain("ref. ");
+  });
+
   it("na referência fixa não há minigráfico e a fonte diz referência fixa", () => {
     render(<BentoAtivosIndices dados={fixo()} />);
 

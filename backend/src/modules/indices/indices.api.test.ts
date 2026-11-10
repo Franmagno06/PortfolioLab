@@ -2,19 +2,25 @@ import request from "supertest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { app } from "../../app.js";
 import { buscarSerieDiariaYahoo, buscarUltimoValorYahoo } from "../quotes/quotes.provider.js";
-import { buscarSerieSgs } from "./indices.fontes.js";
+import { buscarSerieHistoricaB3, buscarSerieSgs } from "./indices.fontes.js";
 import { indicesRepository } from "./indices.repository.js";
 import { limparCacheDosIndices } from "./indices.service.js";
 
 // Fontes e repository simulados: nada de rede e nada escrito em index_points (o histórico real do IFIX fica intacto).
-vi.mock("./indices.fontes.js", () => ({ buscarSerieSgs: vi.fn() }));
+vi.mock("./indices.fontes.js", () => ({ buscarSerieSgs: vi.fn(), buscarSerieHistoricaB3: vi.fn() }));
 vi.mock("../quotes/quotes.provider.js", async (original) => ({
   ...(await original<typeof import("../quotes/quotes.provider.js")>()),
   buscarSerieDiariaYahoo: vi.fn(),
   buscarUltimoValorYahoo: vi.fn(),
 }));
 vi.mock("./indices.repository.js", () => ({
-  indicesRepository: { gravarPonto: vi.fn(), listarPontos: vi.fn() },
+  indicesRepository: {
+    gravarPonto: vi.fn(),
+    listarPontos: vi.fn(),
+    gravarPontosEmLote: vi.fn(),
+    gravarSerieSgs: vi.fn(),
+    listarSerieSgs: vi.fn(),
+  },
 }));
 
 const CHAVES = ["atualizadoEm", "hoje", "selicMensal", "ipcaMensal", "cdiMensal", "cdiTaxaMensal", "pontos"];
@@ -22,6 +28,11 @@ const CHAVES = ["atualizadoEm", "hoje", "selicMensal", "ipcaMensal", "cdiMensal"
 beforeEach(() => {
   vi.resetAllMocks();
   limparCacheDosIndices();
+  // o histórico da B3 e a reserva do SGS ficam neutros: estes testes são sobre a rota
+  vi.mocked(buscarSerieHistoricaB3).mockResolvedValue(null);
+  vi.mocked(indicesRepository.gravarPontosEmLote).mockResolvedValue(undefined);
+  vi.mocked(indicesRepository.gravarSerieSgs).mockResolvedValue(undefined);
+  vi.mocked(indicesRepository.listarSerieSgs).mockResolvedValue([]);
 });
 
 describe("GET /indices/dados", () => {

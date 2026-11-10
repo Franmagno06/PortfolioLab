@@ -161,18 +161,54 @@ describe("numerosDoMes", () => {
     expect(numerosDoMes(zerado).ibovespa.variacaoNoMes).toBeNull();
   });
 
-  it.each([
-    ["selicMensal", { selicMensal: [] }],
-    ["ipcaMensal", { ipcaMensal: [] }],
-    ["IPCA com menos de 12 meses", { ipcaMensal: DADOS_DE_EXEMPLO.ipcaMensal.slice(0, 5) }],
-    ["ibovespa", { pontos: { ...DADOS_DE_EXEMPLO.pontos, ibovespa: [] } }],
-    ["ifix", { pontos: { ...DADOS_DE_EXEMPLO.pontos, ifix: [] } }],
-  ] as const)("série ausente (%s) devolve tudo fixo, sem misturar dado vivo com data velha", (_nome, parcial) => {
-    const n = numerosDoMes({ ...DADOS_DE_EXEMPLO, ...parcial } as DadosDosIndices);
+  it("sem Ibovespa devolve o conjunto fixo inteiro: é ele que dá a data do parágrafo", () => {
+    const n = numerosDoMes({ ...DADOS_DE_EXEMPLO, pontos: { ...DADOS_DE_EXEMPLO.pontos, ibovespa: [] } });
 
     expect(n.aoVivo).toBe(false);
-    expect(n.selic).toBe(13.75);
+    expect(n.selic).toBe(NUMEROS_DO_MES.selic);
     expect(n.fechamento).toBe(NUMEROS_DO_MES.fechamento);
+    expect(n.fixos).toBeUndefined();
+  });
+
+  it("com tudo ao vivo, nenhum indicador é marcado como fixo", () => {
+    expect(numerosDoMes(DADOS_DE_EXEMPLO).fixos).toEqual({ selic: false, ipca: false, ifix: false });
+  });
+
+  describe("um indicador sem dado cai sozinho no número fixo, marcado, e o resto segue ao vivo", () => {
+    const vivo = numerosDoMes(DADOS_DE_EXEMPLO);
+
+    it("sem Selic", () => {
+      const n = numerosDoMes({ ...DADOS_DE_EXEMPLO, selicMensal: [] });
+
+      expect(n.aoVivo).toBe(true);
+      expect(n.fixos).toEqual({ selic: true, ipca: false, ifix: false });
+      expect(n.selic).toBe(NUMEROS_DO_MES.selic);
+      expect(n.ipca12m).toBe(vivo.ipca12m);
+      expect(n.ibovespa).toEqual(vivo.ibovespa);
+      expect(n.fechamento).toBe(vivo.fechamento); // a data do parágrafo continua a do Ibovespa ao vivo
+    });
+
+    it.each([
+      ["série vazia", []],
+      ["menos de 12 meses, que não fecham a conta de 12 meses", DADOS_DE_EXEMPLO.ipcaMensal.slice(0, 5)],
+    ])("sem IPCA (%s): o valor e o mês de referência vêm juntos do conjunto fixo", (_nome, ipcaMensal) => {
+      const n = numerosDoMes({ ...DADOS_DE_EXEMPLO, ipcaMensal });
+
+      expect(n.aoVivo).toBe(true);
+      expect(n.fixos).toEqual({ selic: false, ipca: true, ifix: false });
+      expect(n.ipca12m).toBe(NUMEROS_DO_MES.ipca12m);
+      expect(n.ipcaReferencia).toBe(NUMEROS_DO_MES.ipcaReferencia);
+      expect(n.selic).toBe(vivo.selic);
+    });
+
+    it("sem IFIX", () => {
+      const n = numerosDoMes({ ...DADOS_DE_EXEMPLO, pontos: { ...DADOS_DE_EXEMPLO.pontos, ifix: [] } });
+
+      expect(n.aoVivo).toBe(true);
+      expect(n.fixos).toEqual({ selic: false, ipca: false, ifix: true });
+      expect(n.ifix.pontos).toBe(NUMEROS_DO_MES.ifix.pontos);
+      expect(n.ibovespa).toEqual(vivo.ibovespa);
+    });
   });
 });
 

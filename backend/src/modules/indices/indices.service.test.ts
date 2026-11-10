@@ -1,17 +1,26 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { buscarSerieDiariaYahoo, buscarUltimoValorYahoo } from "../quotes/quotes.provider.js";
-import { buscarSerieSgs } from "./indices.fontes.js";
+import { buscarSerieHistoricaB3, buscarSerieSgs } from "./indices.fontes.js";
 import { indicesRepository } from "./indices.repository.js";
 import { indicesService, limparCacheDosIndices } from "./indices.service.js";
 
 // Sem rede e sem banco: fontes e repository são simulados.
-vi.mock("./indices.fontes.js", () => ({ buscarSerieSgs: vi.fn() }));
+vi.mock("./indices.fontes.js", () => ({
+  buscarSerieSgs: vi.fn(),
+  buscarSerieHistoricaB3: vi.fn(),
+}));
 vi.mock("../quotes/quotes.provider.js", () => ({
   buscarSerieDiariaYahoo: vi.fn(),
   buscarUltimoValorYahoo: vi.fn(),
 }));
 vi.mock("./indices.repository.js", () => ({
-  indicesRepository: { gravarPonto: vi.fn(), listarPontos: vi.fn() },
+  indicesRepository: {
+    gravarPonto: vi.fn(),
+    listarPontos: vi.fn(),
+    gravarPontosEmLote: vi.fn(),
+    gravarSerieSgs: vi.fn(),
+    listarSerieSgs: vi.fn(),
+  },
 }));
 
 const HOJE = "2026-10-19";
@@ -34,10 +43,14 @@ beforeEach(() => {
     if (codigo === 4391) return [{ data: "2026-10-01", valor: 0.56 }];
     return [{ data: "2026-10-16", valor: 13.65 }];
   });
+  vi.mocked(buscarSerieHistoricaB3).mockResolvedValue(null);
   vi.mocked(buscarSerieDiariaYahoo).mockResolvedValue([{ data: "2026-10-16", valor: 205000 }]);
   vi.mocked(buscarUltimoValorYahoo).mockResolvedValue({ data: HOJE, valor: 3953.42 });
   vi.mocked(indicesRepository.gravarPonto).mockResolvedValue(undefined);
   vi.mocked(indicesRepository.listarPontos).mockResolvedValue([{ data: HOJE, valor: 3953.42 }]);
+  vi.mocked(indicesRepository.gravarPontosEmLote).mockResolvedValue(undefined);
+  vi.mocked(indicesRepository.gravarSerieSgs).mockResolvedValue(undefined);
+  vi.mocked(indicesRepository.listarSerieSgs).mockResolvedValue([]);
 });
 
 describe("indicesService.montarDados", () => {
@@ -292,6 +305,134 @@ describe("indicesService.montarDados", () => {
       vi.mocked(buscarSerieSgs).mockResolvedValue(null);
       const d = await indicesService.montarDados();
       expect(d.selicMensal).toEqual([]);
+    });
+  });
+
+  describe("persistência de fallback do SGS e backfill da B3", () => {
+    it("persiste a série mensal reduzida do SGS quando buscarSerieSgs tem sucesso", async () => {
+      await indicesService.montarDados();
+
+      expect(indicesRepository.gravarSerieSgs).toHaveBeenCalledWith(432, [
+        { data: "2026-09", valor: 14.25 },
+        { data: "2026-10", valor: 13.75 },
+      ]);
+      expect(indicesRepository.gravarSerieSgs).toHaveBeenCalledWith(433, [{ data: "2026-09", valor: 0.5 }]);
+    });
+
+    it("usa listarSerieSgs do banco quando o SGS falha e não há valor em memória", async () => {
+      vi.mocked(buscarSerieSgs).mockResolvedValue(null);
+      vi.mocked(indicesRepository.listarSerieSgs).mockImplementation(async (codigo) => {
+        if (codigo === 432) return [{ data: "2026-09-01", valor: 14.25 }];
+        if (codigo === 433) return [{ data: "2026-09-01", valor: 0.48 }];
+        return [];
+      });
+
+      const d = await indicesService.montarDados();
+
+      expect(d.selicMensal).toEqual([{ data: "2026-09", valor: 14.25 }]);
+      expect(d.ipcaMensal).toEqual([{ data: "2026-09", valor: 0.48 }]);
+    });
+
+    const historico = [
+      { data: "2011-01-03", valor: 1500 },
+      { data: "2026-10-19", valor: 3953.42 },
+    ];
+    // o que produção tinha antes do backfill: semanas de leituras diárias do Yahoo e nenhum histórico
+    const soLeiturasRecentes = [
+      { data: "2026-10-15", valor: 3940 },
+      { data: "2026-10-16", valor: 3948 },
+      { data: HOJE, valor: 3953.42 },
+    ];
+
+    it("busca o histórico na B3 e grava em lote quando o banco só tem leituras recentes, mesmo que sejam várias", async () => {
+      vi.mocked(indicesRepository.listarPontos)
+        .mockResolvedValueOnce(soLeiturasRecentes) // ifix antes
+        .mockResolvedValueOnce(historico) // smll já começa em 2011
+        .mockResolvedValueOnce(historico) // idiv já começa em 2011
+        .mockResolvedValueOnce(historico); // ifix relido depois de gravar
+      vi.mocked(buscarSerieHistoricaB3).mockResolvedValueOnce(historico);
+
+      const d = await indicesService.montarDados();
+
+      expect(buscarSerieHistoricaB3).toHaveBeenCalledTimes(1);
+      expect(buscarSerieHistoricaB3).toHaveBeenCalledWith("IFIX", 2011, 2026);
+      expect(indicesRepository.gravarPontosEmLote).toHaveBeenCalledWith("ifix", historico);
+      expect(d.pontos.ifix).toEqual(historico);
+    });
+
+    it("com o histórico já no banco (primeiro ponto em 2011), não chama a B3", async () => {
+      vi.mocked(indicesRepository.listarPontos).mockResolvedValue(historico);
+
+      await indicesService.montarDados();
+
+      expect(buscarSerieHistoricaB3).not.toHaveBeenCalled();
+      expect(indicesRepository.gravarPontosEmLote).not.toHaveBeenCalled();
+    });
+
+    it("B3 fora do ar: devolve o que o banco tem e só tenta de novo depois de 2 minutos", async () => {
+      vi.mocked(indicesRepository.listarPontos).mockResolvedValue(soLeiturasRecentes);
+
+      const d = await indicesService.montarDados();
+      await indicesService.montarDados();
+
+      expect(d.pontos.ifix).toEqual(soLeiturasRecentes);
+      expect(buscarSerieHistoricaB3).toHaveBeenCalledTimes(3); // um por índice, não seis
+      vi.setSystemTime(new Date(Date.now() + 2 * 60 * 1000 + 1));
+      await indicesService.montarDados();
+      expect(buscarSerieHistoricaB3).toHaveBeenCalledTimes(6);
+    });
+
+    it("falha ao gravar o histórico não derruba: sai o que o banco tem", async () => {
+      vi.mocked(indicesRepository.listarPontos).mockResolvedValue(soLeiturasRecentes);
+      vi.mocked(buscarSerieHistoricaB3).mockResolvedValue(historico);
+      vi.mocked(indicesRepository.gravarPontosEmLote).mockRejectedValue(new Error("banco fora"));
+
+      const d = await indicesService.montarDados();
+
+      expect(d.pontos.ifix).toEqual(soLeiturasRecentes);
+    });
+
+    it("B3 lenta não segura a rota: a resposta sai no prazo com o que há, e o histórico entra quando chega", async () => {
+      vi.useRealTimers();
+      vi.useFakeTimers({ toFake: ["Date", "setTimeout", "clearTimeout"] });
+      vi.setSystemTime(new Date(`${HOJE}T15:00:00Z`));
+      let liberar: (v: { data: string; valor: number }[]) => void = () => undefined;
+      const lenta = new Promise<{ data: string; valor: number }[]>((r) => (liberar = r));
+      vi.mocked(buscarSerieHistoricaB3).mockReturnValue(lenta);
+      vi.mocked(indicesRepository.listarPontos).mockResolvedValue(soLeiturasRecentes);
+
+      const pendente = indicesService.montarDados();
+      await vi.advanceTimersByTimeAsync(15_001);
+      const d = await pendente;
+
+      expect(d.pontos.ifix).toEqual(soLeiturasRecentes);
+      expect(indicesRepository.gravarPontosEmLote).not.toHaveBeenCalled();
+
+      liberar(historico);
+      await vi.advanceTimersByTimeAsync(0);
+      expect(indicesRepository.gravarPontosEmLote).toHaveBeenCalledWith("ifix", historico);
+    });
+
+    it("preencherHistoricoDaB3 espera a gravação e conta os pontos de cada índice", async () => {
+      vi.mocked(indicesRepository.listarPontos)
+        .mockResolvedValueOnce(soLeiturasRecentes) // ifix antes
+        .mockResolvedValueOnce(historico) // smll completo
+        .mockResolvedValueOnce(historico) // idiv completo
+        .mockResolvedValueOnce([...historico, { data: HOJE, valor: 3953.42 }]); // ifix depois
+      vi.mocked(buscarSerieHistoricaB3).mockResolvedValueOnce(historico);
+
+      expect(await indicesService.preencherHistoricoDaB3()).toEqual({ ifix: 3, smll: 2, idiv: 2 });
+      expect(indicesRepository.gravarPontosEmLote).toHaveBeenCalledTimes(1);
+    });
+
+    it("erro síncrono ao guardar a reserva do SGS não segura a resposta", async () => {
+      vi.mocked(indicesRepository.gravarSerieSgs).mockImplementation(() => {
+        throw new Error("cliente do banco quebrado");
+      });
+
+      const d = await indicesService.montarDados();
+
+      expect(d.selicMensal.length).toBeGreaterThan(0);
     });
   });
 

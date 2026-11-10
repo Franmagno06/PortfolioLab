@@ -156,18 +156,109 @@ describe("seção dos números do mês (bento Ativos e índices)", () => {
       expect(container.querySelector("[data-lugar-do-minigrafico]")).not.toBeNull();
     });
 
-    it("resposta incompleta do servidor (sem Selic, por exemplo) não é refeita no navegador: fica a referência fixa", async () => {
+    it("resposta incompleta do servidor (sem Selic): mostra o resto ao vivo com a Selic marcada, e o navegador busca de novo", async () => {
       lerDadosDosIndices.mockResolvedValue({ ...DADOS_DE_EXEMPLO, selicMensal: [] });
+      api.mockResolvedValue(DADOS_DE_EXEMPLO);
       render(await NumerosDoMesAoVivo());
 
-      expect(api).not.toHaveBeenCalled();
-      expect(textoDaSecao()).toContain("Referência fixa");
+      expect(textoDaSecao()).not.toContain("Referência fixa");
+      expect(textoDaSecao()).toContain("ao ano · ref. 2/10");
+      expect(api).toHaveBeenCalledTimes(1);
+
+      await waitFor(() => expect(textoDaSecao()).not.toContain("ref. 2/10"));
     });
 
-    it("se o servidor conseguiu, o navegador nem pergunta", async () => {
+    it("nova leitura que volta sem uma série não apaga a que a página já tinha", async () => {
+      lerDadosDosIndices.mockResolvedValue({ ...DADOS_DE_EXEMPLO, pontos: { ...DADOS_DE_EXEMPLO.pontos, ifix: [] } });
+      const semSelic = Promise.resolve({ ...DADOS_DE_EXEMPLO, selicMensal: [] });
+      api.mockReturnValue(semSelic);
+      render(await NumerosDoMesAoVivo());
+      expect(textoDaSecao()).toContain("pontos · ref. 2/10"); // IFIX fixo, Selic ao vivo
+
+      await act(async () => {
+        await semSelic;
+      });
+      // o IFIX chegou; a Selic, que veio vazia desta vez, continua a do servidor
+      expect(textoDaSecao()).not.toContain("ref. 2/10");
+    });
+
+    it("se o servidor conseguiu, o navegador não pergunta ao abrir a página", async () => {
       lerDadosDosIndices.mockResolvedValue(fechamentoDe23());
       render(await NumerosDoMesAoVivo());
 
+      expect(api).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("atualização enquanto a página está aberta", () => {
+    const visibilidade = (estado: "visible" | "hidden") =>
+      vi.spyOn(document, "visibilityState", "get").mockReturnValue(estado);
+
+    afterEach(() => {
+      vi.useRealTimers();
+      vi.restoreAllMocks();
+    });
+
+    it("a cada 60 s busca de novo e troca os números, sem recarregar a página", async () => {
+      vi.useFakeTimers();
+      visibilidade("visible");
+      lerDadosDosIndices.mockResolvedValue(
+        comIbov("2026-10-19", [
+          { data: "2026-09-30", valor: 190000 },
+          { data: "2026-10-19", valor: 196000 },
+        ]),
+      );
+      api.mockResolvedValue(
+        comIbov("2026-10-19", [
+          { data: "2026-09-30", valor: 190000 },
+          { data: "2026-10-19", valor: 196500 },
+        ]),
+      );
+      render(await NumerosDoMesAoVivo());
+      expect(textoDaSecao()).toContain("196.000");
+
+      await act(() => vi.advanceTimersByTimeAsync(59_999));
+      expect(api).not.toHaveBeenCalled();
+      await act(() => vi.advanceTimersByTimeAsync(1));
+      expect(api).toHaveBeenCalledTimes(1);
+      expect(textoDaSecao()).toContain("196.500");
+
+      await act(() => vi.advanceTimersByTimeAsync(60_000));
+      expect(api).toHaveBeenCalledTimes(2);
+    });
+
+    it("com a aba em segundo plano não busca", async () => {
+      vi.useFakeTimers();
+      visibilidade("hidden");
+      lerDadosDosIndices.mockResolvedValue(DADOS_DE_EXEMPLO);
+      render(await NumerosDoMesAoVivo());
+
+      await act(() => vi.advanceTimersByTimeAsync(180_000));
+      expect(api).not.toHaveBeenCalled();
+    });
+
+    it("atualização que falha deixa os números que já estavam na tela", async () => {
+      vi.useFakeTimers();
+      visibilidade("visible");
+      lerDadosDosIndices.mockResolvedValue(DADOS_DE_EXEMPLO);
+      api.mockRejectedValue(new Error("fora do ar"));
+      render(await NumerosDoMesAoVivo());
+      const antes = textoDaSecao();
+
+      await act(() => vi.advanceTimersByTimeAsync(60_000));
+      expect(api).toHaveBeenCalledTimes(1);
+      expect(textoDaSecao()).toBe(antes);
+    });
+
+    it("ao sair da página para de buscar", async () => {
+      vi.useFakeTimers();
+      visibilidade("visible");
+      lerDadosDosIndices.mockResolvedValue(DADOS_DE_EXEMPLO);
+      api.mockResolvedValue(DADOS_DE_EXEMPLO);
+      const { unmount } = render(await NumerosDoMesAoVivo());
+
+      unmount();
+      await vi.advanceTimersByTimeAsync(180_000);
       expect(api).not.toHaveBeenCalled();
     });
   });

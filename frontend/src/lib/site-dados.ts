@@ -45,6 +45,11 @@ export type NumerosDoMes = {
    * barra em andamento, e a home não pode chamá-la de fechamento. Sempre false no conjunto fixo.
    */
   intradiario: boolean;
+  /**
+   * Só com `aoVivo: true`: quais indicadores ficaram sem dado e mostram o valor de `NUMEROS_DO_MES`. A home
+   * escreve a data da referência ao lado de cada um. Ausente no conjunto fixo inteiro, que já diz a própria data.
+   */
+  fixos?: { selic: boolean; ipca: boolean; ifix: boolean };
 };
 
 const arredondar2 = (v: number) => Math.round(v * 100) / 100;
@@ -52,10 +57,11 @@ const arredondar2 = (v: number) => Math.round(v * 100) / 100;
 /**
  * Os números do mês a partir de GET /indices/dados.
  *
- * Queda: com `null` ou com qualquer uma das quatro séries de que a home precisa vazia (Selic, IPCA com ao
- * menos 12 meses, Ibovespa, IFIX), devolve o conjunto fixo INTEIRO com `aoVivo: false`. Não mistura campo
- * vivo com a data do fixo: o parágrafo da home cita uma data de fechamento só. Única exceção: sem ponto
- * confiável no mês anterior (ausente ou zero), a variação do Ibovespa vira `null` e o resto segue ao vivo.
+ * Queda por indicador: só devolve o conjunto fixo INTEIRO (`aoVivo: false`) quando `dados` é `null` ou
+ * quando a série do Ibovespa está vazia. Quando há ponto do Ibovespa, `aoVivo` é `true` e cada indicador
+ * secundário (Selic, IPCA em 12 meses, IFIX) usa o dado ao vivo quando disponível ou cai individualmente
+ * em `NUMEROS_DO_MES` (sinalizado em `fixos`). Sem ponto confiável no mês anterior (ausente ou zero),
+ * a variação do Ibovespa vira `null`.
  */
 export function numerosDoMes(dados: DadosDosIndices | null): NumerosDoMes {
   const fixo: NumerosDoMes = { ...NUMEROS_DO_MES, ibovespa: { ...NUMEROS_DO_MES.ibovespa }, ifix: { ...NUMEROS_DO_MES.ifix }, aoVivo: false, intradiario: false };
@@ -67,7 +73,7 @@ export function numerosDoMes(dados: DadosDosIndices | null): NumerosDoMes {
   const ibov = dados.pontos.ibovespa;
   const ultimoIbov = ibov.at(-1);
   const ifix = dados.pontos.ifix.at(-1);
-  if (!selic || !ipca || !ipca12m || !ultimoIbov || !ifix) return fixo;
+  if (!ultimoIbov) return fixo;
 
   const [ano, mm, dd] = ultimoIbov.data.split("-");
   const mesNumero = Number(mm);
@@ -86,13 +92,14 @@ export function numerosDoMes(dados: DadosDosIndices | null): NumerosDoMes {
     mesAnterior: mesPorExtenso(anoMesAnterior),
     fechamento: `${dia} de ${mes}`,
     fechamentoCurto: `${dia}/${mesNumero}`,
-    selic: selic.valor,
-    ipca12m: ipca12m.valor,
-    ipcaReferencia: mesPorExtenso(ipca.data),
+    selic: selic?.valor ?? NUMEROS_DO_MES.selic,
+    ipca12m: ipca12m?.valor ?? NUMEROS_DO_MES.ipca12m,
+    ipcaReferencia: ipca && ipca12m ? mesPorExtenso(ipca.data) : NUMEROS_DO_MES.ipcaReferencia,
     ibovespa: { pontos: ultimoIbov.valor, variacaoNoMes: variacao === null ? null : arredondar2(variacao) },
-    ifix: { pontos: ifix.valor },
+    ifix: { pontos: ifix?.valor ?? NUMEROS_DO_MES.ifix.pontos },
     aoVivo: true,
     intradiario: ultimoIbov.data === dados.hoje,
+    fixos: { selic: !selic, ipca: !ipca || !ipca12m, ifix: !ifix },
   };
 }
 

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { buscarSerieSgs } from "./indices.fontes.js";
+import { buscarSerieHistoricaB3, buscarSerieSgs } from "./indices.fontes.js";
 
 const json = (corpo: unknown, status = 200) => ({
   ok: status >= 200 && status < 300,
@@ -62,5 +62,70 @@ describe("buscarSerieSgs", () => {
   it("resposta que não é lista dá null", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(json({ erro: "x" })));
     expect(await buscarSerieSgs(432, new Date("2026-09-01T12:00:00Z"), ate)).toBeNull();
+  });
+});
+
+describe("buscarSerieHistoricaB3", () => {
+  it("decodifica valores pt-BR por mês e ordena por data crescente", async () => {
+    const f = vi.fn().mockResolvedValue(
+      json({
+        results: [
+          { day: 15, rateValue1: "3.311,48", rateValue2: "3.350,10" },
+          { day: 2, rateValue1: "3.290,00", rateValue2: null },
+        ],
+      }),
+    );
+    vi.stubGlobal("fetch", f);
+
+    const r = await buscarSerieHistoricaB3("IFIX", 2024, 2024);
+
+    expect(r).toEqual([
+      { data: "2024-01-02", valor: 3290 },
+      { data: "2024-01-15", valor: 3311.48 },
+      { data: "2024-02-15", valor: 3350.1 },
+    ]);
+    const payloadEsperado = Buffer.from(JSON.stringify({ index: "IFIX", language: "pt-br", year: "2024" })).toString("base64");
+    expect(String(f.mock.calls[0]?.[0])).toContain(`/GetPortfolioDay/${payloadEsperado}`);
+  });
+
+  it("ignora valores vazios, inválidos, <= 0 e datas inexistentes no calendário", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        json({
+          results: [
+            {
+              day: 31,
+              rateValue1: "3.100,00", // 2024-01-31 existe
+              rateValue2: "3.200,00", // 2024-02-31 não existe
+              rateValue4: "3.300,00", // 2024-04-31 não existe
+              rateValue5: "0,00", // <= 0 ignorado
+              rateValue6: "   ", // vazio ignorado
+              rateValue7: "abc", // inválido ignorado
+            },
+          ],
+        }),
+      ),
+    );
+
+    expect(await buscarSerieHistoricaB3("SMLL", 2024, 2024)).toEqual([{ data: "2024-01-31", valor: 3100 }]);
+  });
+
+  it("tenta novamente uma vez quando o ano falha na 1ª tentativa", async () => {
+    const f = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("timeout"))
+      .mockResolvedValueOnce(json({ results: [{ day: 10, rateValue3: "8.500,25" }] }));
+    vi.stubGlobal("fetch", f);
+
+    expect(await buscarSerieHistoricaB3("IDIV", 2025, 2025)).toEqual([{ data: "2025-03-10", valor: 8500.25 }]);
+    expect(f).toHaveBeenCalledTimes(2);
+  });
+
+  it("retorna null se nenhum ponto válido for obtido ao final", async () => {
+    const f = vi.fn().mockResolvedValue(json({ results: [] }));
+    vi.stubGlobal("fetch", f);
+
+    expect(await buscarSerieHistoricaB3("IFIX", 2024, 2024)).toBeNull();
   });
 });

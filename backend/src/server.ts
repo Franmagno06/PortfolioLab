@@ -16,7 +16,11 @@ const servidor = app.listen(env.PORT, () => {
 // ao Yahoo. A renovação preguiçosa por visita continua valendo em qualquer ambiente.
 if (env.NODE_ENV === "production") {
   ativosService.aquecerCatalogo();
-  // Séries de índices: o primeiro visitante depois do deploy não paga o SGS lento (cada série tem janelas de 5 anos).
+}
+
+// Séries de índices: o primeiro visitante não paga o SGS lento (cada série tem janelas de 5 anos)
+// nem o backfill histórico da B3 em ambiente de desenvolvimento ou produção.
+if (env.NODE_ENV !== "test") {
   void indicesService.aquecer();
 }
 
