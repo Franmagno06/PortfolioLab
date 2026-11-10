@@ -255,7 +255,7 @@ export const reportsService = {
           400,
         );
       }
-      analise = await analisarRelatorio(texto, arquivo.originalname);
+      analise = await analisarRelatorio(texto);
     }
 
     // 3. Persiste
@@ -303,7 +303,8 @@ export const reportsService = {
     const resposta = await perguntarAoRelatorio(
       relatorio.fileName,
       relatorio.extractedText,
-      input.question,
+      // o askSchema preenche um pelo outro; o "" só satisfaz o tipo
+      input.question ?? input.termo ?? "",
     );
 
     return { answer: resposta };

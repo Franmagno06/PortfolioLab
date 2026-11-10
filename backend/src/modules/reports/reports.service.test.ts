@@ -514,11 +514,13 @@ describe("reportsService.analisarDiretoCvm", () => {
       createdAt: new Date(),
     });
 
-    vi.spyOn(reportsRepository, "create").mockImplementationOnce(async (data: any) => ({
-      id: "rep-123",
-      ...data,
-      createdAt: new Date(),
-    }));
+    // o create real devolve o cliente encadeável do Prisma; ao service basta a linha criada
+    vi.spyOn(reportsRepository, "create").mockImplementationOnce(((data: any) =>
+      Promise.resolve({
+        id: "rep-123",
+        ...data,
+        createdAt: new Date(),
+      })) as unknown as typeof reportsRepository.create);
 
     const res = await reportsService.analisarDiretoCvm("u1", { ticker: "BBAS3", periodo: "2026-T1" });
 

@@ -146,7 +146,8 @@ export function parsearPeriodo(texto: string): Periodo | null {
   }
   const mTri2 = t.match(/^([1-4])T(\d{2,4})$/);
   if (mTri2) {
-    const ano = mTri2[2].length === 2 ? 2000 + Number(mTri2[2]) : Number(mTri2[2]);
+    const digitosDoAno = mTri2[2] ?? "";
+    const ano = digitosDoAno.length === 2 ? 2000 + Number(digitosDoAno) : Number(digitosDoAno);
     return { tipo: "trimestre", ano, trimestre: Number(mTri2[1]) as 1 | 2 | 3 | 4 };
   }
   const mMes1 = t.match(/^(\d{4})[-/](0?[1-9]|1[0-2])$/);
