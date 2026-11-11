@@ -38,10 +38,14 @@ contém: código novo contra um banco sem a coluna dá P2022 em toda leitura que
 (a coluna `divida_ebitda`, por exemplo, quebraria `/indicators` e a carteira). Só rode contra a produção
 com o pedido explícito de quem é dono do banco.
 
-**`index_points` é histórico que não se refaz.** A tabela guarda um ponto por dia de IFIX, SMLL e IDIV
-(o Yahoo não tem histórico deles), gravado de forma preguiçosa pelo `GET /indices/dados`
-(`modules/indices/indices.repository.ts`), e só cresce. Em produção, nunca apague, reseede nem recrie a
-tabela: o histórico perdido não volta. A migration `index_points` vai para o Supabase com
+**`index_points` só cresce.** A tabela guarda um ponto por dia de IFIX, SMLL e IDIV (o Yahoo não tem
+histórico deles): o do dia vem do Yahoo, gravado de forma preguiçosa pelo `GET /indices/dados`
+(`modules/indices/indices.repository.ts`), e o que falta para trás, desde 2011, vem do endpoint público da
+B3 (`buscarSerieHistoricaB3`), em segundo plano, quando o ponto mais antigo do banco é posterior a 2011. A
+mesma tabela guarda a reserva mensal do SGS (slugs `sgs-432`, `sgs-433`, `sgs-4391`, `sgs-4389`), usada
+quando a API sobe com o Banco Central fora do ar. Tudo é só acréscimo (`createMany` com `skipDuplicates`).
+Em produção, nunca apague, reseede nem recrie a tabela: a B3 repõe o histórico dela, mas as leituras do dia
+e a reserva do SGS não voltam. `npm run indices:backfill` preenche o histórico esperando até o fim. A migration `index_points` vai para o Supabase com
 `supabase:migrate` **antes** do push que a contém.
 
 **`backend/.env.supabase` não pode ser commitado** (tem a URL do banco de produção, `JWT_SECRET` e
@@ -160,7 +164,8 @@ Para revisão e correção, use antes de fechar a mudança:
 | Google Gemini (análise de PDF) | `modules/reports/gemini.ts` | sem `GEMINI_API_KEY` → 503 com instrução |
 | RSS Money Times / Suno | `modules/news/rss.ts` | feed fora do ar → lista vazia daquela fonte |
 | CVM dados abertos (ITR, DFP, Informe Mensal de FII) | `modules/reports/cvm.provider.ts` | devolve `null`; o relatório cai na leitura do PDF inteiro |
-| Banco Central SGS (Selic 432, IPCA 433, CDI 4391 e 4389) | `modules/indices/indices.fontes.ts` | série vazia; a última série boa fica em memória e é a que sai. Uma fila serial (nunca duas chamadas ao BCB ao mesmo tempo) e prazo de 15 s para a resposta: o que não chegou segue na fila em segundo plano |
+| Banco Central SGS (Selic 432, IPCA 433, CDI 4391 e 4389) | `modules/indices/indices.fontes.ts` | sai a última série boa da memória; sem ela (API recém-subida), a reserva mensal gravada em `index_points`; sem as duas, série vazia. Uma fila serial (nunca duas chamadas ao BCB ao mesmo tempo) e prazo de 15 s para a resposta: o que não chegou segue na fila em segundo plano |
+| B3, estatísticas de índices (histórico diário de IFIX, SMLL e IDIV) | `modules/indices/indices.fontes.ts` | devolve `null`; a série sai com o que o banco já tem e a busca é refeita depois de 2 min. Respeita o mesmo prazo de 15 s da resposta e continua em segundo plano |
 
 Relatórios com ativo informado usam a CVM: o PDF só identifica o período (`reports/periodo.ts`),
 os números vêm da CVM e a IA escreve o resumo sobre eles. Esses relatórios não guardam o texto
@@ -189,12 +194,16 @@ não comercial. As notícias de cada ficha vêm de feeds RSS públicos de vário
 
 **Páginas de Índices** (`modules/indices/`, `GET /indices/dados`, sem login): Selic, IPCA e CDI do SGS, Ibovespa e
 S&P 500 com histórico do Yahoo, IFIX, SMLL e IDIV do último valor do Yahoo somado ao que `index_points`
-acumulou. O front lê em `frontend/src/lib/indices-api.ts` (20 s de prazo nas páginas de índices; 5 s na
+tem (histórico da B3 desde 2011 mais as leituras do dia). O Yahoo fica 1 min em cache no backend. O front lê
+em `frontend/src/lib/indices-api.ts` (20 s de prazo nas páginas de índices; 5 s na
 home, cuja seção "Os números de…" chega por streaming sob `<Suspense>` com os números fixos de
 `NUMEROS_DO_MES` enquanto carrega). Na home o prazo de 5 s só limita a espera: a leitura segue até 20 s e enche o
-cache do Next. Se o servidor não conseguiu (`null`), o navegador tenta de novo por `/api/indices/dados` com 25 s
-(`components/site/numeros-do-mes-recuperaveis.tsx`, via `apiPublica`, que não mexe na sessão) e troca pelos
-números reais. Mudou o DTO de `/indices/dados`? Confira também a checagem de formato desse componente.
+cache do Next. Se o servidor não conseguiu (`null`) ou veio sem alguma série, o navegador tenta de novo por
+`/api/indices/dados` com 25 s (`components/site/numeros-do-mes-recuperaveis.tsx`, via `apiPublica`, que não mexe
+na sessão) e troca pelos números reais; depois disso, repete a leitura a cada 60 s enquanto a aba está visível.
+A queda para o número fixo é por indicador: sem Ibovespa cai o conjunto inteiro ("Referência fixa de…"); com
+Ibovespa, só o quadro sem dado (Selic, IPCA, IFIX, e o juro real que depende deles) mostra o número fixo, com
+"· ref. 2/10" ao lado. Mudou o DTO de `/indices/dados`? Confira também a checagem de formato desse componente.
 
 O front lê essa API no servidor (`frontend/src/lib/ativos-api.ts`, direto em `API_URL`, e não por `/api`), com as páginas em `revalidate = 0` e a resposta guardada 2 min pelo Next. `ativos-catalogo.ts` do front é uma cópia só de tickers e nomes, e um teste confere que não diverge do backend. O E2E das páginas (`npm run test:e2e:ativos`) é isolado: lê uma API de mentira (`e2e/ativos/stub-api.mjs`) em portas próprias, sem backend, Docker, Yahoo nem CVM. Mudou um campo do DTO de `/ativos`? Atualize `ativos-tipos.ts` e o stub. O stub também responde `/indices/dados` com
 `frontend/e2e/ativos/indices-dados.json`, gerado de `DADOS_DE_EXEMPLO` (`cd frontend && npx tsx

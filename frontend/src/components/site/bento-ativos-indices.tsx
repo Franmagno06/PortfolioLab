@@ -7,13 +7,15 @@ import { numero, pct, percentual } from "@/lib/format";
 import { QUANTIDADE_DE_FICHAS, type numerosDoBento } from "@/lib/home-dados";
 import { rotaDoIndice } from "@/lib/indices";
 import { ROTAS } from "@/lib/navegacao";
-import { juroReal } from "@/lib/site-dados";
+import { juroReal, NUMEROS_DO_MES } from "@/lib/site-dados";
 
 /*
  * Por que existe: o bento junta os números do mês e as portas de entrada das fichas num só lugar, e
  * cada quadro é um link inteiro (alvo grande, um só foco). A frase que explica o número sobe no hover e
  * no foco só onde há mouse (tela larga); no celular ela fica sempre à vista, porque toque não tem hover.
- * Com a referência fixa não há minigráfico nem fonte "ao vivo": nunca se mistura fixo com ao vivo.
+ * Com a referência fixa inteira (sem Ibovespa) não há minigráfico nem fonte "ao vivo". Quando o Ibovespa veio
+ * mas falta Selic, IPCA ou IFIX, só o quadro que ficou sem dado mostra o número fixo, e ele diz de que data é
+ * ("ref. 2/10"): um número de outra data nunca aparece sem a data ao lado.
  */
 
 type Dados = ReturnType<typeof numerosDoBento>;
@@ -82,9 +84,11 @@ function QuadroDeLista({
  */
 export function BentoAtivosIndices({ dados, reservarMinigrafico = false }: { dados: Dados; reservarMinigrafico?: boolean }) {
   const { numeros, minigraficoIbovespa } = dados;
-  const { selic, ipca12m, ipcaReferencia, ibovespa, ifix, fechamento, aoVivo, intradiario } = numeros;
+  const { selic, ipca12m, ipcaReferencia, ibovespa, ifix, fechamento, aoVivo, intradiario, fixos } = numeros;
   const variacao = ibovespa.variacaoNoMes;
   const real = juroReal(selic, ipca12m);
+  // o quadro que caiu no número fixo diz a data dele; com tudo fixo, a data já está no parágrafo de cima
+  const refFixa = (caiu: boolean | undefined) => (aoVivo && caiu ? ` · ref. ${NUMEROS_DO_MES.fechamentoCurto}` : "");
 
   return (
     <section id="ativos-e-indices" aria-labelledby="titulo-ativos-indices" className="bg-card">
@@ -150,7 +154,9 @@ export function BentoAtivosIndices({ dados, reservarMinigrafico = false }: { dad
             <Quadro href={rotaDoIndice("selic")} explicacao="Juro básico do país, definido pelo Copom a cada cerca de 45 dias.">
               <span className={rotuloDoQuadro}>Selic</span>
               <span className={valorDoQuadro}>{percentual(selic, 2)}</span>
-              <span className="text-[13px] text-mute">ao ano</span>
+              <span className="text-[13px] text-mute">
+                ao ano{refFixa(fixos?.selic)}
+              </span>
             </Quadro>
           </Revelar>
 
@@ -158,7 +164,10 @@ export function BentoAtivosIndices({ dados, reservarMinigrafico = false }: { dad
             <Quadro href={rotaDoIndice("ipca")} explicacao="A inflação oficial, medida pelo IBGE.">
               <span className={rotuloDoQuadro}>IPCA 12 meses</span>
               <span className={valorDoQuadro}>{percentual(ipca12m, 2)}</span>
-              <span className="text-[13px] text-mute">até {ipcaReferencia}</span>
+              <span className="text-[13px] text-mute">
+                até {ipcaReferencia}
+                {refFixa(fixos?.ipca)}
+              </span>
             </Quadro>
           </Revelar>
 
@@ -167,7 +176,9 @@ export function BentoAtivosIndices({ dados, reservarMinigrafico = false }: { dad
             <Quadro href={rotaDoIndice("selic")} explicacao="O que a renda fixa rende acima da inflação.">
               <span className={rotuloDoQuadro}>Juro real</span>
               <span className={valorDoQuadro}>{percentual(real, 2)}</span>
-              <span className="text-[13px] text-mute">ao ano, Selic descontada a inflação</span>
+              <span className="text-[13px] text-mute">
+                ao ano, Selic descontada a inflação{refFixa(fixos?.selic || fixos?.ipca)}
+              </span>
             </Quadro>
           </Revelar>
 
@@ -175,7 +186,9 @@ export function BentoAtivosIndices({ dados, reservarMinigrafico = false }: { dad
             <Quadro href={rotaDoIndice("ifix")} explicacao="Os fundos imobiliários mais negociados da B3.">
               <span className={rotuloDoQuadro}>IFIX</span>
               <span className={valorDoQuadro}>{numero(ifix.pontos)}</span>
-              <span className="text-[13px] text-mute">pontos</span>
+              <span className="text-[13px] text-mute">
+                pontos{refFixa(fixos?.ifix)}
+              </span>
             </Quadro>
           </Revelar>
 

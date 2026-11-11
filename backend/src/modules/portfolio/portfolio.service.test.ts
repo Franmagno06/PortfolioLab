@@ -352,7 +352,7 @@ describe("portfolioService.getSummary — consolidação Decimal e centavos", ()
       {
         ticker: "ITUB4",
         name: "Itaú Unibanco",
-        type: "ACAO",
+        type: "ACAO" as const,
         quantidade: 10,
         precoMedio: 33.33,
         precoAtual: 35.01,
@@ -364,7 +364,7 @@ describe("portfolioService.getSummary — consolidação Decimal e centavos", ()
       {
         ticker: "PETR4",
         name: "Petrobras",
-        type: "ACAO",
+        type: "ACAO" as const,
         quantidade: 10,
         precoMedio: 30.15,
         precoAtual: 36.25,
@@ -376,7 +376,7 @@ describe("portfolioService.getSummary — consolidação Decimal e centavos", ()
       {
         ticker: "HGLG11",
         name: "CSHG Logística",
-        type: "FII",
+        type: "FII" as const,
         quantidade: 5,
         precoMedio: 160.05,
         precoAtual: 165.25,

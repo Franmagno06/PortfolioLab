@@ -53,4 +53,80 @@ describe("indicesRepository", () => {
       await prisma.indexPoint.deleteMany({ where: outra });
     }
   });
+
+  describe("gravarPontosEmLote (histórico da B3)", () => {
+    it("acrescenta o que falta e não mexe no ponto antigo que já estava gravado", async () => {
+      await indicesRepository.gravarPonto("ifix", DIA_1, 3950.1);
+
+      await indicesRepository.gravarPontosEmLote("ifix", [
+        { data: DIA_1, valor: 1 }, // já existe e não é o último da lista: fica o valor gravado
+        { data: DIA_2, valor: 3960 },
+      ]);
+
+      expect(await pontosDoTeste()).toEqual([
+        { data: DIA_1, valor: 3950.1 },
+        { data: DIA_2, valor: 3960 },
+      ]);
+    });
+
+    it("o último ponto da lista é atualizado mesmo se já existia", async () => {
+      await indicesRepository.gravarPonto("ifix", DIA_2, 1);
+
+      await indicesRepository.gravarPontosEmLote("ifix", [
+        { data: DIA_1, valor: 3950.1 },
+        { data: DIA_2, valor: 3960 },
+      ]);
+
+      expect(await pontosDoTeste()).toEqual([
+        { data: DIA_1, valor: 3950.1 },
+        { data: DIA_2, valor: 3960 },
+      ]);
+    });
+
+    it("rodar duas vezes não duplica linha, e lista vazia não faz nada", async () => {
+      const pontos = [
+        { data: DIA_1, valor: 3950.1 },
+        { data: DIA_2, valor: 3960 },
+      ];
+      await indicesRepository.gravarPontosEmLote("ifix", pontos);
+      await indicesRepository.gravarPontosEmLote("ifix", pontos);
+      await indicesRepository.gravarPontosEmLote("ifix", []);
+
+      expect(await prisma.indexPoint.count({ where: doTeste })).toBe(2);
+    });
+  });
+
+  describe("reserva do SGS", () => {
+    // código que o Banco Central não usa nas séries do projeto: as linhas do teste não se misturam às reais
+    const CODIGO_DE_TESTE = 999_999;
+    const daReserva = { slug: `sgs-${CODIGO_DE_TESTE}` };
+    const limparReserva = () => prisma.indexPoint.deleteMany({ where: daReserva });
+
+    beforeEach(limparReserva);
+    afterAll(limparReserva);
+
+    it("grava a série mensal ('AAAA-MM') no dia 1 e a devolve em ordem, sem tocar no IFIX", async () => {
+      const antes = await prisma.indexPoint.count({ where: { slug: "ifix" } });
+
+      await indicesRepository.gravarSerieSgs(CODIGO_DE_TESTE, [
+        { data: "1990-02", valor: 14.25 },
+        { data: "1990-01", valor: 13.75 },
+      ]);
+
+      // a lista é gravada como veio; a leitura ordena por data
+      expect(await indicesRepository.listarSerieSgs(CODIGO_DE_TESTE)).toEqual([
+        { data: "1990-01-01", valor: 13.75 },
+        { data: "1990-02-01", valor: 14.25 },
+      ]);
+      expect(await prisma.indexPoint.count({ where: { slug: "ifix" } })).toBe(antes);
+    });
+
+    it("regravar atualiza o mês corrente (o último) e código sem reserva devolve lista vazia", async () => {
+      await indicesRepository.gravarSerieSgs(CODIGO_DE_TESTE, [{ data: "1990-01", valor: 13.75 }]);
+      await indicesRepository.gravarSerieSgs(CODIGO_DE_TESTE, [{ data: "1990-01", valor: 14 }]);
+
+      expect(await indicesRepository.listarSerieSgs(CODIGO_DE_TESTE)).toEqual([{ data: "1990-01-01", valor: 14 }]);
+      expect(await indicesRepository.listarSerieSgs(CODIGO_DE_TESTE + 1)).toEqual([]);
+    });
+  });
 });

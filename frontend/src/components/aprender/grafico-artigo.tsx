@@ -495,7 +495,9 @@ export function GraficoArtigo({
     >
       {/* Cabeçalho: título, descrição e seletor padronizado em linha única */}
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
-        <div className="min-w-[320px] flex-1">
+        {/* base de 320 px para o seletor quebrar de linha antes de espremer o título, mas sem largura mínima:
+            numa tela de 320 px a caixa precisa poder encolher, ou a página rola para o lado */}
+        <div className="min-w-0 flex-[1_1_320px]">
           <figcaption className="font-leitura text-xl leading-[26px] font-semibold text-ink">
             {titulo}
           </figcaption>
@@ -589,12 +591,16 @@ export function GraficoArtigo({
         className="mt-4 w-full touch-pan-y focus-visible:rounded focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ink [&_.recharts-surface:focus-visible]:rounded [&_.recharts-surface:focus-visible]:outline-2 [&_.recharts-surface:focus-visible]:outline-offset-4 [&_.recharts-surface:focus-visible]:outline-ink [&_.recharts-surface]:outline-none"
         style={{ height: alturaGrafico }}
       >
+        {/* initialDimension é a largura que o gráfico assume no primeiro quadro, antes de medir a coluna. Com 600 px
+            ele estourava a coluna do celular e a página rolava para o lado até a medição chegar (o E2E de 375 px
+            pegava isso em máquina lenta). 220 px cabe até numa tela de 320 px; a medição corrige para a largura
+            real em seguida. Não use max-width no .recharts-wrapper: o pai dele tem largura zero. */}
         <ResponsiveContainer
           width="100%"
           height="100%"
           minWidth={100}
           minHeight={alturaGrafico}
-          initialDimension={{ width: 600, height: alturaGrafico }}
+          initialDimension={{ width: 220, height: alturaGrafico }}
         >
           {modo === "area" ? (
             <AreaChart

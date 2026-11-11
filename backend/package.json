@@ -21,7 +21,8 @@
     "supabase:migrate": "node --env-file=.env.supabase node_modules/prisma/build/index.js migrate deploy",
     "supabase:studio": "node --env-file=.env.supabase node_modules/prisma/build/index.js studio",
     "supabase:demo": "tsx --env-file=.env.supabase prisma/seed-demo.ts --remoto",
-    "job:indicadores": "tsx scripts/atualizar-indicadores.ts"
+    "job:indicadores": "tsx scripts/atualizar-indicadores.ts",
+    "indices:backfill": "tsx scripts/backfill-indices.ts"
   },
   "dependencies": {
     "@google/genai": "^2.13.0",

@@ -179,12 +179,21 @@ describe("numerosDoBento", () => {
     ).toEqual([160000, 165000]);
   });
 
-  it("caindo no conjunto fixo (uma série vazia), não mostra minigráfico mesmo com Ibovespa", () => {
-    const semIfix: DadosDosIndices = { ...DADOS_DE_EXEMPLO, pontos: { ...DADOS_DE_EXEMPLO.pontos, ifix: [] } };
-    const r = numerosDoBento(semIfix);
+  it("sem Ibovespa cai no conjunto fixo inteiro e não há minigráfico", () => {
+    const semIbov: DadosDosIndices = { ...DADOS_DE_EXEMPLO, pontos: { ...DADOS_DE_EXEMPLO.pontos, ibovespa: [] } };
+    const r = numerosDoBento(semIbov);
 
     expect(r.numeros.aoVivo).toBe(false);
     expect(r.minigraficoIbovespa).toBeNull();
+  });
+
+  it("faltar outra série (IFIX) não tira o minigráfico, que é só do Ibovespa", () => {
+    const semIfix: DadosDosIndices = { ...DADOS_DE_EXEMPLO, pontos: { ...DADOS_DE_EXEMPLO.pontos, ifix: [] } };
+    const r = numerosDoBento(semIfix);
+
+    expect(r.numeros.aoVivo).toBe(true);
+    expect(r.numeros.fixos?.ifix).toBe(true);
+    expect(r.minigraficoIbovespa).toEqual(numerosDoBento(DADOS_DE_EXEMPLO).minigraficoIbovespa);
   });
 });
 
