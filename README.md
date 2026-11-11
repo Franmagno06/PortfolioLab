@@ -1,8 +1,8 @@
 # PortfolioLab
 
 Plataforma web educacional de carteira de investimentos da B3 (ações, FIIs, ETFs e
-renda fixa): posição consolidada, rebalanceamento por aporte, análise de relatórios
-em PDF por IA, notícias, fichas públicas de ativos e uma biblioteca de artigos para
+renda fixa): posição consolidada, rebalanceamento por aporte, relatórios com as
+demonstrações da CVM, notícias, fichas públicas de ativos e uma biblioteca de artigos para
 quem está começando.
 
 > **Aviso:** projeto educacional e de portfólio. Nada aqui constitui recomendação
@@ -59,7 +59,7 @@ ranking**: nada ali indica qual ativo é melhor.
 | **Simulação de aportes** | Dado um valor, calcula **o que comprar** para aproximar a carteira das metas. Considera só os ativos que têm meta e declara quanto da carteira ficou fora da conta. As metas são editadas na própria tela |
 | **Proventos** | **Importados e calculados sozinhos**: para cada dividendo anunciado, cruza o valor por cota com a quantidade que você tinha na data-ex. O lançamento manual continua disponível para o que a fonte não cobre |
 | **Indicadores** | P/L, P/VP, dividend yield, ROE, ROA, margem líquida e dívida líquida/EBITDA dos ativos da carteira, com atualização preguiçosa a cada 24 h |
-| **Relatórios com IA** | Envie o PDF de um relatório gerencial (FII) ou release trimestral (ação). Com o ativo informado, o PDF só identifica o período e os **números vêm da CVM** (ITR, DFP e informe mensal de FII); a IA escreve o resumo sobre eles. Sem o ativo, a IA lê o PDF inteiro. O resultado é resumo executivo, alertas por severidade e indicadores, com chat para tirar dúvidas (só nos relatórios lidos do PDF) |
+| **Relatórios da CVM** | Digite uma ação ou um fundo imobiliário e veja o que ele entregou à CVM (ITR, DFP ou informe mensal de FII): resumo, pontos de atenção por cortes fixos e os períodos lado a lado para comparar. Tudo vem dos dados abertos, montado por regra fixa, sem IA e sem recomendação |
 | **Notícias** | Feed de mercado (Money Times e Suno) que destaca o que cita ativos da sua carteira, por ticker e pela marca da empresa |
 
 ### Conteúdo educacional (aba Aprender)
@@ -113,13 +113,11 @@ empilhadas, foco visível, alvos de toque de 44 px e nenhuma rolagem horizontal 
   é idempotente e nunca encosta no que foi lançado à mão.
 - **Dividend yield calculado pelo site**, com os proventos que ele mesmo importa, e não pelo campo pronto do
   Yahoo. A falha da fonte preserva o DY gravado, nunca o transforma em 0%.
-- **CVM como fonte dos números**: o PDF só identifica o período; ITR, DFP e informe mensal vêm dos dados
-  abertos. Interpretar o zip da CVM é CPU síncrona, então passa por uma fila serial que devolve a vez ao laço de
+- **CVM como fonte dos números**: ITR, DFP e informe mensal vêm dos dados abertos, e o resumo é montado por regra
+  fixa, sem IA. Interpretar o zip da CVM é CPU síncrona, então passa por uma fila serial que devolve a vez ao laço de
   eventos entre um trimestre e outro, para o Node continuar atendendo todo mundo.
-- **Saída estruturada da IA** via JSON Schema e **recorte por relevância** antes de chamar a IA: o release de um
-  banco tem ~217 mil tokens, e só os blocos que respondem à pergunta viajam. Análise reaproveitada pelo hash do
-  PDF (~80% menos tokens por envio).
-- **Auditoria de alucinação**: `scripts/verificar-analise.mjs` confere se cada número citado pela IA existe no PDF.
+- **Cache de análise com versão**: o resumo de cada ativo e período é compartilhado entre contas, e só é
+  reaproveitado se foi montado pelas regras atuais.
 - **Listas paginadas por cursor** em transações, proventos e relatórios.
 - **Fontes externas que nunca derrubam uma rota**: cada provedor devolve `null` na falha e a tela mostra o
   último dado conhecido (ver [Integrações externas](#integrações-externas)).
@@ -154,7 +152,7 @@ As dependências apontam **só para baixo**:
 | `dividends` | proventos manuais e importados |
 | `goals`, `rebalance` | metas de alocação e algoritmo de aporte (incluindo o exemplo público da home) |
 | `indicators` | P/L, P/VP, DY, ROE, ROA, margem e dívida/EBITDA por ativo |
-| `reports` | análise por IA: CVM, extração de PDF, recorte e chat |
+| `reports` | demonstrações da CVM por ativo e período, resumidas por regra fixa |
 | `news` | feeds RSS, histórico de 14 dias e casamento notícia ↔ ativo |
 | `ativos` | as páginas públicas: catálogo curado, ficha de ação, FII e ETF |
 | `indices` | séries do Banco Central e do Yahoo para as páginas de índices e a home (`GET /indices/dados`) |
@@ -198,8 +196,7 @@ do topo tem botão de pausa. O desenho está em [docs/ux-movimento.md](docs/ux-m
 | Serviço | Para quê | Se falhar |
 |---------|----------|-----------|
 | Yahoo Finance | cotação, histórico e proventos | devolve `null`; mantém o último preço conhecido |
-| CVM (dados abertos) | ITR, DFP, informe mensal de FII, cadastro de classes | devolve `null`; o relatório cai na leitura do PDF |
-| Google Gemini | resumo e chat dos relatórios | sem `GEMINI_API_KEY`, `503` com a instrução |
+| CVM (dados abertos) | ITR, DFP, informe mensal de FII, cadastro de classes | devolve `null`; a consulta de relatório responde `404` com o ativo e o período |
 | Feeds RSS (Money Times, Suno, InfoMoney, Valor Investe, Seu Dinheiro, Exame, Bora Investir) | notícias | a fonte fora do ar some da lista, sem derrubar a rota |
 | API do Banco Central (SGS) | Selic, IPCA e CDI das páginas de índices e da home (`GET /indices/dados`) | série vazia na falha; a última série boa fica em memória e é a que sai. As chamadas passam por uma fila serial, e a resposta espera no máximo 15 s |
 
@@ -213,7 +210,7 @@ Resumo; a lista completa, com as decisões de **não** corrigir algo, está em [
 - Limites por camada: login e cadastro (10 por 15 min por IP), análises de IA (20 por hora por usuário),
   teto global (500 por 15 min), desafio do aporte (30 por minuto) e páginas públicas de ativos (300 por minuto),
   cada um com o seu contador para um não esgotar o outro.
-- Entrada validada com Zod; ticker restrito a `[A-Z0-9]{4,12}`; upload só de PDF até 25 MB, em memória.
+- Entrada validada com Zod; ticker restrito a `[A-Z0-9]{4,12}`.
 - Cabeçalhos: helmet na API; HSTS, nosniff, X-Frame-Options, Permissions-Policy e CSP no frontend.
 - O isolamento entre usuários é feito na aplicação (todo acesso por id filtra `userId`). No Supabase, todas as
   tabelas têm RLS ligado e nenhuma policy: a Data API (chave anon) não lê nem escreve nada, e a API, que conecta como
@@ -231,10 +228,8 @@ Resumo; a lista completa, com as decisões de **não** corrigir algo, está em [
   manda conferir o regulamento.
 - **Nem toda notícia sobre um ativo é reconhecida.** A busca usa o ticker e a marca extraída da razão social;
   empresas cuja marca não deriva do nome oficial só casam quando a notícia cita o ticker.
-- **A IA analisa um recorte** de documentos muito grandes. O prompt avisa a IA disso, para ela não afirmar que algo
-  não existe no relatório.
-- **A cota gratuita do Gemini é apertada.** Análises seguidas esgotam o limite; a API responde 429 e o backend
-  traduz para uma mensagem pedindo para aguardar.
+- **Relatórios só de ativo com CNPJ na tabela fixa.** Ação ou FII fora de `tabela-cnpj.json` não tem relatório, e
+  a mensagem diz o motivo. ETFs e renda fixa não entregam essas demonstrações.
 - **Não há agendador embutido.** O aquecimento dos indicadores é preguiçoso (a cada leitura); o job em massa
   (`npm run job:indicadores`) é opcional e roda por cron externo.
 - **Valores de mercado dos textos são fixados à mão**, com fonte e data (Selic, CDI, IPCA, FGC), e precisam ser
@@ -248,7 +243,6 @@ Resumo; a lista completa, com as decisões de **não** corrigir algo, está em [
 | Banco de dados | PostgreSQL 16 (Docker local; Supabase em produção) |
 | Frontend | Next.js 16 (App Router), React 19, Tailwind CSS 4, Recharts, MDX (`@next/mdx`, `remark-gfm`) |
 | Fontes de dados | Yahoo Finance, CVM (dados abertos), feeds RSS, Banco Central (SGS) |
-| IA | Google Gemini (`@google/genai`) + `unpdf` para extração de PDF |
 | Testes | Vitest, Supertest, Testing Library (jsdom) e Playwright |
 | Operação | GitHub Actions (CI), Supabase (banco); Render (API) e Vercel (frontend) no plano de deploy |
 
@@ -333,18 +327,7 @@ para o backend, então os dois precisam estar no ar. A aba Aprender e a página 
 | `DATABASE_URL` | backend | conexão com o Postgres |
 | `PORT` | backend | porta da API (padrão 3333) |
 | `JWT_SECRET` | backend | segredo da sessão; em produção recusa placeholder e menos de 32 caracteres |
-| `GEMINI_API_KEY`, `GEMINI_MODEL` | backend | módulo de IA (opcional) |
 | `API_URL` | frontend | endereço da API (padrão `http://localhost:3333`) |
-
-### 5. Módulo de IA (opcional)
-
-Crie uma chave em [aistudio.google.com/apikey](https://aistudio.google.com/apikey) e coloque em `backend/.env`:
-
-```env
-GEMINI_API_KEY="sua-chave"
-```
-
-Sem a chave, todo o resto funciona; só a tela de Relatórios responde `503` com a instrução.
 
 ## Endpoints da API
 
@@ -374,9 +357,8 @@ Rotas com 🔒 exigem login (cookie `HttpOnly`). As marcadas como **públicas** 
 | DELETE 🔒 | `/goals/:ticker` | Remover meta |
 | POST 🔒 | `/rebalance/simulate` | Simular aporte (`amount`): só os ativos com meta entram na conta |
 | GET 🔒 | `/news` | Notícias, separando as que citam ativos da carteira |
-| POST 🔒 | `/reports` | Enviar PDF (campo `file`), com ou sem o ativo, para a análise por IA |
-| GET 🔒 | `/reports` | Relatórios já analisados (paginado) |
-| POST 🔒 | `/reports/:id/ask` | Chat "Pergunte ao Relatório" (`question`, `history?`); `409` nos relatórios feitos pela CVM, que não guardam o texto do PDF |
+| POST 🔒 | `/reports` | Trazer da CVM as demonstrações de um ativo (`ticker`, `periodo?`); sem período, o mais recente publicado. `201` se guardou agora, `200` se a conta já tinha |
+| GET 🔒 | `/reports` | Relatórios guardados na conta (paginado) |
 | DELETE 🔒 | `/reports/:id` | Apagar relatório |
 
 As listas paginadas (transações, proventos e relatórios) devolvem `{ "itens": [...], "proximoCursor": "<id>" | null }`.
@@ -457,16 +439,6 @@ Pare o servidor antes de gerar o client. Para descobrir qual processo o segura:
 Get-Process node | Where-Object { $_.Modules.ModuleName -like '*query_engine*' }
 ```
 
-**Troquei a `GEMINI_API_KEY` e o erro de chave inválida continua**
-
-O `.env` é lido uma vez, quando a API sobe. O `npm run dev` reinicia sozinho ao salvar o `.env`; se a API foi
-iniciada de outro jeito, pare (`Ctrl + C`) e suba de novo. Para testar a chave sem a API no meio, sem gastar cota:
-
-```bash
-cd backend
-npx tsx scripts/medir-tokens-relatorios.ts   # falha logo se a chave for recusada
-```
-
 **"Erro interno do servidor" no login**
 
 Se você usa Supabase no plano gratuito, o projeto **hiberna após ~1 semana sem uso** e a API passa a responder
@@ -512,7 +484,7 @@ node scripts/medir-pdf.mjs <pdf>       # páginas, caracteres e tokens
 ```
 ├── backend/                  # API Node.js + TypeScript + Prisma
 │   ├── prisma/               # schema, migrations e seeds
-│   ├── scripts/              # banco local, job de indicadores, tabela ticker→CNPJ, auditoria de PDF
+│   ├── scripts/              # banco local, job de indicadores, tabela ticker→CNPJ, histórico de índices
 │   └── src/
 │       ├── config/           # variáveis de ambiente (Zod) e guarda do banco local
 │       ├── database/         # cliente Prisma (singleton)
@@ -529,7 +501,7 @@ node scripts/medir-pdf.mjs <pdf>       # páginas, caracteres e tokens
 ├── docs/                     # deploy, roadmap, arquitetura, algoritmo, UX e guia de conteúdo
 ├── .claude/                  # skills e agentes de revisão do projeto
 ├── .github/workflows/        # CI
-└── relatorios-para-teste/    # PDFs reais para testar o módulo de IA
+└── relatorios-para-teste/    # PDFs do tempo em que a tela aceitava upload (sem uso hoje)
 ```
 
 ## Licença

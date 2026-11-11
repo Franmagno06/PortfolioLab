@@ -81,6 +81,8 @@ Plano em 9 sprints (1 semana cada), do banco de dados ao módulo de IA. Os itens
 - [x] Chat "Pergunte ao Relatório" com histórico mantido no cliente
 - [x] Tabela `reports` no banco (texto extraído + análise em JSON)
 - [x] Tela `/relatorios`: upload, lista, resumo, alertas coloridos e chat
+- [x] **Novembro de 2026: o módulo passou a ser só CVM.** Saíram o upload de PDF, o Gemini e o chat; a tela mostra
+      as demonstrações oficiais por ativo, com os períodos lado a lado, e o resumo é montado por regra fixa
 
 ## 📰 Sprint 9 — Notícias e Deploy
 

@@ -26,7 +26,7 @@ test.describe("área logada", () => {
     await expect(cabecalho.getByRole("button", { name: "Sair" })).toBeVisible();
     await expect(cabecalho.getByRole("link", { name: "Entrar" })).toHaveCount(0);
 
-    for (const nome of ["Resumo", "Posições", "Simular aporte", "Relatórios com IA", "Indicadores", "Notícias"]) {
+    for (const nome of ["Resumo", "Posições", "Simular aporte", "Relatórios da CVM", "Indicadores", "Notícias"]) {
       await expect(abas(page).getByRole("link", { name: nome })).toBeVisible();
     }
     await expect(abas(page).getByRole("link", { name: "Resumo" })).toHaveAttribute("aria-current", "page");
@@ -207,6 +207,38 @@ test.describe("faixa da conta de demonstração", () => {
     await page.getByRole("button", { name: "Registrar compra" }).click();
 
     await expect(page.getByRole("alert").filter({ hasText: MENSAGEM_DA_DEMO })).toBeVisible();
+  });
+
+  test("relatórios na demo: demonstrações da CVM lado a lado, sem upload e sem controle que grava", async ({ page }) => {
+    await entrarNaContaDemo(page);
+    const me = page.waitForResponse((r) => r.url().includes("/api/auth/me"));
+    const lista = page.waitForResponse((r) => r.url().includes("/api/reports"));
+    await page.goto("/relatorios");
+    await me;
+    const relatorios = (await (await lista).json()) as { itens: unknown[] };
+
+    await expect(page.getByRole("heading", { level: 1, name: "Relatórios da CVM" })).toBeVisible();
+    await expect(page.getByText("Na conta de demonstração os relatórios já vêm carregados.")).toBeVisible();
+    await expect(page.locator('input[type="file"]')).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /PDF|Buscar o mais recente|Carregar |Apagar/ })).toHaveCount(0);
+
+    // A seed carrega os relatórios da CVM de verdade; sem rede naquele momento, a conta fica sem nenhum.
+    test.skip(relatorios.itens.length === 0, "a seed da demo rodou sem acesso à CVM: não há relatório para conferir");
+
+    const ativos = page.getByRole("navigation", { name: "Ativos com relatório" });
+    await expect(ativos.getByRole("button").first()).toHaveAttribute("aria-current", "true");
+    const tabela = page.getByRole("table");
+    await expect(tabela.getByRole("columnheader", { name: "Indicador" })).toBeVisible();
+    expect(await tabela.getByRole("columnheader").count()).toBeGreaterThanOrEqual(3);
+    await expect(page.getByText("Fonte: dados abertos da CVM")).toBeVisible();
+
+    // trocar de período troca o resumo, sem sair da página
+    const periodos = page.getByRole("group", { name: "Período" }).getByRole("button");
+    const segundo = periodos.nth(1);
+    const rotulo = (await segundo.textContent()) ?? "";
+    await segundo.click();
+    await expect(segundo).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("heading", { name: `O que o documento de ${rotulo} traz` })).toBeVisible();
   });
 
   test("uma conta normal não vê a faixa", async ({ page }) => {

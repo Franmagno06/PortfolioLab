@@ -1,6 +1,5 @@
 import { Prisma } from "@prisma/client";
 import type { NextFunction, Request, Response } from "express";
-import multer from "multer";
 import { ZodError } from "zod";
 import { AppError } from "../errors/AppError.js";
 
@@ -16,14 +15,6 @@ export function errorHandler(
   // Falha esperada de regra de negócio → status vindo do próprio erro
   if (err instanceof AppError) {
     res.status(err.statusCode).json({ error: err.message });
-    return;
-  }
-
-  // Erros de upload (multer) — ex: arquivo maior que o limite
-  if (err instanceof multer.MulterError) {
-    const mensagem =
-      err.code === "LIMIT_FILE_SIZE" ? "O arquivo excede o limite de 25 MB" : err.message;
-    res.status(400).json({ error: mensagem });
     return;
   }
 

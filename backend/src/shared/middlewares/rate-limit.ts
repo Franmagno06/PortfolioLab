@@ -64,13 +64,13 @@ export const limitadorAuth = criarLimitador({
 });
 
 /**
- * Camada 2 — as rotas que custam dinheiro real de API (Gemini). Mais apertada
- * que a global e contada por usuário autenticado, não por IP.
+ * Camada 2 — a consulta de relatórios, que baixa e interpreta arquivos grandes da CVM (rede e CPU do
+ * servidor). Mais apertada que a global e contada por usuário autenticado, não por IP.
  */
 export const limitadorRelatorios = criarLimitador({
   janelaMs: 60 * 60 * 1000,
   max: 20,
-  mensagem: "Limite de análises por hora atingido. Tente novamente mais tarde.",
+  mensagem: "Limite de consultas de relatórios por hora atingido. Tente novamente mais tarde.",
   porUsuario: true,
   pular: noTeste,
 });

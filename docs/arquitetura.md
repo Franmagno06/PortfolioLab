@@ -83,8 +83,8 @@ Casos especiais:
   antes dessa regra). Simular aporte (`POST /rebalance/simulate`) e sincronizar
   proventos (`POST /dividends/sync`, com limite por usuário de 3 a cada 10 min)
   continuam liberados.
-- **`/reports`**: o `limitadorRelatorios` e o upload (multer) vêm depois do
-  `somenteLeituraNaDemo`, para a demo ser recusada antes de gastar a cota da IA.
+- **`/reports`**: o `limitadorRelatorios` vem depois do `somenteLeituraNaDemo`, para a demo
+  ser recusada antes de o servidor baixar e interpretar arquivos da CVM.
 - **Fontes externas** nunca derrubam uma rota: falha vira lista ou série vazia
   (Yahoo, CVM, RSS, Banco Central). Ver a tabela de integrações no `CLAUDE.md`.
 

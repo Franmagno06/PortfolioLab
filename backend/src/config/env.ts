@@ -24,9 +24,6 @@ export const envSchema = z
     PORT: z.coerce.number().default(3333),
     JWT_SECRET: z.string().min(1).default(JWT_SECRET_PADRAO),
     TRUST_PROXY: z.coerce.number().default(1),
-    // Módulo IA (Sprint 8) — opcional: sem a chave, as rotas /reports retornam 503
-    GEMINI_API_KEY: z.string().optional(),
-    GEMINI_MODEL: z.string().default("gemini-3.6-flash"),
   })
   // Achado 6: o .default() acima evita atrito no desenvolvimento, mas em produção
   // um segredo fraco assina os tokens de todo mundo. Aqui a promessa de fail fast

@@ -1,5 +1,9 @@
 # Relatórios reais para testar o módulo de IA
 
+> **Sem uso desde novembro de 2026.** A tela de Relatórios deixou de aceitar PDF e de usar IA: hoje ela
+> mostra só as demonstrações que a CVM publica. Os scripts citados abaixo (`verificar-analise.mjs`,
+> `medir-pdf.mjs`) foram removidos. Esta pasta fica como registro dos documentos usados na validação antiga.
+
 Documentos oficiais baixados dos sites de RI, usados para validar a tela
 **Relatórios com IA**. Todos já foram testados de ponta a ponta.
 

@@ -55,8 +55,7 @@ app.use("/ativos", ativosRoutes);
 // Antes do limitador global, com o limitador próprio; as fontes são cacheadas no service.
 app.use("/indices", indicesRoutes);
 
-// Teto global folgado. Antes do express.json() de propósito, pelo mesmo motivo
-// que o limitador de /reports vem antes do multer: recusar sem gastar o parse.
+// Teto global folgado. Antes do express.json() de propósito: recusar sem gastar o parse.
 app.use(limitadorGlobal);
 
 app.use(express.json());

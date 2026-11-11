@@ -284,7 +284,7 @@ export function NoticiasDoAtivo({
   );
 }
 
-/** Os relatórios que a pessoa enviou sobre este ativo. Sem login não há nenhum: o estado vazio leva à tela de Relatórios. */
+/** As demonstrações do ativo ficam na tela de Relatórios, que exige login: a ficha pública só aponta para lá. */
 export function RelatoriosDoAtivo({ ticker, tipo }: { ticker: string; tipo: "empresa" | "fundo" }) {
   return (
     <Secao
@@ -294,11 +294,12 @@ export function RelatoriosDoAtivo({ ticker, tipo }: { ticker: string; tipo: "emp
       vazio={
         <div className="rounded bg-marca-texto p-4">
           <p className="text-[15px] leading-[22px] font-medium text-ink">
-            Você ainda não enviou nenhum relatório {tipo === "empresa" ? "desta empresa" : "deste fundo"}.
+            {tipo === "empresa"
+              ? "As demonstrações que esta empresa entrega à CVM ficam na tela de Relatórios."
+              : "Os informes mensais que este fundo entrega à CVM ficam na tela de Relatórios."}
           </p>
           <p className="mt-2 text-[13px] leading-[19px] text-ink-2">
-            Envie {tipo === "empresa" ? "o release" : "o relatório gerencial"} em PDF na tela de Relatórios e a análise
-            aparece aqui.
+            Lá você busca {ticker} e compara os últimos períodos lado a lado. É preciso entrar na sua conta.
           </p>
           <Link
             href={ROTAS.relatorios}
