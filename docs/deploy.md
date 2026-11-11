@@ -53,8 +53,6 @@ Variáveis de ambiente:
 | `NODE_ENV` | `production` (liga o cookie `Secure`, a checagem do `JWT_SECRET` e o aquecimento do catálogo) |
 | `DATABASE_URL` | connection string do Supabase, **Session pooler** (porta 5432), em *Connect → ORM → Prisma* |
 | `JWT_SECRET` | o segredo do passo 0 |
-| `GEMINI_API_KEY` | opcional: sem ela só a tela de Relatórios responde `503` com a instrução |
-| `GEMINI_MODEL` | opcional (padrão `gemini-3.6-flash`) |
 
 O `PORT` vem do Render. A migration **não** roda no deploy: ela é manual (`npm run supabase:migrate`) e vai
 **antes** do push que a contém (skill `deploy-producao`). Hoje não há nenhuma pendente.
@@ -86,7 +84,7 @@ O botão "Ver a demonstração" da home entra na conta `carteira@portfoliolab.de
 - [ ] Uma ficha de ação, uma de FII, uma de ETF e uma de índice abrem com preço e gráfico.
 - [ ] Login da demo, carteira, dashboard e simulação; escrita da demo recusada com 403.
 - [ ] Cadastro e login de uma conta nova; logout.
-- [ ] Relatórios: com `GEMINI_API_KEY`, uma análise de PDF de `relatorios-para-teste/`.
+- [ ] Relatórios: na conta demo, a tela mostra os períodos lado a lado; numa conta comum, buscar `BBAS3` traz o último ITR.
 - [ ] Cabeçalhos de segurança no site (CSP, HSTS, X-Frame-Options) e na API (helmet).
 - [ ] Limite de requisições: ver o item "IP do visitante" abaixo.
 

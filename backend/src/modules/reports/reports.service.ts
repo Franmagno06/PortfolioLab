@@ -1,284 +1,171 @@
-import { createHash } from "node:crypto";
 import type { Asset } from "@prisma/client";
-import { extractText, getDocumentProxy } from "unpdf";
 import { AppError } from "../../shared/errors/AppError.js";
-import {
-  analisarRelatorioDeterministico,
-  analisarRelatorio,
-  responderBuscaContextual,
-  perguntarAoRelatorio,
-  type Analise,
-} from "./gemini.js";
-import { selecionarTrechos } from "./trechos.js";
-import type { AskInput, ConsultaCvmInput, UploadInput } from "./reports.schemas.js";
-import { reportsRepository } from "./reports.repository.js";
 import { montarPagina, type PaginacaoInput } from "../../shared/paginacao.js";
-import { quotesService } from "../quotes/quotes.service.js";
 import { cnpjDoTicker } from "../assets/cnpj.js";
+import { quotesService } from "../quotes/quotes.service.js";
+import { ehAnaliseAtual, type Analise } from "./analise.js";
 import { buscarDadosAcao, buscarDadosFii } from "./cvm.provider.js";
-import { chaveDoPeriodo, detectarPeriodos, detectarTicker, parsearPeriodo, rotuloDoPeriodo, type Periodo } from "./periodo.js";
-import { analiseSemIa } from "./resumo-cvm.js";
+import {
+  chaveDoPeriodo,
+  parsearPeriodo,
+  periodoAnterior,
+  rotuloDoPeriodo,
+  ultimoPeriodoEncerrado,
+  type Periodo,
+} from "./periodo.js";
+import type { ConsultaCvmInput } from "./reports.schemas.js";
+import { reportsRepository } from "./reports.repository.js";
+import { montarAnalise, type DadosCvm } from "./resumo-cvm.js";
 
-// Releases trimestrais de banco passam de 300 páginas (o do Banco do Brasil
-// tem 760 mil caracteres), então o limite precisa acomodar documentos grandes.
-const LIMITE_CARACTERES = 2_000_000;
+// Relatórios são as demonstrações que a CVM publica em dados abertos (ITR e DFP de companhia aberta,
+// Informe Mensal de fundo imobiliário), resumidas por regra fixa. Não há upload de PDF nem IA: todo
+// número da tela vem do arquivo oficial.
 
 export const COTA_RELATORIOS = 50;
 
-// Assinatura de arquivo PDF ("%PDF-"). O multer só confere o Content-Type
-// declarado pelo cliente, que é forjável — isto confere o conteúdo de verdade
-// antes de o buffer seguir para o parser.
-const ASSINATURA_PDF = Buffer.from("%PDF-", "ascii");
-
-function pareceUmPdf(buffer: Buffer): boolean {
-  return buffer.subarray(0, ASSINATURA_PDF.length).equals(ASSINATURA_PDF);
-}
-
-const TIMEOUT_PARSING_MS = 30_000;
-
-async function comTimeout<T>(promessa: Promise<T>): Promise<T> {
-  let temporizador: NodeJS.Timeout | undefined;
-  const limite = new Promise<never>((_, rejeitar) => {
-    temporizador = setTimeout(
-      () =>
-        rejeitar(
-          new AppError(
-            `A leitura do PDF demorou mais de ${TIMEOUT_PARSING_MS / 1000}s. Tente outro arquivo.`,
-            400,
-          ),
-        ),
-      TIMEOUT_PARSING_MS,
-    );
-  });
-  try {
-    return await Promise.race([promessa, limite]);
-  } finally {
-    clearTimeout(temporizador);
-  }
-}
-
-export const CONTEXTO_ANALISE = 30_000;
-
-// Páginas lidas para achar o período.
-const PAGINAS_DA_CAPA = 2;
-
-export const MENSAGEM_CHAT_INDISPONIVEL =
-  "O chat não está disponível para este relatório: o documento não possui texto extraído.";
-
-type DocumentoPdf = Awaited<ReturnType<typeof getDocumentProxy>>;
+/**
+ * Sem período pedido, quantos períodos para trás procurar até achar um que a CVM já publicou. A
+ * companhia tem até 45 dias para o ITR e 3 meses para a DFP: logo depois do fim de um trimestre, o
+ * mais recente disponível costuma ser o anterior ou o que veio antes dele.
+ */
+const PERIODOS_PARA_TRAS = 4;
 
 /**
- * Roda uma leitura do PDF silenciando os avisos do pdf.js.
+ * Ler o zip da CVM é CPU síncrona (o mesmo cuidado de ativos.snapshots.ts). Uma leitura de cada vez:
+ * duas consultas simultâneas não descompactam dois arquivos ao mesmo tempo no laço de eventos.
  */
-async function semRuidoDePdf<T>(leitura: () => Promise<T>): Promise<T> {
-  const avisoOriginal = console.warn;
-  const logOriginal = console.log;
-  const ehRuidoDePdf = (args: unknown[]) =>
-    typeof args[0] === "string" && /^Warning: TT:/.test(args[0]);
+let filaDaCvm: Promise<unknown> = Promise.resolve();
+function naFilaDaCvm<T>(tarefa: () => Promise<T>): Promise<T> {
+  const resultado = filaDaCvm.then(tarefa, tarefa);
+  filaDaCvm = resultado.catch(() => undefined);
+  return resultado;
+}
 
-  console.warn = (...args: unknown[]) => {
-    if (!ehRuidoDePdf(args)) avisoOriginal(...args);
-  };
-  console.log = (...args: unknown[]) => {
-    if (!ehRuidoDePdf(args)) logOriginal(...args);
-  };
+/** A análise de um ativo num período: do cache, se montada pelas regras atuais; senão, da CVM. */
+async function analiseDoPeriodo(asset: Asset, cnpj: string, periodo: Periodo): Promise<Analise | null> {
+  const chave = chaveDoPeriodo(periodo);
 
-  try {
-    return await leitura();
-  } finally {
-    console.warn = avisoOriginal;
-    console.log = logOriginal;
+  const guardada = await reportsRepository.findCvmSummary(asset.id, chave);
+  if (guardada && ehAnaliseAtual(guardada.analysis)) return guardada.analysis;
+
+  const dados = await naFilaDaCvm<DadosCvm | null>(() =>
+    periodo.tipo === "trimestre" ? buscarDadosAcao(cnpj, periodo) : buscarDadosFii(cnpj, periodo),
+  );
+  if (!dados) return null;
+
+  const analise = montarAnalise(dados, rotuloDoPeriodo(periodo));
+  // o cache é conveniência: falhar ao guardar não pode derrubar a consulta
+  await reportsRepository
+    .saveCvmSummary(asset.id, chave, analise)
+    .catch((err: unknown) => console.error("[CVM] falha ao guardar o cache:", err));
+  return analise;
+}
+
+function periodoPedido(texto: string, asset: Asset): Periodo {
+  const periodo = parsearPeriodo(texto);
+  if (!periodo) {
+    throw new AppError("Período inválido. Use 2026-T1 ou 1T26 para trimestre, 2026-03 para mês.", 400);
   }
-}
-
-async function extrairTexto(pdf: DocumentoPdf): Promise<string> {
-  const { text } = await comTimeout(semRuidoDePdf(() => extractText(pdf, { mergePages: true })));
-  return text;
-}
-
-/** Texto só das primeiras páginas — o release de 301 páginas do BB não precisa ser lido inteiro para achar período e ticker. */
-async function extrairCapa(pdf: DocumentoPdf): Promise<string> {
-  try {
-    return await semRuidoDePdf(async () => {
-      const partes: string[] = [];
-      for (let i = 1; i <= Math.min(PAGINAS_DA_CAPA, pdf.numPages); i++) {
-        const conteudo = await (await pdf.getPage(i)).getTextContent();
-        const itens = conteudo.items as { str?: string }[];
-        partes.push(itens.map((item) => item.str ?? "").join(" "));
-      }
-      return partes.join("\n");
-    });
-  } catch {
-    return "";
+  if (asset.type === "ACAO" && periodo.tipo !== "trimestre") {
+    throw new AppError("Ações têm demonstrações por trimestre. Informe o período como 2026-T1 ou 1T26.", 400);
   }
+  if (asset.type === "FII" && periodo.tipo !== "mes") {
+    throw new AppError("Fundos imobiliários têm informe por mês. Informe o período como 2026-03.", 400);
+  }
+  return periodo;
 }
 
-type ResultadoCvm = {
-  asset: Asset | null;
-  periodo: string | null;
-  analise: Analise | null;
-};
+type Encontrado = { periodo: Periodo; analise: Analise };
 
-/**
- * Monta a análise com os dados oficiais da CVM deterministicamente.
- */
-async function tentarViaCvm(capa: string, ticker: string): Promise<ResultadoCvm> {
-  const resultado: ResultadoCvm = { asset: null, periodo: null, analise: null };
-
-  try {
-    resultado.asset = await quotesService.buscarOuCadastrar(ticker);
-    const asset = resultado.asset;
-    if (!asset) return resultado;
-
-    // ETF e renda fixa não entregam ITR nem Informe Mensal de FII
-    if (asset.type !== "ACAO" && asset.type !== "FII") return resultado;
-
-    const cnpj = asset.cnpj ?? cnpjDoTicker(asset.ticker);
-    if (!cnpj) return resultado;
-
-    const { trimestre, mes } = detectarPeriodos(capa);
-    const periodo = asset.type === "ACAO" ? trimestre : mes;
-    if (!periodo) return resultado;
-    resultado.periodo = chaveDoPeriodo(periodo);
-
-    const guardada = await reportsRepository.findCvmSummary(asset.id, resultado.periodo);
-    if (guardada) {
-      resultado.analise = guardada.analysis as Analise;
-      return resultado;
+/** O período pedido, ou o mais recente que a CVM já tem. */
+async function encontrar(asset: Asset, cnpj: string, input: ConsultaCvmInput): Promise<Encontrado> {
+  if (input.periodo) {
+    const periodo = periodoPedido(input.periodo, asset);
+    const analise = await analiseDoPeriodo(asset, cnpj, periodo);
+    if (!analise) {
+      throw new AppError(
+        `A CVM ainda não tem dados de ${asset.ticker} para ${rotuloDoPeriodo(periodo)}. ` +
+          `O documento pode não ter sido entregue, ou a consulta à CVM falhou: tente de novo em alguns minutos.`,
+        404,
+      );
     }
-
-    const dados =
-      periodo.tipo === "trimestre"
-        ? await buscarDadosAcao(cnpj, periodo)
-        : await buscarDadosFii(cnpj, periodo);
-    if (!dados) return resultado;
-
-    const rotulo = rotuloDoPeriodo(periodo);
-    resultado.analise = analiseSemIa(dados, rotulo);
-
-    await reportsRepository
-      .saveCvmSummary(asset.id, resultado.periodo, resultado.analise)
-      .catch((err: unknown) => console.error("[CVM] falha ao guardar o cache:", err));
-
-    return resultado;
-  } catch (err) {
-    console.error("[CVM] caminho da CVM falhou:", err);
-    return { ...resultado, analise: null };
+    return { periodo, analise };
   }
+
+  const hoje = new Date();
+  let periodo: Periodo =
+    asset.type === "ACAO" ? ultimoPeriodoEncerrado("trimestre", hoje) : ultimoPeriodoEncerrado("mes", hoje);
+  for (let i = 0; i < PERIODOS_PARA_TRAS; i++) {
+    const analise = await analiseDoPeriodo(asset, cnpj, periodo);
+    if (analise) return { periodo, analise };
+    periodo = periodoAnterior(periodo);
+  }
+  throw new AppError(
+    `Não encontramos demonstrações recentes de ${asset.ticker} na CVM. ` +
+      `A consulta pode ter falhado: tente de novo em alguns minutos.`,
+    404,
+  );
 }
 
 export const reportsService = {
-  async analisar(
-    userId: string,
-    arquivo: { originalname: string; buffer: Buffer },
-    input: UploadInput = {},
-  ) {
+  /**
+   * Traz da CVM as demonstrações de um ativo, do período pedido ou do mais recente publicado, e as
+   * guarda na conta. Pedir de novo o mesmo ativo e período devolve o relatório que já existe
+   * (`novo: false`), sem gastar a cota.
+   */
+  async consultar(userId: string, input: ConsultaCvmInput) {
+    const asset = await quotesService.buscarOuCadastrar(input.ticker);
+    if (!asset) {
+      throw new AppError(`Ativo ${input.ticker} não encontrado`, 404);
+    }
+    if (asset.type !== "ACAO" && asset.type !== "FII") {
+      throw new AppError(
+        "Só ações e fundos imobiliários entregam demonstrações à CVM. ETFs e renda fixa não têm relatório aqui.",
+        400,
+      );
+    }
+    const cnpj = asset.cnpj ?? cnpjDoTicker(asset.ticker);
+    if (!cnpj) {
+      throw new AppError(`Não temos o CNPJ de ${asset.ticker}, necessário para localizar o documento na CVM.`, 400);
+    }
+
+    const { periodo, analise } = await encontrar(asset, cnpj, input);
+    const chave = chaveDoPeriodo(periodo);
+    const dto = (r: { id: string; fileName: string; createdAt: Date }) => ({
+      id: r.id,
+      fileName: r.fileName,
+      source: "CVM" as const,
+      period: chave,
+      asset: { ticker: asset.ticker, name: asset.name, type: asset.type },
+      createdAt: r.createdAt,
+      analysis: analise,
+    });
+
+    const existente = await reportsRepository.findCvmByUserAssetPeriod(userId, asset.id, chave);
+    if (existente) {
+      // regras novas desde que o relatório foi guardado: a linha passa a mostrar a análise atual
+      if (!ehAnaliseAtual(existente.analysis)) await reportsRepository.updateAnalysis(existente.id, analise);
+      return { relatorio: dto(existente), novo: false };
+    }
+
     const guardados = await reportsRepository.countByUser(userId);
     if (guardados >= COTA_RELATORIOS) {
       throw new AppError(
-        `Você atingiu o limite de ${COTA_RELATORIOS} relatórios guardados. ` +
-          `Apague algum em /reports antes de analisar outro.`,
+        `Você atingiu o limite de ${COTA_RELATORIOS} relatórios guardados. Apague algum antes de consultar outro.`,
         429,
       );
     }
 
-    if (!pareceUmPdf(arquivo.buffer)) {
-      throw new AppError("O arquivo enviado não é um PDF válido", 400);
-    }
-
-    const contentHash = createHash("sha256").update(arquivo.buffer).digest("hex");
-
-    const pdf = await comTimeout(
-      semRuidoDePdf(() => getDocumentProxy(new Uint8Array(arquivo.buffer))),
-    );
-
-    // Extrair capa do PDF para detectar período e ticker (se não informado)
-    const capa = await extrairCapa(pdf);
-    const tickerIdentificado =
-      input.ticker ?? detectarTicker(arquivo.originalname) ?? detectarTicker(capa);
-
-    // Tentar via CVM se houver ticker identificado
-    const viaCvm = tickerIdentificado
-      ? await tentarViaCvm(capa, tickerIdentificado)
-      : { asset: null, periodo: null, analise: null };
-
-    if (viaCvm.analise && viaCvm.asset && viaCvm.periodo) {
-      // Mesmo com CVM, guardamos o texto extraído do PDF para a ferramenta de busca no documento funcionar!
-      let textoPdf: string | null = null;
-      try {
-        textoPdf = (await extrairTexto(pdf)).trim();
-      } catch {
-        textoPdf = null;
-      }
-
-      const relatorio = await reportsRepository.create({
-        userId,
-        fileName: arquivo.originalname,
-        source: "CVM",
-        assetId: viaCvm.asset.id,
-        period: viaCvm.periodo,
-        extractedText: textoPdf,
-        contentHash,
-        analysis: viaCvm.analise,
-      });
-
-      return {
-        id: relatorio.id,
-        fileName: relatorio.fileName,
-        source: relatorio.source,
-        period: relatorio.period,
-        asset: { ticker: viaCvm.asset.ticker },
-        createdAt: relatorio.createdAt,
-        analysis: viaCvm.analise,
-      };
-    }
-
-    // 2. Se o mesmo arquivo já foi analisado antes, reaproveita análise e texto
-    const anterior = await reportsRepository.findPdfByContentHash(contentHash);
-    let texto: string;
-    let analise: Analise;
-
-    if (anterior?.extractedText && anterior.analysis) {
-      texto = anterior.extractedText;
-      analise = anterior.analysis as Analise;
-    } else {
-      texto = (await extrairTexto(pdf)).trim();
-      if (!texto) {
-        throw new AppError(
-          "Não foi possível extrair texto deste PDF — ele pode ser digitalizado como imagem",
-          400,
-        );
-      }
-      if (texto.length > LIMITE_CARACTERES) {
-        throw new AppError(
-          `Relatório muito grande para análise: ${texto.length.toLocaleString("pt-BR")} caracteres (limite de ${LIMITE_CARACTERES.toLocaleString("pt-BR")}).`,
-          400,
-        );
-      }
-      analise = await analisarRelatorio(texto);
-    }
-
-    // 3. Persiste
     const relatorio = await reportsRepository.create({
       userId,
-      fileName: arquivo.originalname,
-      source: "PDF",
-      assetId: viaCvm.asset?.id ?? null,
-      period: viaCvm.periodo,
-      extractedText: texto,
-      contentHash,
+      fileName: `${asset.ticker} ${rotuloDoPeriodo(periodo)}`,
+      source: "CVM",
+      assetId: asset.id,
+      period: chave,
+      extractedText: null,
       analysis: analise,
     });
-
-    return {
-      id: relatorio.id,
-      fileName: relatorio.fileName,
-      source: relatorio.source,
-      period: relatorio.period,
-      asset: viaCvm.asset ? { ticker: viaCvm.asset.ticker } : null,
-      createdAt: relatorio.createdAt,
-      analysis: analise,
-    };
+    return { relatorio: dto(relatorio), novo: true };
   },
 
   async list(userId: string, { limite, cursor }: PaginacaoInput) {
@@ -287,129 +174,6 @@ export const reportsService = {
       ...(cursor ? { cursor } : {}),
     });
     return montarPagina(linhas, limite);
-  },
-
-  async ask(userId: string, reportId: string, input: AskInput) {
-    const relatorio = await reportsRepository.findByIdAndUser(reportId, userId);
-    if (!relatorio) {
-      throw new AppError("Relatório não encontrado", 404);
-    }
-
-    if (!relatorio.extractedText) {
-      throw new AppError(MENSAGEM_CHAT_INDISPONIVEL, 409);
-    }
-
-    // Busca contextual e destaques no documento via trechos.ts (sem IA externa)
-    const resposta = await perguntarAoRelatorio(
-      relatorio.fileName,
-      relatorio.extractedText,
-      // o askSchema preenche um pelo outro; o "" só satisfaz o tipo
-      input.question ?? input.termo ?? "",
-    );
-
-    return { answer: resposta };
-  },
-
-
-  async analisarDiretoCvm(userId: string, input: ConsultaCvmInput) {
-    const guardados = await reportsRepository.countByUser(userId);
-    if (guardados >= COTA_RELATORIOS) {
-      throw new AppError(
-        `Você atingiu o limite de ${COTA_RELATORIOS} relatórios guardados. ` +
-          `Apague algum em /reports antes de analisar outro.`,
-        429,
-      );
-    }
-
-    const asset = await quotesService.buscarOuCadastrar(input.ticker);
-    if (!asset) {
-      throw new AppError(`Ativo ${input.ticker} não encontrado`, 404);
-    }
-
-    if (asset.type !== "ACAO" && asset.type !== "FII") {
-      throw new AppError("Apenas ações e fundos imobiliários possuem demonstrações na CVM", 400);
-    }
-
-    const cnpj = asset.cnpj ?? cnpjDoTicker(asset.ticker);
-    if (!cnpj) {
-      throw new AppError(`CNPJ não disponível para o ativo ${asset.ticker}`, 400);
-    }
-
-    let periodo: Periodo | null = null;
-    if (input.periodo) {
-      periodo = parsearPeriodo(input.periodo);
-      if (!periodo) {
-        throw new AppError("Formato de período inválido. Use AAAA-T1 a T4, 1T26 ou AAAA-MM", 400);
-      }
-    } else {
-      const hoje = new Date();
-      const anoHoje = hoje.getFullYear();
-      const mesHoje = hoje.getMonth() + 1;
-      if (asset.type === "ACAO") {
-        let tri = Math.floor((mesHoje - 1) / 3);
-        let ano = anoHoje;
-        if (tri === 0) {
-          tri = 4;
-          ano = anoHoje - 1;
-        }
-        periodo = { tipo: "trimestre", ano, trimestre: tri as 1 | 2 | 3 | 4 };
-      } else {
-        let mes = mesHoje - 1;
-        let ano = anoHoje;
-        if (mes === 0) {
-          mes = 12;
-          ano = anoHoje - 1;
-        }
-        periodo = { tipo: "mes", ano, mes };
-      }
-    }
-
-    const chave = chaveDoPeriodo(periodo);
-    const rotulo = rotuloDoPeriodo(periodo);
-
-    const guardada = await reportsRepository.findCvmSummary(asset.id, chave);
-    let analise: Analise | null = guardada ? (guardada.analysis as Analise) : null;
-
-    if (!analise) {
-      const dados =
-        periodo.tipo === "trimestre"
-          ? await buscarDadosAcao(cnpj, periodo)
-          : await buscarDadosFii(cnpj, periodo);
-
-      if (!dados) {
-        throw new AppError(
-          `Não foram encontrados dados na CVM para ${asset.ticker} no período ${rotulo}.`,
-          404,
-        );
-      }
-
-      analise = analiseSemIa(dados, rotulo);
-
-      await reportsRepository
-        .saveCvmSummary(asset.id, chave, analise)
-        .catch((err: unknown) => console.error("[CVM] falha ao guardar o cache:", err));
-    }
-
-    const fileName = `${asset.ticker}_CVM_${chave}.pdf`;
-    const relatorio = await reportsRepository.create({
-      userId,
-      fileName,
-      source: "CVM",
-      assetId: asset.id,
-      period: chave,
-      extractedText: null,
-      analysis: analise,
-    });
-
-    return {
-      id: relatorio.id,
-      fileName: relatorio.fileName,
-      source: relatorio.source,
-      period: relatorio.period,
-      asset: { ticker: asset.ticker },
-      createdAt: relatorio.createdAt,
-      analysis: analise,
-    };
   },
 
   async remove(userId: string, reportId: string) {
@@ -422,5 +186,3 @@ export const reportsService = {
 };
 
 export type { Analise };
-
-

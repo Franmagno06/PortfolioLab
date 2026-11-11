@@ -1,8 +1,11 @@
-import { Asset, AssetType, PrismaClient, ReportSource, TransactionKind } from "@prisma/client";
+import { Asset, AssetType, PrismaClient, TransactionKind } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import "dotenv/config";
 import { assertDatabaseUrlIsLocal, descreverBanco } from "../src/config/dbGuard.js";
+import { desconectarBanco } from "../src/database/prisma.js";
 import { quotesService } from "../src/modules/quotes/quotes.service.js";
+import { chaveDoPeriodo, parsearPeriodo, periodoAnterior } from "../src/modules/reports/periodo.js";
+import { reportsService } from "../src/modules/reports/reports.service.js";
 import { EMAIL_DA_DEMO } from "../src/shared/conta-demo.js";
 
 // Este seed apaga e recria UMA conta (a de demonstração), não o banco inteiro
@@ -31,8 +34,7 @@ const SENHA = "demo123456";
  *    Barsi (Money Times, Seu Dinheiro, XP): banco, papel e celulose,
  *    transmissão de energia e saneamento — setores perenes, foco em dividendo.
  *  - Os FII são os de maior liquidez do IFIX, entre os mais negociados da B3.
- *    MXRF11 entra também porque `relatorios-para-teste/` tem PDFs reais dele,
- *    o que deixa o módulo de IA testável com esta mesma conta.
+ *    MXRF11 e HGLG11 também carregam relatórios (informe mensal da CVM), um de papel e um de tijolo.
  *  - Os ETF cobrem as três exposições que faltavam: bolsa brasileira (BOVA11),
  *    bolsa americana (IVVB11) e juro real (IMAB11).
  *
@@ -217,6 +219,48 @@ const CARTEIRA: AtivoDemo[] = [
   },
 ];
 
+/**
+ * RELATÓRIOS DA DEMONSTRAÇÃO: os mesmos que qualquer conta obtém em /relatorios.
+ *
+ * A conta de demonstração é somente leitura, então o visitante não consegue consultar a CVM por ela:
+ * o que ele vê é o que este seed deixou. Por isso os relatórios passam pelo MESMO caminho da rota
+ * (reportsService.consultar), com os números que a CVM publica. Nenhum texto ou número de relatório
+ * é escrito aqui: uma análise inventada com o rótulo "CVM" ensinaria errado e, pior, ia parar no
+ * cache compartilhado (cvm_summaries), de onde seria servida às contas de verdade.
+ *
+ * Para cada ativo: o período mais recente que a CVM já tem e os anteriores, até `PERIODOS_POR_ATIVO`,
+ * para a tela ter o que comparar. Sem rede, ou com a CVM fora do ar, a conta fica sem relatórios e o
+ * seed segue: relatório é vitrine, não pode impedir a carteira de existir.
+ */
+const ATIVOS_COM_RELATORIO = ["BBAS3", "TAEE11", "CMIG4", "MXRF11", "HGLG11"];
+const PERIODOS_POR_ATIVO = 3;
+
+async function carregarRelatorios(userId: string): Promise<{ carregados: number; semDados: string[] }> {
+  let carregados = 0;
+  const semDados: string[] = [];
+
+  for (const ticker of ATIVOS_COM_RELATORIO) {
+    try {
+      const maisRecente = await reportsService.consultar(userId, { ticker });
+      let periodo = parsearPeriodo(maisRecente.relatorio.period);
+      const anteriores: string[] = [];
+      while (periodo && anteriores.length < PERIODOS_POR_ATIVO - 1) {
+        periodo = periodoAnterior(periodo);
+        anteriores.push(chaveDoPeriodo(periodo));
+      }
+      carregados += 1;
+      for (const chave of anteriores) {
+        await reportsService.consultar(userId, { ticker, periodo: chave });
+        carregados += 1;
+      }
+    } catch (err) {
+      // 404 da CVM para um período antigo, ou a CVM fora do ar: fica o que já foi carregado
+      semDados.push(`${ticker} (${err instanceof Error ? err.message : "falha"})`);
+    }
+  }
+  return { carregados, semDados };
+}
+
 async function main() {
   const somaMetas = CARTEIRA.reduce((s, a) => s + a.meta, 0);
   if (somaMetas !== 100) {
@@ -288,134 +332,7 @@ async function main() {
     assetsPorTicker.set(ativo.ticker, asset);
   }
 
-  // Relatórios CVM pré-analisados para permitir ao visitante testar /relatorios de imediato
-  const relatoriosDemo = [
-    {
-      ticker: "BBAS3",
-      fileName: "BBAS3-Demonstracoes-Financeiras-1T26.pdf",
-      period: "2026-T1",
-      analysis: {
-        tipoDocumento: "ITR — Informações Trimestrais (CVM)",
-        resumoExecutivo: [
-          "Lucro líquido ajustado atingiu R$ 9,3 bilhões no trimestre, mantendo rentabilidade consistente.",
-          "Retorno sobre o patrimônio líquido (ROE) permaneceu em patamar elevado de 21,4%.",
-          "Carteira de crédito ampliada continuou com forte participação do agronegócio e crédito consignado.",
-          "Índice de inadimplência acima de 90 dias controlado em 2,8%, abaixo da média do Sistema Financeiro Nacional.",
-          "Margem financeira bruta apresentou expansão refletindo reprecificação da carteira de crédito.",
-        ],
-        alertas: [
-          {
-            titulo: "Custo de captação e provisões (PDD)",
-            severidade: "atencao",
-            detalhe: "Despesas com provisão para créditos de liquidação duvidosa acompanham o ciclo de juros e expansão da carteira.",
-          },
-          {
-            titulo: "Índice de Basileia confortável",
-            severidade: "info",
-            detalhe: "Capital principal e índice de Basileia situam-se com folga acima dos requerimentos mínimos regulatórios.",
-          },
-        ],
-        indicadores: [
-          { nome: "Receitas de Intermediação Financeira", valor: "R$ 48,20 bi (+12,5%)" },
-          { nome: "Lucro líquido atribuído aos controladores", valor: "R$ 9,30 bi (+8,2%)" },
-          { nome: "ROE", valor: "21,40%" },
-          { nome: "Patrimônio Líquido", valor: "R$ 178,50 bi (+9,1%)" },
-          { nome: "Ativo Total", valor: "R$ 2,20 tri" },
-        ],
-      },
-    },
-    {
-      ticker: "TAEE11",
-      fileName: "TAEE11-Release-Resultados-1T26.pdf",
-      period: "2026-T1",
-      analysis: {
-        tipoDocumento: "ITR — Informações Trimestrais (CVM)",
-        resumoExecutivo: [
-          "Receita líquida IFRS refletiu a atualização monetária das concessões pela inflação (IPCA e IGP-M).",
-          "EBITDA regulatório manteve margem elevada superior a 80%, característica da previsibilidade das transmissoras.",
-          "Ciclo da RAP (Receita Anual Permitida) sem perdas materiais de disponibilidade de linhas.",
-          "Endividamento com perfil alongado e custo médio atrelado a NTN-B / IPCA + spread.",
-          "Manutenção da prática de distribuição de proventos intercalares conforme estatuto social.",
-        ],
-        alertas: [
-          {
-            titulo: "Alavancagem financeira (Dívida Líquida / EBITDA)",
-            severidade: "atencao",
-            detalhe: "Relação dívida líquida sobre EBITDA encerrou em 3,7x, exigindo monitoramento diante de novos investimentos.",
-          },
-          {
-            titulo: "Vencimento de concessões nos próximos anos",
-            severidade: "info",
-            detalhe: "Lotes pioneiros entram no terço final de vigência da concessão contratual.",
-          },
-        ],
-        indicadores: [
-          { nome: "Receita Líquida", valor: "R$ 720,40 mi (+5,3%)" },
-          { nome: "Lucro Líquido", valor: "R$ 385,20 mi (+4,1%)" },
-          { nome: "Margem EBITDA Regulatório", valor: "83,50%" },
-          { nome: "Dívida Líquida / EBITDA", valor: "3,70x" },
-          { nome: "Patrimônio Líquido", valor: "R$ 7,12 bi" },
-        ],
-      },
-    },
-    {
-      ticker: "MXRF11",
-      fileName: "MXRF11-Informe-Mensal-2026-03.pdf",
-      period: "2026-03",
-      analysis: {
-        tipoDocumento: "Informe Mensal Estruturado (CVM)",
-        resumoExecutivo: [
-          "Patrimônio líquido do fundo encerrou o período em R$ 3,25 bilhões, distribuído em mais de 1 milhão de cotistas.",
-          "Alocação preponderante em Certificados de Recebíveis Imobiliários (CRI) com garantias reais e indexação ao CDI e IPCA.",
-          "Rendimentos distribuídos em linha com a média histórica, proporcionando retorno isento a pessoas físicas.",
-          "Inadimplência na carteira de crédito imobiliário mantida em zero, sem perdas de principal no período.",
-          "Reserva de contingência acumulada para amortecimento de oscilações de inflação e deflação pontuais.",
-        ],
-        alertas: [
-          {
-            titulo: "Sensibilidade à curva de juros futura",
-            severidade: "info",
-            detalhe: "A parcela prefixada e atrelada a IPCA sofre marcação a mercado conforme abertura ou fechamento da curva de juros.",
-          },
-          {
-            titulo: "Concentração em devedores e setores imobiliários",
-            severidade: "info",
-            detalhe: "Maior exposição individual representa menos de 7% do patrimônio líquido do fundo.",
-          },
-        ],
-        indicadores: [
-          { nome: "Patrimônio Líquido", valor: "R$ 3,25 bi (+0,8%)" },
-          { nome: "Valor Patrimonial por Cota (VP)", valor: "R$ 9,85" },
-          { nome: "Número de Cotistas", valor: "1.120.450" },
-          { nome: "Dividend Yield Anualizado", valor: "12,40%" },
-          { nome: "Ativo Total", valor: "R$ 3,31 bi" },
-        ],
-      },
-    },
-  ];
-
-  for (const rel of relatoriosDemo) {
-    const asset = assetsPorTicker.get(rel.ticker);
-    if (!asset) continue;
-
-    await prisma.cvmSummary.upsert({
-      where: { assetId_period: { assetId: asset.id, period: rel.period } },
-      create: { assetId: asset.id, period: rel.period, analysis: rel.analysis },
-      update: { analysis: rel.analysis },
-    });
-
-    await prisma.report.create({
-      data: {
-        userId: user.id,
-        assetId: asset.id,
-        fileName: rel.fileName,
-        source: ReportSource.CVM,
-        period: rel.period,
-        extractedText: null,
-        analysis: rel.analysis,
-      },
-    });
-  }
+  const relatorios = await carregarRelatorios(user.id);
 
   const transacoes = await prisma.transaction.count({ where: { userId: user.id } });
 
@@ -425,6 +342,12 @@ async function main() {
   console.log(`  ativos ......... ${CARTEIRA.length} (${comCotacaoReal} com cotação real da B3)`);
   console.log(`  transações ..... ${transacoes}`);
   console.log(`  metas .......... somam ${somaMetas}%`);
+  console.log(`  relatórios ..... ${relatorios.carregados} (demonstrações reais da CVM)`);
+  if (relatorios.semDados.length > 0) {
+    console.log(`
+  Relatórios que a CVM não entregou agora: ${relatorios.semDados.join("; ")}`);
+    console.log(`  Rode de novo mais tarde para completar.`);
+  }
   if (semCotacao.length > 0) {
     console.log(`\n  Sem cotação da B3, criados com preço de referência: ${semCotacao.join(", ")}`);
     console.log(`  Rode de novo com a rede disponível para corrigir os preços.`);
@@ -436,4 +359,5 @@ main()
     console.error(erro);
     process.exit(1);
   })
-  .finally(() => prisma.$disconnect());
+  // dois clientes: o deste seed e o do app, que reportsService e quotesService usam
+  .finally(() => Promise.all([prisma.$disconnect(), desconectarBanco()]));

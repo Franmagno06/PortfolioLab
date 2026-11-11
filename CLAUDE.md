@@ -2,7 +2,7 @@
 
 Monorepo: `backend/` (Node + Express 5 + Prisma + PostgreSQL) e `frontend/` (Next 16 App Router).
 Domínio: carteira de investimentos da B3 — posição consolidada, rebalanceamento por aporte,
-análise de relatórios em PDF por IA e feed de notícias.
+relatórios com as demonstrações que a CVM publica e feed de notícias.
 
 ## ⚠️ Dois bancos: Docker (dia a dia) e Supabase (PRODUÇÃO)
 
@@ -48,8 +48,7 @@ Em produção, nunca apague, reseede nem recrie a tabela: a B3 repõe o históri
 e a reserva do SGS não voltam. `npm run indices:backfill` preenche o histórico esperando até o fim. A migration `index_points` vai para o Supabase com
 `supabase:migrate` **antes** do push que a contém.
 
-**`backend/.env.supabase` não pode ser commitado** (tem a URL do banco de produção, `JWT_SECRET` e
-`GEMINI_API_KEY`). Confira com `git ls-files | grep "\.env"`: só `.env.example` e `.env.supabase.example` (modelo com
+**`backend/.env.supabase` não pode ser commitado** (tem a URL do banco de produção e o `JWT_SECRET`). Confira com `git ls-files | grep "\.env"`: só `.env.example` e `.env.supabase.example` (modelo com
 valores de mentira) devem aparecer.
 
 Use a skill `deploy-producao` antes de qualquer `git push` para a `main`, de `supabase:migrate`, ou quando
@@ -161,16 +160,30 @@ Para revisão e correção, use antes de fechar a mudança:
 | Serviço | Onde | Comportamento na falha |
 |---------|------|------------------------|
 | Yahoo Finance (cotações B3) | `modules/quotes/quotes.provider.ts` | devolve `null`; mantém o último preço conhecido |
-| Google Gemini (análise de PDF) | `modules/reports/gemini.ts` | sem `GEMINI_API_KEY` → 503 com instrução |
 | RSS Money Times / Suno | `modules/news/rss.ts` | feed fora do ar → lista vazia daquela fonte |
-| CVM dados abertos (ITR, DFP, Informe Mensal de FII) | `modules/reports/cvm.provider.ts` | devolve `null`; o relatório cai na leitura do PDF inteiro |
+| CVM dados abertos (ITR, DFP, Informe Mensal de FII) | `modules/reports/cvm.provider.ts` | devolve `null`; a consulta de relatório responde 404 dizendo o ativo e o período, e nada é guardado |
 | Banco Central SGS (Selic 432, IPCA 433, CDI 4391 e 4389) | `modules/indices/indices.fontes.ts` | sai a última série boa da memória; sem ela (API recém-subida), a reserva mensal gravada em `index_points`; sem as duas, série vazia. Uma fila serial (nunca duas chamadas ao BCB ao mesmo tempo) e prazo de 15 s para a resposta: o que não chegou segue na fila em segundo plano |
 | B3, estatísticas de índices (histórico diário de IFIX, SMLL e IDIV) | `modules/indices/indices.fontes.ts` | devolve `null`; a série sai com o que o banco já tem e a busca é refeita depois de 2 min. Respeita o mesmo prazo de 15 s da resposta e continua em segundo plano |
 
-Relatórios com ativo informado usam a CVM: o PDF só identifica o período (`reports/periodo.ts`),
-os números vêm da CVM e a IA escreve o resumo sobre eles. Esses relatórios não guardam o texto
-do PDF, então `POST /reports/:id/ask` responde 409. A tabela ticker → CNPJ
-(`modules/assets/tabela-cnpj.json`) é fixa e se regenera com `npx tsx scripts/gerar-tabela-cnpj.ts`.
+**Relatórios são só CVM** (`modules/reports/`, tela `/relatorios`). Não há upload de PDF, IA nem chat: `POST /reports`
+(`{ ticker, periodo? }`) traz o ITR/DFP de uma ação ou o Informe Mensal de um FII e guarda na conta. Regras que não podem
+se perder:
+
+- Sem `periodo`, o service anda para trás a partir do último período encerrado até achar um que a CVM já publicou
+  (a companhia tem semanas para entregar o ITR). Pedir "o trimestre passado" pelo calendário dá 404 em boa parte do ano.
+- Todo texto e número da análise sai de `resumo-cvm.ts`, por regra fixa, a partir de `DadosCvm`. Nada de número escrito
+  à mão, e nada de frase que julgue ou recomende (um teste barra "saudável", "robusto" etc.).
+- O cache `cvm_summaries` é compartilhado entre contas e só vale se `analysis.versao` bate com `VERSAO_DA_ANALISE`
+  (`analise.ts`). Mudou o que `resumo-cvm.ts` escreve ou calcula? Suba a versão, ou o texto antigo continua sendo servido.
+  É isso também que descarta as análises antigas (escritas por IA, ou inventadas na seed).
+- A seed da demo (`prisma/seed-demo.ts`) carrega os relatórios chamando `reportsService.consultar`, o mesmo caminho da
+  rota. Nunca escreva análise à mão ali: ela iria para o cache compartilhado com o rótulo de dado oficial.
+- A coluna do 4º trimestre vem da DFP, que é o exercício inteiro: receita e lucro não se comparam com os trimestres ao
+  lado, e a tela diz isso.
+- Ler o zip da CVM é CPU síncrona: as leituras do módulo passam por uma fila serial (`naFilaDaCvm`).
+
+A tabela ticker → CNPJ (`modules/assets/tabela-cnpj.json`) é fixa e se regenera com `npx tsx scripts/gerar-tabela-cnpj.ts`;
+ativo fora dela (KLBN4, por exemplo) não tem relatório.
 
 Nenhuma delas pode derrubar uma rota. Ao mexer nesses módulos, preserve o tratamento defensivo.
 
@@ -227,7 +240,7 @@ erro silencioso mais caro é dinheiro calculado errado que compila e passa nos t
   componente/página seguindo um padrão existente, testes de regra pura.
 - **Opus** — regra de negócio multi-camada onde o erro pode passar despercebido:
   `calcularPosicao` (preço médio), `rebalance.service.ts`, `dividends.service.ts`,
-  `indicators.service.ts`, recorte/chamadas de IA em `reports/`, auth/cookie/JWT/rate limit/upload,
+  `indicators.service.ts`, as regras de `reports/resumo-cvm.ts`, auth/cookie/JWT/rate limit,
   estado complexo no frontend (`simulacao/page.tsx`, `dashboard/page.tsx`), qualquer afirmação de
   conteúdo educativo com lei/imposto/número de mercado (com busca na web).
 - **Fable** — alto risco: migration que altera dados em produção, qualquer escrita no Supabase
@@ -244,8 +257,7 @@ Agentes somente-leitura do projeto já têm modelo sugerido no próprio cabeçal
 (`auditor-financeiro` → Opus, `revisor-camadas` → Sonnet/Haiku). Revisão deve rodar em modelo
 igual ou mais forte que quem escreveu o código.
 
-Isso vale só para o modelo que **ajuda a programar** — não confundir com o Gemini usado dentro
-do app (`gemini.ts`) para analisar relatórios em PDF, que é decisão separada.
+Isso vale só para o modelo que **ajuda a programar**. O app em si não chama IA nenhuma.
 
 ## Fluxo de branches
 

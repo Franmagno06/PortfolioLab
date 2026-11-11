@@ -64,11 +64,11 @@ const FERRAMENTAS = [
       "As compras e vendas viram a sua posição. O preço médio segue a regra da Receita Federal e os proventos entram sozinhos.",
   },
   {
-    titulo: "Relatórios com IA",
+    titulo: "Relatórios da CVM",
     href: ROTAS.relatorios,
-    acao: "Ler um relatório",
+    acao: "Ver os relatórios",
     descricao:
-      "Envie o relatório de um fundo ou o release de uma empresa. Os números vêm da CVM e a IA explica o que mudou.",
+      "O que cada empresa ou fundo imobiliário entregou à CVM, com um período ao lado do outro para ver o que mudou.",
   },
 ];
 

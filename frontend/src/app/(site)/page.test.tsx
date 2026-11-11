@@ -112,7 +112,7 @@ describe("Organize a sua carteira", () => {
     expect(within(s).getAllByRole("heading", { level: 2 }).map((h) => h.textContent)).toEqual(["Organize a sua carteira"]);
 
     const h3 = within(s).getAllByRole("heading", { level: 3 });
-    expect(h3.map((h) => h.textContent)).toEqual(["Aporte do mês", "Carteira e preço médio", "Relatórios com IA"]);
+    expect(h3.map((h) => h.textContent)).toEqual(["Aporte do mês", "Carteira e preço médio", "Relatórios da CVM"]);
     for (const h of h3) expect(h.closest("a.interativo"), h.textContent ?? "").not.toBeNull();
   });
 });

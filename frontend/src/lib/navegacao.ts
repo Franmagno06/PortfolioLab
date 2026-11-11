@@ -206,8 +206,8 @@ export const NAVEGACAO: Intencao[] = [
       {
         itens: [
           {
-            rotulo: "Relatórios CVM e Documentos",
-            descricao: "Consulte balanços da CVM ou envie o PDF de uma empresa ou fundo.",
+            rotulo: "Relatórios da CVM",
+            descricao: "O que empresas e fundos imobiliários entregaram à CVM, período a período.",
             href: ROTAS.relatorios,
           },
         ],
@@ -226,7 +226,7 @@ export const ABAS_DA_CARTEIRA = [
   { id: "resumo", rotulo: "Resumo", href: ROTAS.dashboard },
   { id: "posicoes", rotulo: "Posições", href: ROTAS.carteira },
   { id: "simulacao", rotulo: "Simular aporte", href: ROTAS.simulacao },
-  { id: "relatorios", rotulo: "Relatórios CVM e Documentos", href: ROTAS.relatorios },
+  { id: "relatorios", rotulo: "Relatórios da CVM", href: ROTAS.relatorios },
   { id: "indicadores", rotulo: "Indicadores", href: ROTAS.indicadores },
   { id: "noticias", rotulo: "Notícias", href: ROTAS.noticias },
 ] as const;
@@ -258,7 +258,7 @@ export const RODAPE: { titulo: string; links: { rotulo: string; href: string }[]
     titulo: "Planejar",
     links: [
       { rotulo: "Simular aporte", href: ROTAS.simulacao },
-      { rotulo: "Relatórios CVM e Documentos", href: ROTAS.relatorios },
+      { rotulo: "Relatórios da CVM", href: ROTAS.relatorios },
       { rotulo: "Notícias", href: ROTAS.noticias },
     ],
   },

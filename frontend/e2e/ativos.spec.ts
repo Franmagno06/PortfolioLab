@@ -257,7 +257,7 @@ test.describe("ficha da ação", () => {
     await page.goto("/ativos/acoes/PETR4");
     const bloco = page.getByRole("region", { name: "Relatórios de PETR4" });
 
-    await expect(bloco.getByText("Você ainda não enviou nenhum relatório desta empresa.")).toBeVisible();
+    await expect(bloco.getByText("As demonstrações que esta empresa entrega à CVM ficam na tela de Relatórios.")).toBeVisible();
     await expect(bloco.getByRole("link", { name: "Ir para Relatórios" })).toHaveAttribute("href", "/relatorios");
   });
 

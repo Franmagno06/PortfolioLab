@@ -15,7 +15,7 @@ import {
 } from "./rate-limit.js";
 
 // Achado 8: sem teto de requisições, /auth/login aceita força bruta e
-// /reports queima cota paga do Gemini. O limitador é testado aqui isolado,
+// /reports baixa e interpreta arquivos grandes da CVM a cada consulta. O limitador é testado aqui isolado,
 // num app descartável: o app real neutraliza o limite sob NODE_ENV=test,
 // senão as 25 chamadas de auth da suíte (todas do mesmo IP) se atrapalhariam.
 
@@ -124,9 +124,9 @@ describe("fiação dos limitadores nas rotas", () => {
     expect(middlewaresDa(authRoutes, "post", "/logout")).not.toContain(limitadorAuth);
   });
 
-  it("as rotas que gastam cota do Gemini levam o limitador de relatórios", () => {
+  it("as rotas que consultam a CVM levam o limitador de relatórios", () => {
     expect(middlewaresDa(reportsRoutes, "post", "/")).toContain(limitadorRelatorios);
-    expect(middlewaresDa(reportsRoutes, "post", "/:id/ask")).toContain(limitadorRelatorios);
+    expect(middlewaresDa(reportsRoutes, "post", "/cvm")).toContain(limitadorRelatorios);
   });
 
   it("GET /reports é leitura barata e não leva o limitador de relatórios", () => {

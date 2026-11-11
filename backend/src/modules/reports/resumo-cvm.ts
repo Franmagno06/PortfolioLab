@@ -1,22 +1,24 @@
 import { Prisma } from "@prisma/client";
+import { VERSAO_DA_ANALISE, type Analise } from "./analise.js";
 import type { ContaCvm, DadosAcao, DadosFii, InformeFii } from "./cvm.provider.js";
-import type { Analise } from "./gemini.js";
 
-// Transforma os números da CVM em três coisas:
-// - os indicadores da análise, calculados aqui e nunca pela IA — a IA não
-//   inventa número que o código já sabe;
-// - o texto que a IA lê para escrever o resumo e os alertas;
-// - uma análise só com template, para quando a IA não responde.
+// Transforma os números da CVM na análise que a tela mostra: indicadores, um resumo em frases e
+// pontos de atenção. Tudo por regra fixa. Três cuidados valem para o arquivo inteiro:
+// - nenhum número é escrito aqui: todos vêm de `DadosCvm` ou de uma conta feita com eles;
+// - nenhuma frase julga ("saudável", "robusto", "preocupante") nem recomenda: diz o fato e a conta;
+// - mudou o que este arquivo escreve ou calcula? Suba VERSAO_DA_ANALISE (analise.ts), ou o cache
+//   continua servindo o texto antigo.
 
 export type DadosCvm = DadosAcao | DadosFii;
 
 const CEM = new Prisma.Decimal(100);
 
-/** R$ 78,45 bi / R$ 312,10 mi / R$ 4.500,00. Formatação só na saída. */
+/** R$ 2,59 tri / R$ 78,45 bi / R$ 312,10 mi / R$ 4.500,00. Formatação só na saída. */
 export function formatarReais(valor: Prisma.Decimal): string {
   const abs = valor.abs();
   const numero = (d: Prisma.Decimal) =>
     d.toNumber().toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  if (abs.gte(1e12)) return `R$ ${numero(valor.div(1e12))} tri`;
   if (abs.gte(1e9)) return `R$ ${numero(valor.div(1e9))} bi`;
   if (abs.gte(1e6)) return `R$ ${numero(valor.div(1e6))} mi`;
   return `R$ ${numero(valor)}`;
@@ -30,15 +32,24 @@ export function formatarFracao(fracao: Prisma.Decimal, casas = 2): string {
   })}%`;
 }
 
-/** Variação percentual de `anterior` para `atual`. Null quando não há base. */
-export function variacao(atual: Prisma.Decimal | null, anterior: Prisma.Decimal | null): string | null {
+/** Variação percentual de `anterior` para `atual`, como número. Null quando não há base. */
+function pctVariacao(atual: Prisma.Decimal | null, anterior: Prisma.Decimal | null): Prisma.Decimal | null {
   if (!atual || !anterior || anterior.isZero()) return null;
-  const pct = atual.minus(anterior).div(anterior.abs()).mul(CEM);
+  return atual.minus(anterior).div(anterior.abs()).mul(CEM);
+}
+
+/** Variação percentual de `anterior` para `atual`, com sinal: "+12,5%". Null quando não há base. */
+export function variacao(atual: Prisma.Decimal | null, anterior: Prisma.Decimal | null): string | null {
+  const pct = pctVariacao(atual, anterior)?.toDecimalPlaces(1);
+  if (!pct) return null;
+  // o que arredonda para zero sai sem sinal: "-0,0%" e "+0,0%" sugerem um movimento que não houve
+  if (pct.isZero()) return "0,0%";
   const texto = pct.toNumber().toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
   return pct.isNegative() ? `${texto}%` : `+${texto}%`;
 }
 
 const inteiro = (d: Prisma.Decimal) => d.toNumber().toLocaleString("pt-BR", { maximumFractionDigits: 0 });
+const umaCasa = (d: Prisma.Decimal) => d.abs().toNumber().toLocaleString("pt-BR", { maximumFractionDigits: 1 });
 
 // ---------------------------------------------------------------------------
 // Ações
@@ -87,51 +98,136 @@ function comVariacao(conta: ContaCvm): string {
   return v ? `${formatarReais(conta.atual)} (${v})` : formatarReais(conta.atual);
 }
 
+const nomeDoLucro = (l: ContaCvm) => (/controladora/i.test(l.conta) ? "Lucro líquido atribuído aos controladores" : l.conta);
+
+/** Com o que a DRE compara: o trimestre contra o mesmo trimestre do ano anterior; a DFP, o exercício anterior. */
+const baseDaDre = (d: DadosAcao) => (d.documento === "DFP" ? "o exercício anterior" : "o mesmo trimestre do ano anterior");
+const periodoDaDre = (d: DadosAcao) => (d.documento === "DFP" ? "exercício" : "trimestre");
+
+/**
+ * Lucro do período sobre o patrimônio líquido da data-base, sem anualizar. No ITR é o retorno de um
+ * trimestre só (perto de um quarto do ROE anual que os sites publicam); o nome do indicador diz isso.
+ */
+function retornoSobrePatrimonio(d: DadosAcao): Prisma.Decimal | null {
+  const l = lucro(d)?.atual;
+  const pl = patrimonioLiquido(d)?.atual;
+  if (!l || !pl || !pl.isPositive()) return null;
+  return l.div(pl);
+}
+
+function margemLiquida(d: DadosAcao): Prisma.Decimal | null {
+  const r = receita(d);
+  const l = lucro(d)?.atual;
+  if (!r?.atual || !l || !r.atual.isPositive() || !temReceitaDeVenda(r)) return null;
+  return l.div(r.atual);
+}
+
 function indicadoresAcao(d: DadosAcao): Analise["indicadores"] {
   const indicadores: Analise["indicadores"] = [];
   const r = receita(d);
   const l = lucro(d);
   const pl = patrimonioLiquido(d);
   const at = ativoTotal(d);
+  const margem = margemLiquida(d);
+  const retorno = retornoSobrePatrimonio(d);
 
   if (r) indicadores.push({ nome: r.conta, valor: comVariacao(r) });
-  if (l) {
-    const nome = /controladora/i.test(l.conta) ? "Lucro líquido atribuído aos controladores" : l.conta;
-    indicadores.push({ nome, valor: comVariacao(l) });
+  if (l) indicadores.push({ nome: nomeDoLucro(l), valor: comVariacao(l) });
+  if (margem) indicadores.push({ nome: "Margem líquida", valor: formatarFracao(margem, 1) });
+  if (retorno) {
+    indicadores.push({ nome: `Retorno sobre o patrimônio no ${periodoDaDre(d)}`, valor: formatarFracao(retorno, 1) });
   }
-  if (r?.atual && l?.atual && !r.atual.isZero() && temReceitaDeVenda(r)) {
-    indicadores.push({ nome: "Margem líquida", valor: formatarFracao(l.atual.div(r.atual), 1) });
-  }
-  if (pl) indicadores.push({ nome: pl.conta, valor: comVariacao(pl) });
-  if (at?.atual) indicadores.push({ nome: "Ativo total", valor: formatarReais(at.atual) });
+  if (pl) indicadores.push({ nome: "Patrimônio líquido", valor: comVariacao(pl) });
+  if (at?.atual) indicadores.push({ nome: "Ativo total", valor: comVariacao(at) });
   return indicadores;
 }
 
-function linhaDeConta(c: ContaCvm): string {
-  const atual = c.atual ? formatarReais(c.atual) : "não informado";
-  const anterior = c.anterior ? formatarReais(c.anterior) : "não informado";
-  const v = variacao(c.atual, c.anterior);
-  return `- ${c.codigo} ${c.conta}: ${atual} | base de comparação: ${anterior}${v ? ` | variação: ${v}` : ""}`;
+function analiseAcao(d: DadosAcao): Pick<Analise, "resumoExecutivo" | "alertas"> {
+  const resumoExecutivo: string[] = [];
+  const alertas: Analise["alertas"] = [];
+  const r = receita(d);
+  const l = lucro(d);
+  const pl = patrimonioLiquido(d);
+  const at = ativoTotal(d);
+  const margem = margemLiquida(d);
+  const retorno = retornoSobrePatrimonio(d);
+  const base = baseDaDre(d);
+
+  resumoExecutivo.push(
+    `${d.denominacao}: demonstrações ${d.consolidado ? "consolidadas" : "individuais"} do ${periodoDaDre(d)} ` +
+      `encerrado em ${dataPorExtenso(d.dataReferencia)}. O resultado é comparado com ${base}; ` +
+      `o balanço, com o fim do exercício anterior.`,
+  );
+
+  if (r?.atual) {
+    const v = variacao(r.atual, r.anterior);
+    resumoExecutivo.push(`${r.conta}: ${formatarReais(r.atual)}${v ? `, ${v} contra ${base}` : ""}.`);
+  }
+  if (l?.atual) {
+    const v = variacao(l.atual, l.anterior);
+    resumoExecutivo.push(`${nomeDoLucro(l)}: ${formatarReais(l.atual)}${v ? `, ${v} contra ${base}` : ""}.`);
+  }
+  if (margem) {
+    resumoExecutivo.push(`Margem líquida (lucro dividido pela receita): ${formatarFracao(margem, 1)}.`);
+  }
+  if (retorno) {
+    resumoExecutivo.push(
+      d.documento === "DFP"
+        ? `Retorno sobre o patrimônio no exercício (lucro dividido pelo patrimônio líquido): ${formatarFracao(retorno, 1)}.`
+        : `Retorno sobre o patrimônio no trimestre (lucro do trimestre dividido pelo patrimônio líquido, sem anualizar): ${formatarFracao(retorno, 1)}.`,
+    );
+  }
+  if (pl?.atual) {
+    const v = variacao(pl.atual, pl.anterior);
+    resumoExecutivo.push(`Patrimônio líquido: ${formatarReais(pl.atual)}${v ? `, ${v} desde o fim do exercício anterior` : ""}.`);
+  }
+  if (at?.atual) {
+    const v = variacao(at.atual, at.anterior);
+    resumoExecutivo.push(`Ativo total: ${formatarReais(at.atual)}${v ? `, ${v} desde o fim do exercício anterior` : ""}.`);
+  }
+
+  if (l?.atual?.isNegative()) {
+    alertas.push({
+      titulo: "Prejuízo no período",
+      severidade: "critico",
+      detalhe: `${nomeDoLucro(l)}: ${formatarReais(l.atual)}.`,
+    });
+  }
+
+  if (pl?.atual?.isNegative()) {
+    alertas.push({
+      titulo: "Patrimônio líquido negativo",
+      severidade: "critico",
+      detalhe: `O passivo supera o ativo: patrimônio líquido de ${formatarReais(pl.atual)}.`,
+    });
+  }
+
+  const varReceita = pctVariacao(r?.atual ?? null, r?.anterior ?? null);
+  if (r && varReceita && varReceita.lte(-QUEDA_QUE_VIRA_ALERTA)) {
+    alertas.push({
+      titulo: `Receita ${QUEDA_QUE_VIRA_ALERTA}% ou mais abaixo da base de comparação`,
+      severidade: "atencao",
+      detalhe: `${r.conta} recuou ${umaCasa(varReceita)}% contra ${base}.`,
+    });
+  }
+
+  // lucro que virou prejuízo já tem o alerta de cima; variação sobre base negativa não diz nada
+  if (l?.atual && l.anterior && !l.atual.isNegative() && l.anterior.isPositive()) {
+    const varLucro = pctVariacao(l.atual, l.anterior);
+    if (varLucro && varLucro.lte(-QUEDA_QUE_VIRA_ALERTA)) {
+      alertas.push({
+        titulo: `Lucro ${QUEDA_QUE_VIRA_ALERTA}% ou mais abaixo da base de comparação`,
+        severidade: "atencao",
+        detalhe: `${nomeDoLucro(l)} recuou ${umaCasa(varLucro)}% contra ${base}.`,
+      });
+    }
+  }
+
+  return { resumoExecutivo, alertas };
 }
 
-function contextoAcao(d: DadosAcao, rotulo: string): string {
-  const periodo =
-    d.documento === "DFP"
-      ? `exercício encerrado em ${d.dataReferencia} (DFP), comparado com o exercício anterior`
-      : `trimestre encerrado em ${d.dataReferencia} (ITR, ${rotulo}), comparado com o mesmo trimestre do ano anterior`;
-  return [
-    `Companhia: ${d.denominacao}`,
-    `Documento: ${d.documento === "DFP" ? "Demonstrações Financeiras Padronizadas" : "Informações Trimestrais"} entregues à CVM, ${d.consolidado ? "consolidadas" : "individuais"}.`,
-    `Período: ${periodo}.`,
-    "Valores em reais, com o sinal da CVM: despesa é negativa. A variação é calculada sobre o valor com sinal — despesa que cresce aparece como variação negativa.",
-    "",
-    "Demonstração do resultado:",
-    ...d.resultado.map(linhaDeConta),
-    "",
-    "Balanço patrimonial (data-base contra o fim do exercício anterior):",
-    ...d.balanco.map(linhaDeConta),
-  ].join("\n");
-}
+/** Queda, em %, a partir da qual receita ou lucro viram ponto de atenção. Um corte fixo, não um juízo. */
+const QUEDA_QUE_VIRA_ALERTA = 15;
 
 // ---------------------------------------------------------------------------
 // FIIs
@@ -143,34 +239,14 @@ type CampoFii = {
   formato: "reais" | "fracao" | "inteiro";
 };
 
-const CAMPOS_FII: CampoFii[] = [
+// Os campos do informe que viram indicador na tela, na ordem em que aparecem.
+const INDICADORES_FII: CampoFii[] = [
   { nome: "Patrimônio líquido", valor: (i) => i.patrimonioLiquido, formato: "reais" },
   { nome: "Valor patrimonial por cota", valor: (i) => i.valorPatrimonialCota, formato: "reais" },
   { nome: "Dividend yield do mês", valor: (i) => i.dividendYieldMes, formato: "fracao" },
   { nome: "Rentabilidade efetiva do mês", valor: (i) => i.rentabilidadeEfetivaMes, formato: "fracao" },
-  { nome: "Rentabilidade patrimonial do mês", valor: (i) => i.rentabilidadePatrimonialMes, formato: "fracao" },
   { nome: "Número de cotistas", valor: (i) => i.cotistas, formato: "inteiro" },
-  { nome: "Cotas emitidas", valor: (i) => i.cotasEmitidas, formato: "inteiro" },
-  { nome: "Valor do ativo", valor: (i) => i.valorAtivo, formato: "reais" },
-  { nome: "Total investido", valor: (i) => i.totalInvestido, formato: "reais" },
-  { nome: "Imóveis para renda acabados", valor: (i) => i.imoveisParaRenda, formato: "reais" },
-  { nome: "CRI", valor: (i) => i.cri, formato: "reais" },
-  { nome: "Cotas de outros FIIs", valor: (i) => i.cotasDeFii, formato: "reais" },
-  { nome: "Disponibilidades", valor: (i) => i.disponibilidades, formato: "reais" },
-  { nome: "Rendimentos a distribuir", valor: (i) => i.rendimentosADistribuir, formato: "reais" },
-  { nome: "Total do passivo", valor: (i) => i.totalPassivo, formato: "reais" },
-  { nome: "Taxa de administração no mês (% do PL)", valor: (i) => i.taxaAdministracaoMes, formato: "fracao" },
-  { nome: "Amortização de cotas no mês", valor: (i) => i.amortizacaoMes, formato: "fracao" },
 ];
-
-// Os que viram indicador na tela. O resto só vai para a IA.
-const INDICADORES_FII = new Set([
-  "Patrimônio líquido",
-  "Valor patrimonial por cota",
-  "Dividend yield do mês",
-  "Rentabilidade efetiva do mês",
-  "Número de cotistas",
-]);
 
 function formatarCampo(valor: Prisma.Decimal, formato: CampoFii["formato"]): string {
   if (formato === "reais") return formatarReais(valor);
@@ -179,262 +255,171 @@ function formatarCampo(valor: Prisma.Decimal, formato: CampoFii["formato"]): str
 }
 
 function indicadoresFii(d: DadosFii): Analise["indicadores"] {
-  return CAMPOS_FII.filter((c) => INDICADORES_FII.has(c.nome)).flatMap((c) => {
+  return INDICADORES_FII.flatMap((c) => {
     const atual = c.valor(d.mes);
     if (!atual) return [];
-    // variação de fração (DY, rentabilidade) em % confunde; vai para a IA, não para o card
+    // variação percentual de uma taxa (DY, rentabilidade) confunde: fica só o valor do mês
     const v = c.formato === "fracao" || !d.mesAnterior ? null : variacao(atual, c.valor(d.mesAnterior));
     const texto = formatarCampo(atual, c.formato);
     return [{ nome: c.nome, valor: v ? `${texto} (${v} no mês)` : texto }];
   });
 }
 
-function contextoFii(d: DadosFii, rotulo: string): string {
-  const linhas = CAMPOS_FII.flatMap((c) => {
-    const atual = c.valor(d.mes);
-    if (!atual) return [];
-    const anterior = d.mesAnterior ? c.valor(d.mesAnterior) : null;
-    const base = anterior ? ` | mês anterior: ${formatarCampo(anterior, c.formato)}` : "";
-    return [`- ${c.nome}: ${formatarCampo(atual, c.formato)}${base}`];
+/** Passivo acima desta fração do ativo vira ponto de atenção no informe do fundo. */
+const PASSIVO_QUE_VIRA_ALERTA = new Prisma.Decimal("0.15");
+/** Grupo da carteira abaixo desta fração do ativo não entra na frase da composição. */
+const FATIA_QUE_ENTRA_NA_COMPOSICAO = new Prisma.Decimal("0.005");
+
+/**
+ * Os grandes grupos do ativo do fundo, com a fatia de cada um. Usa os totais que somam várias colunas
+ * do informe (os mesmos da composição das páginas de ativos) e cai na coluna isolada quando o total
+ * não veio. Fica de fora o que é resíduo: a coluna "disponibilidades" de um fundo grande costuma
+ * trazer centavos, porque o caixa de verdade está em aplicações de liquidez.
+ */
+function composicaoDoAtivo(m: InformeFii): string[] {
+  const grupos: [string, Prisma.Decimal | null][] = [
+    ["imóveis", m.imoveisTotal ?? m.imoveisParaRenda],
+    ["títulos de crédito imobiliário (CRI, LCI e similares)", m.papelTotal ?? m.cri],
+    ["cotas de outros FIIs", m.cotasDeFii],
+    ["caixa e aplicações de liquidez", m.liquidezTotal ?? m.disponibilidades],
+  ];
+  const ativo = m.valorAtivo?.isPositive() ? m.valorAtivo : null;
+  return grupos.flatMap(([nome, valor]) => {
+    if (!valor?.isPositive()) return [];
+    if (!ativo) return [`${nome}, ${formatarReais(valor)}`];
+    const fatia = valor.div(ativo);
+    return fatia.lt(FATIA_QUE_ENTRA_NA_COMPOSICAO) ? [] : [`${nome}, ${formatarReais(valor)} (${formatarFracao(fatia, 1)} do ativo)`];
   });
-  return [
-    `Fundo: ${d.nome}`,
-    `Documento: Informe Mensal Estruturado entregue à CVM, competência ${rotulo}.`,
-    d.segmento ? `Segmento de atuação: ${d.segmento}` : null,
-    d.mandato ? `Mandato: ${d.mandato}` : null,
-    d.tipoGestao ? `Gestão: ${d.tipoGestao}` : null,
-    "",
-    "Números do mês:",
-    ...linhas,
-  ]
-    .filter((l): l is string => l !== null)
-    .join("\n");
+}
+
+function analiseFii(d: DadosFii, rotulo: string): Pick<Analise, "resumoExecutivo" | "alertas"> {
+  const resumoExecutivo: string[] = [];
+  const alertas: Analise["alertas"] = [];
+  const m = d.mes;
+  const a = d.mesAnterior;
+  const contraOMesAnterior = (atual: Prisma.Decimal, anterior: Prisma.Decimal | null | undefined) => {
+    const v = variacao(atual, anterior ?? null);
+    return v ? `, ${v} contra o mês anterior` : "";
+  };
+
+  const perfil = [d.segmento && `segmento ${d.segmento}`, d.mandato && `mandato ${d.mandato}`, d.tipoGestao && `gestão ${d.tipoGestao}`]
+    .filter(Boolean)
+    .join(", ");
+  resumoExecutivo.push(`${d.nome}: informe mensal de ${rotulo}${perfil ? ` (${perfil})` : ""}.`);
+
+  if (m.patrimonioLiquido) {
+    resumoExecutivo.push(
+      `Patrimônio líquido: ${formatarReais(m.patrimonioLiquido)}${contraOMesAnterior(m.patrimonioLiquido, a?.patrimonioLiquido)}.`,
+    );
+  }
+  if (m.valorPatrimonialCota) {
+    resumoExecutivo.push(
+      `Valor patrimonial por cota: ${formatarReais(m.valorPatrimonialCota)}${contraOMesAnterior(m.valorPatrimonialCota, a?.valorPatrimonialCota)}.`,
+    );
+  }
+  if (m.dividendYieldMes) {
+    const antes = a?.dividendYieldMes ? ` (${formatarFracao(a.dividendYieldMes)} no mês anterior)` : "";
+    resumoExecutivo.push(`Dividend yield do mês, como o fundo informa à CVM: ${formatarFracao(m.dividendYieldMes)}${antes}.`);
+  }
+  if (m.rentabilidadeEfetivaMes || m.rentabilidadePatrimonialMes) {
+    const partes = [
+      m.rentabilidadeEfetivaMes && `efetiva de ${formatarFracao(m.rentabilidadeEfetivaMes)}`,
+      m.rentabilidadePatrimonialMes && `patrimonial de ${formatarFracao(m.rentabilidadePatrimonialMes)}`,
+    ].filter(Boolean);
+    resumoExecutivo.push(`Rentabilidade no mês: ${partes.join(" e ")}.`);
+  }
+  if (m.cotistas) {
+    resumoExecutivo.push(`Cotistas: ${inteiro(m.cotistas)}${contraOMesAnterior(m.cotistas, a?.cotistas)}.`);
+  }
+  if (m.cotasEmitidas) {
+    const mudou = a?.cotasEmitidas && !a.cotasEmitidas.eq(m.cotasEmitidas) ? ` (eram ${inteiro(a.cotasEmitidas)} no mês anterior)` : "";
+    resumoExecutivo.push(`Cotas emitidas: ${inteiro(m.cotasEmitidas)}${mudou}.`);
+  }
+
+  const carteira = composicaoDoAtivo(m);
+  if (carteira.length > 0) resumoExecutivo.push(`Composição do ativo: ${carteira.join("; ")}.`);
+
+  if (m.totalPassivo?.isPositive()) resumoExecutivo.push(`Total do passivo: ${formatarReais(m.totalPassivo)}.`);
+  if (m.taxaAdministracaoMes) {
+    resumoExecutivo.push(`Taxa de administração paga no mês: ${formatarFracao(m.taxaAdministracaoMes)} do patrimônio líquido.`);
+  }
+
+  if (a?.dividendYieldMes && m.dividendYieldMes && m.dividendYieldMes.lt(a.dividendYieldMes)) {
+    alertas.push({
+      titulo: "Dividend yield menor que no mês anterior",
+      severidade: "atencao",
+      detalhe: `Passou de ${formatarFracao(a.dividendYieldMes)} para ${formatarFracao(m.dividendYieldMes)}.`,
+    });
+  }
+
+  if (m.totalPassivo && m.valorAtivo?.isPositive()) {
+    const fracao = m.totalPassivo.div(m.valorAtivo);
+    if (fracao.gt(PASSIVO_QUE_VIRA_ALERTA)) {
+      alertas.push({
+        titulo: `Passivo acima de ${formatarFracao(PASSIVO_QUE_VIRA_ALERTA, 0)} do ativo`,
+        severidade: "atencao",
+        detalhe: `O passivo total (${formatarReais(m.totalPassivo)}) equivale a ${formatarFracao(fracao, 1)} do ativo do fundo. O passivo inclui rendimentos a distribuir e obrigações por aquisição de imóveis, além de dívida.`,
+      });
+    }
+  }
+
+  if (a?.cotistas && m.cotistas && m.cotistas.lt(a.cotistas)) {
+    alertas.push({
+      titulo: "Menos cotistas que no mês anterior",
+      severidade: "info",
+      detalhe: `De ${inteiro(a.cotistas)} para ${inteiro(m.cotistas)}: ${inteiro(a.cotistas.minus(m.cotistas))} a menos.`,
+    });
+  }
+
+  if (a?.cotasEmitidas && m.cotasEmitidas && m.cotasEmitidas.gt(a.cotasEmitidas)) {
+    alertas.push({
+      titulo: "Novas cotas emitidas no mês",
+      severidade: "info",
+      detalhe: `De ${inteiro(a.cotasEmitidas)} para ${inteiro(m.cotasEmitidas)} cotas. Emissão aumenta o patrimônio e divide os rendimentos por mais cotas.`,
+    });
+  }
+
+  // Sem alerta de "caixa baixo": a coluna de disponibilidades fica perto de zero em quase todo fundo
+  // (o caixa mora em aplicações de liquidez), então o aviso dispararia sempre e não diria nada.
+
+  return { resumoExecutivo, alertas };
 }
 
 // ---------------------------------------------------------------------------
 // Saída
 // ---------------------------------------------------------------------------
 
+const MESES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+
+/** "2026-03-31" vira "31 de março de 2026". Data que não vier nesse formato sai como veio. */
+function dataPorExtenso(iso: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  const mes = m ? MESES[Number(m[2]) - 1] : undefined;
+  return m && mes ? `${Number(m[3])} de ${mes} de ${m[1]}` : iso;
+}
+
 export function indicadoresCvm(d: DadosCvm): Analise["indicadores"] {
   return d.tipo === "ACAO" ? indicadoresAcao(d) : indicadoresFii(d);
 }
 
-/** O que a IA lê: os números oficiais, já formatados e com a base de comparação. */
-export function contextoParaIa(d: DadosCvm, rotulo: string): string {
-  return d.tipo === "ACAO" ? contextoAcao(d, rotulo) : contextoFii(d, rotulo);
-}
-
-export function tipoDocumentoCvm(d: DadosCvm, rotulo: string): string {
-  if (d.tipo === "FII") return `Informe Mensal de FII (CVM) — ${rotulo}`;
-  return d.documento === "DFP"
-    ? `Demonstrações financeiras anuais (DFP/CVM) — ${rotulo}`
-    : `Informações trimestrais (ITR/CVM) — ${rotulo}`;
-}
-
-function pctVariacao(atual: Prisma.Decimal | null, anterior: Prisma.Decimal | null): number | null {
-  if (!atual || !anterior || anterior.isZero()) return null;
-  return atual.minus(anterior).div(anterior.abs()).mul(CEM).toNumber();
+export function tipoDocumentoCvm(d: DadosCvm): string {
+  if (d.tipo === "FII") return "Informe Mensal de FII";
+  return d.documento === "DFP" ? "Demonstrações Financeiras Padronizadas (DFP)" : "Informações Trimestrais (ITR)";
 }
 
 /**
- * Análise determinística oficial CVM: indicadores, resumo executivo rico e
- * alertas inteligentes baseados em regras contábeis e financeiras da CVM.
+ * A análise de um período, montada só com os números entregues à CVM. `rotulo` é o período como a
+ * tela o escreve ("1T26", "março de 2026").
  */
-export function analiseSemIa(d: DadosCvm, rotulo: string): Analise {
-  const indicadores = indicadoresCvm(d);
-  const alertas: Analise["alertas"] = [];
-  const resumoExecutivo: string[] = [];
-
-  if (d.tipo === "ACAO") {
-    const r = receita(d);
-    const l = lucro(d);
-    const pl = patrimonioLiquido(d);
-    const at = ativoTotal(d);
-
-    resumoExecutivo.push(`Análise Fundamentalista Oficial CVM (${d.denominacao}).`);
-
-    if (r?.atual) {
-      const v = variacao(r.atual, r.anterior);
-      resumoExecutivo.push(
-        `${r.conta}: ${formatarReais(r.atual)}${v ? ` (variação de ${v} YoY)` : ""}.`,
-      );
-    }
-    if (l?.atual) {
-      const nomeLucro = /controladora/i.test(l.conta) ? "Lucro líquido aos controladores" : l.conta;
-      const v = variacao(l.atual, l.anterior);
-      resumoExecutivo.push(
-        `${nomeLucro}: ${formatarReais(l.atual)}${v ? ` (variação de ${v} YoY)` : ""}.`,
-      );
-    }
-    if (r?.atual && l?.atual && !r.atual.isZero() && temReceitaDeVenda(r)) {
-      const margem = l.atual.div(r.atual);
-      resumoExecutivo.push(`Margem líquida do período: ${formatarFracao(margem, 1)}.`);
-    }
-    if (pl?.atual && l?.atual && !pl.atual.isZero()) {
-      const roe = l.atual.div(pl.atual);
-      resumoExecutivo.push(`Retorno sobre Patrimônio Líquido (ROE do período): ${formatarFracao(roe, 1)}.`);
-    }
-    if (pl?.atual) {
-      const v = variacao(pl.atual, pl.anterior);
-      resumoExecutivo.push(
-        `Patrimônio Líquido: ${formatarReais(pl.atual)}${v ? ` (${v} frente à base anterior)` : ""}.`,
-      );
-    }
-    if (at?.atual) {
-      const v = variacao(at.atual, at.anterior);
-      resumoExecutivo.push(
-        `Ativo Total: ${formatarReais(at.atual)}${v ? ` (${v} frente à base anterior)` : ""}.`,
-      );
-    }
-
-    // Alertas determinísticos inteligentes para Ações:
-    if (l?.atual?.isNegative()) {
-      alertas.push({
-        titulo: "Prejuízo contábil no período",
-        severidade: "critico",
-        detalhe: `${l.conta}: ${formatarReais(l.atual)}. A empresa operou no vermelho no período reportado.`,
-      });
-    }
-
-    if (r?.atual && r.anterior) {
-      const varReceita = pctVariacao(r.atual, r.anterior);
-      if (varReceita !== null && varReceita <= -15) {
-        alertas.push({
-          titulo: "Queda expressiva de receita YoY",
-          severidade: "atencao",
-          detalhe: `${r.conta} recuou ${Math.abs(varReceita).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% em relação ao mesmo período do ano anterior.`,
-        });
-      }
-    }
-
-    if (l?.atual && l.anterior && !l.atual.isNegative()) {
-      const varLucro = pctVariacao(l.atual, l.anterior);
-      if (varLucro !== null && varLucro <= -15) {
-        alertas.push({
-          titulo: "Queda acentuada de lucro YoY",
-          severidade: "atencao",
-          detalhe: `O lucro reportado recuou ${Math.abs(varLucro).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% na comparação anual.`,
-        });
-      } else if (varLucro !== null && varLucro >= 10) {
-        alertas.push({
-          titulo: "Crescimento consistente de lucro",
-          severidade: "info",
-          detalhe: `Lucro líquido avançou +${varLucro.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% frente ao período homólogo anterior.`,
-        });
-      }
-    }
-
-    if (r?.atual && l?.atual && !r.atual.isZero() && temReceitaDeVenda(r) && !l.atual.isNegative()) {
-      const margemPct = l.atual.div(r.atual).mul(CEM).toNumber();
-      if (margemPct >= 15) {
-        alertas.push({
-          titulo: "Margem líquida saudável",
-          severidade: "info",
-          detalhe: `Margem líquida robusta de ${margemPct.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% no período.`,
-        });
-      }
-    }
-  } else {
-    // FIIs
-    const m = d.mes;
-    const a = d.mesAnterior;
-
-    resumoExecutivo.push(`Análise Fundamentalista Oficial CVM (${d.nome}).`);
-
-    if (m.patrimonioLiquido) {
-      const v = a ? variacao(m.patrimonioLiquido, a.patrimonioLiquido) : null;
-      resumoExecutivo.push(
-        `Patrimônio Líquido: ${formatarReais(m.patrimonioLiquido)}${v ? ` (${v} MoM)` : ""}.`,
-      );
-    }
-    if (m.valorPatrimonialCota) {
-      const v = a ? variacao(m.valorPatrimonialCota, a.valorPatrimonialCota) : null;
-      resumoExecutivo.push(
-        `VPA por cota: ${formatarReais(m.valorPatrimonialCota)}${v ? ` (${v} MoM)` : ""}.`,
-      );
-    }
-    if (m.dividendYieldMes) {
-      resumoExecutivo.push(`Dividend Yield do mês: ${formatarFracao(m.dividendYieldMes)}.`);
-    }
-    if (m.rentabilidadeEfetivaMes || m.rentabilidadePatrimonialMes) {
-      const ef = m.rentabilidadeEfetivaMes ? `efetiva de ${formatarFracao(m.rentabilidadeEfetivaMes)}` : "";
-      const pat = m.rentabilidadePatrimonialMes ? `patrimonial de ${formatarFracao(m.rentabilidadePatrimonialMes)}` : "";
-      const partes = [ef, pat].filter(Boolean).join(" e ");
-      resumoExecutivo.push(`Rentabilidade no mês: ${partes}.`);
-    }
-    if (m.cotistas) {
-      const v = a ? variacao(m.cotistas, a.cotistas) : null;
-      resumoExecutivo.push(`Base de cotistas: ${inteiro(m.cotistas)}${v ? ` (${v} MoM)` : ""}.`);
-    }
-    if (m.cotasEmitidas) {
-      resumoExecutivo.push(`Total de cotas emitidas: ${inteiro(m.cotasEmitidas)}.`);
-    }
-
-    // Composição de carteira:
-    const carteira: string[] = [];
-    if (m.imoveisParaRenda && !m.imoveisParaRenda.isZero()) carteira.push(`Imóveis: ${formatarReais(m.imoveisParaRenda)}`);
-    if (m.cri && !m.cri.isZero()) carteira.push(`CRI: ${formatarReais(m.cri)}`);
-    if (m.cotasDeFii && !m.cotasDeFii.isZero()) carteira.push(`Cotas FII: ${formatarReais(m.cotasDeFii)}`);
-    if (m.disponibilidades && !m.disponibilidades.isZero()) carteira.push(`Caixa/Disponibilidades: ${formatarReais(m.disponibilidades)}`);
-    if (carteira.length > 0) {
-      resumoExecutivo.push(`Composição da carteira: ${carteira.join(", ")}.`);
-    }
-
-    if (m.totalPassivo && !m.totalPassivo.isZero()) {
-      resumoExecutivo.push(`Passivo e obrigações totais: ${formatarReais(m.totalPassivo)}.`);
-    }
-    if (m.taxaAdministracaoMes) {
-      resumoExecutivo.push(`Taxa de administração no mês: ${formatarFracao(m.taxaAdministracaoMes)} do PL.`);
-    }
-
-    // Alertas determinísticos inteligentes para FIIs:
-    if (a?.dividendYieldMes && m.dividendYieldMes && m.dividendYieldMes.lt(a.dividendYieldMes)) {
-      alertas.push({
-        titulo: "Queda de DY MoM",
-        severidade: "atencao",
-        detalhe: `Dividend Yield mensal reduziu de ${formatarFracao(a.dividendYieldMes)} para ${formatarFracao(m.dividendYieldMes)}.`,
-      });
-    }
-
-    // Alavancagem: Passivo / Ativo > 15%
-    if (m.totalPassivo && m.valorAtivo && !m.valorAtivo.isZero()) {
-      const alavancagem = m.totalPassivo.div(m.valorAtivo);
-      if (alavancagem.gt(new Prisma.Decimal("0.15"))) {
-        alertas.push({
-          titulo: "Alavancagem elevada",
-          severidade: "atencao",
-          detalhe: `O passivo total representa ${formatarFracao(alavancagem, 1)} dos ativos do fundo.`,
-        });
-      }
-    }
-
-    // Queda no número de cotistas
-    if (a?.cotistas && m.cotistas && m.cotistas.lt(a.cotistas)) {
-      const varCotistas = a.cotistas.minus(m.cotistas);
-      alertas.push({
-        titulo: "Queda no número de cotistas",
-        severidade: "info",
-        detalhe: `Redução de ${inteiro(varCotistas)} cotistas no mês (${inteiro(a.cotistas)} para ${inteiro(m.cotistas)}).`,
-      });
-    }
-
-    // Caixa apertado: Disponibilidades < 1% do Ativo (ou PL)
-    if (m.disponibilidades && m.valorAtivo && !m.valorAtivo.isZero()) {
-      const fracaoCaixa = m.disponibilidades.div(m.valorAtivo);
-      if (fracaoCaixa.lt(new Prisma.Decimal("0.01"))) {
-        alertas.push({
-          titulo: "Caixa apertado",
-          severidade: "info",
-          detalhe: `Disponibilidades em caixa representam apenas ${formatarFracao(fracaoCaixa, 1)} do ativo total (${formatarReais(m.disponibilidades)}).`,
-        });
-      }
-    }
-  }
-
+export function montarAnalise(d: DadosCvm, rotulo: string): Analise {
+  const { resumoExecutivo, alertas } = d.tipo === "ACAO" ? analiseAcao(d) : analiseFii(d, rotulo);
   return {
-    tipoDocumento: tipoDocumentoCvm(d, rotulo),
+    versao: VERSAO_DA_ANALISE,
+    tipoDocumento: tipoDocumentoCvm(d),
     resumoExecutivo,
     alertas,
-    indicadores,
+    indicadores: indicadoresCvm(d),
+    dataReferencia: d.dataReferencia,
+    link: d.tipo === "ACAO" ? d.link : null,
   };
 }

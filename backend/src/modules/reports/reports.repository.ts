@@ -10,26 +10,25 @@ export const reportsRepository = {
     assetId: string | null;
     period: string | null;
     extractedText: string | null;
-    contentHash?: string | null;
     analysis: Prisma.InputJsonValue;
   }) {
     return prisma.report.create({ data });
   },
 
-  /**
-   * Relatório já analisado a partir do mesmo arquivo, de qualquer conta. Só
-   * os de origem PDF: é o texto extraído que alimenta o chat, e os da CVM não
-   * o guardam (e têm cache próprio, por ativo e período).
-   */
-  findPdfByContentHash(contentHash: string) {
+  /** O relatório da CVM que a conta já guardou para este ativo e período, se houver. */
+  findCvmByUserAssetPeriod(userId: string, assetId: string, period: string) {
     return prisma.report.findFirst({
-      where: { contentHash, source: "PDF", extractedText: { not: null } },
-      select: { extractedText: true, analysis: true },
+      where: { userId, assetId, period, source: "CVM" },
+      select: { id: true, fileName: true, createdAt: true, analysis: true },
       orderBy: { createdAt: "desc" },
     });
   },
 
-  // lista sem o extractedText (pode ter centenas de KB por relatório)
+  updateAnalysis(id: string, analysis: Prisma.InputJsonValue) {
+    return prisma.report.update({ where: { id }, data: { analysis }, select: { id: true } });
+  },
+
+  // lista sem o extractedText: relatórios antigos, de PDF enviado, guardam centenas de KB de texto
   findManyByUser(userId: string, pagina: { take: number; cursor?: string }) {
     return prisma.report.findMany({
       where: { userId },
@@ -39,10 +38,10 @@ export const reportsRepository = {
         analysis: true,
         source: true,
         period: true,
-        asset: { select: { ticker: true } },
+        asset: { select: { ticker: true, name: true, type: true } },
         createdAt: true,
       },
-      // o id desempata relatórios enviados no mesmo instante, pelo mesmo motivo
+      // o id desempata relatórios criados no mesmo instante, pelo mesmo motivo
       // que em dividends: o cursor exige ordem total
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       take: pagina.take,
@@ -55,7 +54,7 @@ export const reportsRepository = {
   },
 
   findByIdAndUser(id: string, userId: string) {
-    return prisma.report.findFirst({ where: { id, userId } });
+    return prisma.report.findFirst({ where: { id, userId }, select: { id: true } });
   },
 
   delete(id: string) {
@@ -67,15 +66,16 @@ export const reportsRepository = {
   },
 
   /**
-   * upsert, e não create: dois usuários enviando o release do mesmo trimestre
-   * ao mesmo tempo passam os dois pelo cache vazio. O segundo não pode falhar
-   * por violar a unique — a análise dele é tão boa quanto a do primeiro.
+   * upsert, e não create: dois usuários consultando o mesmo trimestre ao mesmo tempo passam os dois
+   * pelo cache vazio, e o segundo não pode falhar por violar a unique. O `update` grava a análise
+   * nova por cima: só se chega aqui quando a guardada não existe ou é de uma versão anterior das
+   * regras (ver ehAnaliseAtual).
    */
   saveCvmSummary(assetId: string, period: string, analysis: Prisma.InputJsonValue) {
     return prisma.cvmSummary.upsert({
       where: { assetId_period: { assetId, period } },
       create: { assetId, period, analysis },
-      update: {},
+      update: { analysis },
     });
   },
 };
