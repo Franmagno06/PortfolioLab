@@ -18,75 +18,60 @@ põe para dormir. Nada aqui é serverless.
 O serviço do Render está descrito em [`render.yaml`](../render.yaml) (Blueprint), com os nomes das variáveis e
 nenhum valor secreto. O arquivo não cria nada sozinho: vale quando alguém cria o Blueprint no painel.
 
-## ⛔ Bloqueia o deploy no plano gratuito: memória da leitura da CVM
+## Memória da leitura da CVM: corrigido (era o bloqueio do plano gratuito)
 
-Medido em 12/11/2026, Node 24, numa máquina de desenvolvimento, com os zips reais da CVM:
+O Render gratuito (e o Starter pago) tem **512 MB**. Antes da correção, a primeira ficha de ação com dado vencido
+derrubava o processo por falta de memória, e o mesmo valia para um relatório de ação em `/relatorios`.
 
-| Cenário | Pico de memória (RSS) |
-|---|---|
-| API em produção (`node dist/server.js`), parada | ~145 MB |
-| **Uma** visita à ficha de PETR4 com o dado vencido (7 trimestres de ITR/DFP) | **1.649 MB**, e ficou em 1.337 MB depois |
-| Um ITR só (o que `POST /reports` faz por pedido), script isolado | 501 MB (393 MB com `--max-old-space-size=200`) |
-| Aquecimento do catálogo inteiro (15 ações), script isolado | 1.804 MB |
-| As mesmas leituras com o protótipo de correção abaixo, na API de verdade | **383 MB** (3 fichas de ação, 2 de FII, 1 de ETF) |
-| Aquecimento do catálogo inteiro (40 ativos) com o protótipo | **386 MB**, ~100 s de CPU nesta máquina |
+**A causa.** `lerCsvsDoZip` (`modules/reports/cvm.provider.ts`) decodificava cada CSV inteiro do zip numa string (o
+BPP individual do ITR de 2025 tem 93 MB descompactado), e o Node guarda strings grandes fora do heap ("external").
+Por isso `--max-old-space-size` não resolvia: o `heapUsed` nunca passou de 20 MB.
 
-O Render gratuito tem **512 MB**. Hoje, a primeira ficha de ação com dado vencido derruba o processo por falta de
-memória, e o mesmo vale para um relatório de ação em `/relatorios`. O plano pago Starter também tem 512 MB, então
-**pagar o Starter não resolve**; o primeiro plano que caberia sem a correção é o Standard (2 GB, pago).
+**A correção.** `lerCsvsDoZip(zip, nomes, cnpj)` procura o CNPJ nos bytes (`Buffer.indexOf`) e decodifica só o
+cabeçalho e as linhas que o contêm; o CNPJ é ASCII e o latin1 tem um byte por caractere, então a busca em bytes acha
+exatamente as linhas que a busca no texto achava. Os CSVs são descompactados um de cada vez (antes, os quatro de um
+documento ficavam em memória juntos). `montarDadosAcao`, `montarDadosFii` e `linhasComCnpj` não mudaram: recebem um
+CSV menor no mesmo formato. `buscarPatrimonioDeClasses` (vários CNPJs, 16 MB) continua lendo o arquivo inteiro.
+Junto, dois tetos defensivos: zip acima de 128 MB não é aceito (o maior real tem 32 MB) e CSV que declara mais de
+256 MB descompactado é ignorado sem ser descompactado (o fflate aloca o tamanho declarado de uma vez).
 
-**Por que `--max-old-space-size` não resolve.** Quase toda essa memória não está no heap do V8 (o `heapUsed` não
-passou de 20 MB): é "external". `lerCsvsDoZip` (`modules/reports/cvm.provider.ts`) decodifica cada CSV inteiro em
-uma string (o BPP consolidado do ITR tem 38 MB), e o Node guarda strings grandes fora do heap. O coletor de lixo
-demora a devolver essa memória. Com `gc()` forçado entre um ativo e outro, o que sobra vivo é ~230 MB, mas o pico
-dentro de uma ficha continua em 1,6 GB.
+**Prova de que os números não mudaram.** Sobre os zips reais da CVM baixados em 12/11/2026 (ITR 2025 e 2026, DFP
+2025, Informe Mensal de FII 2026), a leitura nova contra a antiga (CSV inteiro decodificado, como antes): as 15 ações
+do catálogo em 7 trimestres (1T25 a 3T26) e os 15 FIIs em 10 meses de 2026, **255 comparações, 255 idênticas**
+(o JSON inteiro de `DadosAcao`/`DadosFii`, 1.920 contas de ações). `cvm.leitura.test.ts` repete a comparação com
+zips sintéticos e os casos de borda (`
+`, sem quebra no fim, `;` entre aspas, CNPJ noutra coluna, CNPJ sem
+máscara, arquivo só com cabeçalho, vazio). `VERSAO_DA_ANALISE` não sobe: o texto não muda.
 
-**Correção mínima proposta (não aplicada; o arquivo é do módulo `reports`, em mudança por outra frente).**
-Em `lerCsvsDoZip`, receber o CNPJ e decodificar só o cabeçalho e as linhas que o contêm, procurando o CNPJ nos bytes
-(`Buffer.indexOf`) antes de virar texto. O CNPJ é ASCII, então a busca em bytes é exata. `montarDadosAcao`,
-`montarDadosFii` e `linhasComCnpj` não mudam: recebem um CSV menor com o mesmo formato. `buscarDadosAcao` e
-`buscarDadosFii` passam o `cnpj`; `buscarPatrimonioDeClasses` (arquivo pequeno, vários CNPJs) fica como está.
+**Medido em 12/11/2026, Node 24, nesta máquina** (Windows; o pico é o `PeakWorkingSet` do processo, o equivalente ao
+RSS máximo):
 
-```ts
-export function lerCsvsDoZip(zip: Uint8Array, nomes: string[], cnpj?: string): Map<string, string> {
-  const arquivos = unzipSync(zip, { filter: (f) => nomes.includes(f.name) });
-  const decodificador = new TextDecoder("latin1");
-  if (!cnpj) return new Map(Object.entries(arquivos).map(([nome, bytes]) => [nome, decodificador.decode(bytes)]));
-  const agulha = Buffer.from(cnpj, "latin1");
-  return new Map(
-    Object.entries(arquivos).map(([nome, bytes]) => {
-      const buf = Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-      const fimDoCabecalho = buf.indexOf(10);
-      if (fimDoCabecalho < 0) return [nome, ""];
-      const linhas = [decodificador.decode(bytes.subarray(0, fimDoCabecalho))];
-      let posicao = buf.indexOf(agulha, fimDoCabecalho);
-      while (posicao >= 0) {
-        const inicio = buf.lastIndexOf(10, posicao) + 1;
-        let fim = buf.indexOf(10, posicao);
-        if (fim < 0) fim = buf.length;
-        linhas.push(decodificador.decode(bytes.subarray(inicio, fim)));
-        posicao = buf.indexOf(agulha, fim);
-      }
-      return [nome, linhas.join("\n")];
-    }),
-  );
-}
-```
+| Cenário | Antes | Depois |
+|---|---|---|
+| Um ITR só (o que `POST /reports` faz), script isolado, zip do disco | 415 MB, 0,6 s | **204 MB**, 0,3 s |
+| Ficha de PETR4 com dado vencido (7 trimestres), script isolado | 1.614 MB, 4,2 s | **280 MB**, 2,6 s |
+| Catálogo inteiro (15 ações, 15 FIIs, ETFs), script isolado | 1.793 MB, 61 s | **308 MB**, 32 s |
+| API de verdade (`node dist/server.js`), parada | ~145 MB (medição anterior) | 91 MB, 133 MB de pico na subida |
+| API: 3 fichas de ação, 2 de FII e 1 de ETF com dado vencido, downloads reais | 1.649 MB só na primeira | **317 MB** de pico |
+| API: aquecimento do catálogo inteiro (40 ativos), downloads reais | — | **362 MB** de pico, ~95 s de CPU, 268 MB no fim |
 
-O protótipo deu o mesmo resultado que o código atual nos 7 trimestres de PETR4 (mesmas contas e valores) e foi mais
-rápido (6 s contra 9 a 14 s). Antes de aplicar: testes do `cvm.provider` e do `reports`, a skill
-`auditar-calculo-financeiro`, e conferir se `VERSAO_DA_ANALISE` precisa subir (não deveria: o texto não muda).
+Sobram ~150 MB de folga no pior caso medido. O que fica em memória depois são os zips compactados no cache de
+`baixarZipCvm` (6 h): ITR 2026 (22 MB), ITR 2025 (32 MB), DFP 2025 (13 MB), Informe de FII (1 MB) e o cadastro de
+classes (7 MB). No 3º trimestre de cada ano o ITR do ano corrente cresce até o tamanho do de 2025.
 
-Com a correção, ainda sobram ~130 MB de folga. Duas leituras da CVM podem rodar ao mesmo tempo, porque o `reports`
-(`naFilaDaCvm`) e o `ativos` (fila pesada de `ativos.snapshots.ts`) têm filas separadas. Se o primeiro deploy mostrar
-reinício por memória, o próximo passo é fazer as duas usarem a mesma fila.
+**As duas filas (`naFilaDaCvm` no `reports` e a fila pesada de `ativos.snapshots.ts`) continuam separadas.** Elas não
+somam memória de leitura: depois do download, `buscarDadosAcao` e `buscarDadosFii` leem e montam o dado sem nenhum
+`await`, então duas leituras nunca se intercalam, seja qual for a fila. O que pode coincidir são dois downloads (até
+32 MB cada) e o lixo da leitura anterior que o coletor ainda não recolheu, e uma fila só não mudaria isso. Se o
+primeiro deploy mostrar reinício por memória, o próximo passo é limitar o cache de zips (um ano por documento), não
+unir as filas.
 
 **Já feito nesta branch.** A variável `AQUECER_CATALOGO` (padrão `true`, que mantém o comportamento de antes)
-desliga o aquecimento do catálogo ao subir. O `render.yaml` a põe em `false`. Motivos:
+desliga o aquecimento do catálogo ao subir. O `render.yaml` a põe em `false`, mesmo com a memória corrigida. Motivos:
 
 - Com 0,1 CPU, os ~100 s de CPU que o aquecimento gasta nesta máquina viram muitos minutos de processador ocupado a
   cada vez que o serviço acorda ou reinicia, e as requisições esperam atrás.
-- Sem a correção acima, o aquecimento estoura a memória.
+- A memória cabe (362 MB de pico, medido acima), mas não sobra muita folga para as visitas que chegam no meio.
 - As fichas continuam se renovando por visita, uma de cada vez, e a fotografia fica 24 h no banco
   (`asset_snapshots`). Sem o aquecimento, só o primeiro visitante de cada ficha espera a CVM, e no máximo 8 s.
 
@@ -100,7 +85,7 @@ Conferido em 12/11/2026 em [render.com/docs/free](https://render.com/docs/free) 
 
 | Limite | Valor | O que isso faz com o PortfolioLab |
 |---|---|---|
-| CPU e RAM | 0,1 CPU, 512 MB | ver a seção acima; leitura da CVM é CPU síncrona e fica ~10 vezes mais lenta |
+| CPU e RAM | 0,1 CPU, 512 MB | ver a seção da memória acima; leitura da CVM é CPU síncrona e fica ~10 vezes mais lenta |
 | Sono | dorme depois de **15 min** sem tráfego de entrada; acordar leva "cerca de um minuto" | primeira requisição depois do sono espera; ver "Contra o sono" |
 | Horas | **750 h/mês por workspace**; acabou, o serviço é suspenso até o mês seguinte | um serviço acordado o mês inteiro gasta até 744 h: cabe, se for o **único** serviço gratuito acordado no workspace |
 | Reinício | "o Render pode reiniciar um serviço gratuito a qualquer momento" | caches em memória (Yahoo, zips da CVM, séries do SGS) se perdem; o que importa está no banco (`asset_snapshots`, `index_points`) |
@@ -202,7 +187,7 @@ serviria a resposta de uma pessoa para outra: nunca faça isso.
 
 ### 0. Antes de tudo (não escreve em lugar nenhum)
 
-- [ ] Aplicar a correção de memória da CVM (seção ⛔), com os testes do `reports` e do `ativos`.
+- [x] Aplicar a correção de memória da CVM (seção "Memória da leitura da CVM"), com os testes do `reports` e do `ativos`.
 - [ ] CI verde na `main`.
 - [ ] `git ls-files | grep "\.env"` mostra só `backend/.env.example` e `backend/.env.supabase.example`.
 - [ ] O `backend/.env.supabase` local ainda tem uma `GEMINI_API_KEY` de quando os relatórios usavam IA. O app não lê
@@ -279,7 +264,7 @@ os mesmos campos:
 
 **P6. Conta de demonstração.** `npm run supabase:demo` apaga e refaz **só** a conta `carteira@portfoliolab.dev`.
 Os relatórios dela vêm de `reportsService.consultar`, o mesmo caminho da rota, e vão para o cache compartilhado
-`cvm_summaries`. Rodar depois da correção de memória, e da sua máquina (não no Render).
+`cvm_summaries`. Rodar da sua máquina (não no Render).
 
 **P7. Histórico dos índices.** `npm run indices:backfill` lê o `.env` (Docker). Contra a produção, o próprio script
 indica: `npx tsx --env-file=.env.supabase scripts/backfill-indices.ts`. Ele preenche `index_points` com o histórico da
@@ -303,7 +288,7 @@ linha que o script imprime é o banco de destino: tem de ser `SUPABASE (produç�
 
 | Prioridade | Item | Por quê / como |
 |---|---|---|
-| **Bloqueia** | **Memória da leitura da CVM** | seção ⛔ acima |
+| Feito | Memória da leitura da CVM | corrigida; conferir a memória nas métricas do Render no primeiro deploy (P4) |
 | **Alta** | **IP do visitante nos limitadores.** A Vercel manda o IP do visitante em `x-forwarded-for` para a origem externa (documentado), e o proxy do Render acrescenta o IP da Vercel. Com `TRUST_PROXY=1` (padrão), a API enxerga o IP da Vercel, que é de todos, e o teto de login (10 por 15 min) vira do site inteiro. | No primeiro deploy, logar `req.ip` e `x-forwarded-for` (sem cookies) de duas redes diferentes. Se a cadeia for visitante → Vercel → Render, `TRUST_PROXY=2` dá o IP real. Atenção: com 2, quem chamar o `*.onrender.com` direto pode forjar o IP. Para fechar isso, a Vercel pode mandar um cabeçalho secreto no rewrite e a API recusar quem não o tiver: mudança própria, com a skill `security-and-hardening` |
 | Alta | **Dependências do backend.** `npm audit` aponta altas que só saem com versão maior (`zod` 3 → 4, CLI do Prisma). | Tarefa própria, com a bateria completa de testes |
 | Média | **Aviso de "acordando o servidor"** no login, no cadastro e na demo | seção "Contra o sono" |

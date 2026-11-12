@@ -40,7 +40,8 @@ services:
         sync: false
       - key: JWT_SECRET
         generateValue: true
-      # O aquecimento do catálogo ao subir interpreta os zips da CVM de 30 ativos de uma vez, o que
-      # não cabe em 0,1 CPU e 512 MB. Desligado aqui; as fichas continuam se renovando por visita.
+      # O aquecimento do catálogo ao subir interpreta os zips da CVM de 30 ativos de uma vez. A memória
+      # cabe desde a leitura enxuta da CVM (docs/deploy.md), mas a CPU de 0,1 não: seriam minutos de
+      # processador ocupado a cada acordar. Desligado aqui; as fichas continuam se renovando por visita.
       - key: AQUECER_CATALOGO
         value: "false"

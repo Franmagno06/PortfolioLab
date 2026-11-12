@@ -7,18 +7,25 @@ import type { Mes, Trimestre } from "./periodo.js";
  *
  * Não existe API por empresa: cada ano de ITR, DFP ou Informe Mensal de FII é
  * um zip único com todas as companhias ou fundos, e o CNPJ é a única chave.
- * O zip do ITR passa de 19 MB, então ele fica em memória por algumas horas
+ * O zip do ITR passa de 20 MB, então ele fica em memória por algumas horas
  * — a base só é atualizada uma vez por semana.
  *
+ * Memória: descompactado, um CSV do ITR chega a 93 MB. Nunca vire texto o CSV
+ * inteiro: `lerCsvsDoZip` com o CNPJ decodifica só as linhas da companhia (ver
+ * lá). Sem isso, uma ficha de ação passava de 1,5 GB, e o Render tem 512 MB
+ * (docs/deploy.md).
+ *
  * Como os outros provedores externos, nada aqui lança erro: dado ausente,
- * CVM fora do ar ou arquivo em formato inesperado viram null, e o relatório
- * cai na leitura do PDF inteiro.
+ * CVM fora do ar ou arquivo em formato inesperado viram null, e quem chama
+ * responde sem o dado.
  */
 
 const BASE = "https://dados.cvm.gov.br/dados";
 
 // O zip do ITR tem ~20 MB. Numa conexão ruim isso passa de 30s.
 const TIMEOUT_MS = 90_000;
+// O maior zip lido (ITR de um ano inteiro) tinha 32 MB em 2025. Acima do teto, o download é recusado.
+const MAX_ZIP_BYTES = 128 * 1024 * 1024;
 const VALIDADE_MS = 6 * 60 * 60 * 1000;
 
 const cacheZip = new Map<string, { em: number; promessa: Promise<Uint8Array | null> }>();
@@ -34,7 +41,12 @@ async function baixar(caminho: string): Promise<Uint8Array | null> {
   try {
     const res = await fetch(`${BASE}/${caminho}`, { signal: controller.signal });
     if (!res.ok) return null;
-    return new Uint8Array(await res.arrayBuffer());
+    if (Number(res.headers.get("content-length")) > MAX_ZIP_BYTES) {
+      console.error(`[CVM] ${caminho} passa do teto de ${MAX_ZIP_BYTES} bytes; ignorado`);
+      return null;
+    }
+    const bytes = new Uint8Array(await res.arrayBuffer());
+    return bytes.byteLength > MAX_ZIP_BYTES ? null : bytes;
   } catch (err) {
     console.error(`[CVM] falha ao baixar ${caminho}:`, err instanceof Error ? err.message : err);
     return null;
@@ -61,13 +73,55 @@ export function baixarZipCvm(caminho: string): Promise<Uint8Array | null> {
 }
 
 /**
+ * Teto do tamanho descompactado de um CSV, como o zip o declara. O maior que o app lê (BPP
+ * individual do ITR de um ano inteiro) tinha 93 MB em 2025. Um arquivo acima disso é ignorado sem
+ * ser descompactado: o fflate aloca de uma vez o tamanho declarado.
+ */
+const MAX_CSV_DESCOMPACTADO = 256 * 1024 * 1024;
+
+// Sem estado entre chamadas: decode() sem { stream: true } recomeça do zero.
+const LATIN1 = new TextDecoder("latin1");
+
+/**
  * Extrai do zip só os CSVs pedidos, já decodificados. Os arquivos da CVM são
  * ISO-8859-1; ler como UTF-8 estraga todo "Patrimônio" e "Prejuízo".
+ *
+ * Com `cnpj`, decodifica só o cabeçalho e as linhas que contêm o CNPJ, achadas nos
+ * bytes: virar texto o CSV inteiro (o BPP do ITR passa de 40 MB) levava o processo a
+ * mais de 1,5 GB. O resultado é um CSV menor no mesmo formato, e `linhasComCnpj` acha
+ * nele as mesmas linhas que acharia no arquivo inteiro: cada caractere latin1 é um
+ * byte, e o CNPJ é ASCII. Os arquivos são descompactados um de cada vez, para só um
+ * deles estar em memória.
  */
-export function lerCsvsDoZip(zip: Uint8Array, nomes: string[]): Map<string, string> {
-  const arquivos = unzipSync(zip, { filter: (f) => nomes.includes(f.name) });
-  const decodificador = new TextDecoder("latin1");
-  return new Map(Object.entries(arquivos).map(([nome, bytes]) => [nome, decodificador.decode(bytes)]));
+export function lerCsvsDoZip(zip: Uint8Array, nomes: string[], cnpj?: string): Map<string, string> {
+  const csvs = new Map<string, string>();
+  for (const nome of nomes) {
+    const bytes = unzipSync(zip, {
+      filter: (f) => f.name === nome && f.originalSize <= MAX_CSV_DESCOMPACTADO,
+    })[nome];
+    if (!bytes) continue;
+    csvs.set(nome, cnpj === undefined ? LATIN1.decode(bytes) : linhasDoCnpjEmBytes(bytes, cnpj));
+  }
+  return csvs;
+}
+
+/** O cabeçalho e as linhas que contêm o CNPJ, decodificados e unidos por "\n". */
+function linhasDoCnpjEmBytes(bytes: Uint8Array, cnpj: string): string {
+  const buf = Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const fimDoCabecalho = buf.indexOf(0x0a);
+  if (fimDoCabecalho < 0) return "";
+  const linhas = [LATIN1.decode(bytes.subarray(0, fimDoCabecalho))];
+  if (!cnpj) return linhas[0] ?? "";
+  const agulha = Buffer.from(cnpj, "latin1");
+  let posicao = buf.indexOf(agulha, fimDoCabecalho);
+  while (posicao >= 0) {
+    const inicio = buf.lastIndexOf(0x0a, posicao) + 1;
+    let fim = buf.indexOf(0x0a, posicao);
+    if (fim < 0) fim = buf.length;
+    linhas.push(LATIN1.decode(bytes.subarray(inicio, fim)));
+    posicao = buf.indexOf(agulha, fim);
+  }
+  return linhas.join("\n");
 }
 
 export type LinhaCsv = Record<string, string>;
@@ -83,6 +137,7 @@ function paraLinha(cabecalho: string[], linha: string): LinhaCsv {
  * companhia buscada ocupa algumas centenas de linhas dele.
  */
 export function linhasComCnpj(csv: string, cnpj: string): LinhaCsv[] {
+  if (!cnpj) return []; // indexOf("") casaria em toda posição, e o laço não terminaria
   const fimCabecalho = csv.indexOf("\n");
   if (fimCabecalho < 0) return [];
   const cabecalho = csv.slice(0, fimCabecalho).replace(/\r$/, "").split(";");
@@ -273,7 +328,7 @@ export async function buscarDadosAcao(cnpj: string, periodo: Trimestre): Promise
         bpa: `${prefixo}_BPA_${sufixo}_${periodo.ano}.csv`,
         bpp: `${prefixo}_BPP_${sufixo}_${periodo.ano}.csv`,
       };
-      const csvs = lerCsvsDoZip(zip, Object.values(nomes));
+      const csvs = lerCsvsDoZip(zip, Object.values(nomes), cnpj);
       const dados = montarDadosAcao(
         {
           indice: csvs.get(nomes.indice) ?? "",
@@ -458,7 +513,7 @@ export async function buscarDadosFii(cnpj: string, periodo: Mes): Promise<DadosF
       complemento: `inf_mensal_fii_complemento_${periodo.ano}.csv`,
       ativoPassivo: `inf_mensal_fii_ativo_passivo_${periodo.ano}.csv`,
     };
-    const csvs = lerCsvsDoZip(zip, Object.values(nomes));
+    const csvs = lerCsvsDoZip(zip, Object.values(nomes), cnpj);
     return montarDadosFii(
       {
         geral: csvs.get(nomes.geral) ?? "",
