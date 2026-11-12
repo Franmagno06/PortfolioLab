@@ -22,7 +22,10 @@ if (env.NODE_ENV === "production" && env.AQUECER_CATALOGO) {
 
 // Séries de índices: o primeiro visitante não paga o SGS lento (cada série tem janelas de 5 anos)
 // nem o backfill histórico da B3 em ambiente de desenvolvimento ou produção.
-if (env.NODE_ENV !== "test") {
+// AQUECER_CATALOGO=false também desliga este: no Render gratuito (0,1 CPU) o aquecimento (Yahoo, SGS e
+// backfill da B3) estourava os 5 s do health check logo após a subida, e o Render reiniciava o serviço.
+// A leitura continua preguiçosa: o primeiro GET /indices/dados monta e guarda a série.
+if (env.NODE_ENV !== "test" && env.AQUECER_CATALOGO) {
   void indicesService.aquecer();
 }
 
