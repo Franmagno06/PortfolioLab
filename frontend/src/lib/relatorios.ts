@@ -7,15 +7,27 @@ import { mesCurto } from "./format";
  * testado em relatorios.test.ts.
  */
 
-export type Alerta = { titulo: string; severidade: "info" | "atencao" | "critico"; detalhe: string };
+/**
+ * Um ponto marcado por corte fixo no backend (resumo-cvm.ts). `criterio` é a regra que o gerou; falta nas
+ * análises anteriores à versão 3. "info" só existe nessas análises antigas.
+ */
+export type Alerta = { titulo: string; severidade: "info" | "atencao" | "critico"; detalhe: string; criterio?: string };
+export type Destaque = { titulo: string; detalhe: string; criterio?: string };
+export type BlocoDoResumo = { titulo: string; itens: string[] };
 
 export type Analise = {
   /** Presente nas análises montadas pelas regras atuais do backend; ausente nas antigas. */
   versao?: number;
   tipoDocumento: string;
-  resumoExecutivo: string[];
+  /** Resumo em blocos (versão 3 em diante). */
+  blocos?: BlocoDoResumo[];
+  /** Resumo em lista solta: análises da versão 2 e relatórios antigos de PDF. */
+  resumoExecutivo?: string[];
+  /** "Destaques do período" (versão 3 em diante). */
+  destaques?: Destaque[];
   alertas: Alerta[];
-  indicadores: { nome: string; valor: string }[];
+  /** `definicao` vem da versão 3 em diante. */
+  indicadores: { nome: string; valor: string; definicao?: string }[];
   /** Data-base do documento, "AAAA-MM-DD". */
   dataReferencia?: string;
   /** Página do documento no sistema da CVM. */
@@ -124,7 +136,8 @@ export type TabelaComparativa = {
    */
   colunas: { id: string; periodo: string; rotulo: string; anoInteiro: boolean }[];
   /** Uma linha por indicador; `valores` na ordem das colunas, null onde o período não traz o indicador. */
-  linhas: { nome: string; valores: (string | null)[] }[];
+  /** `definicao`: a do período mais recente que a traz; null em análise antiga. */
+  linhas: { nome: string; definicao: string | null; valores: (string | null)[] }[];
 };
 
 /**
@@ -149,7 +162,54 @@ export function tabelaComparativa(periodos: Relatorio[], maximo = 4): TabelaComp
     })),
     linhas: nomes.map((nome) => ({
       nome,
+      definicao:
+        recentes.map((r) => r.analysis.indicadores.find((i) => i.nome === nome)?.definicao).find((d) => !!d) ?? null,
       valores: recentes.map((r) => r.analysis.indicadores.find((i) => i.nome === nome)?.valor ?? null),
     })),
   };
+}
+
+/**
+ * O resumo do documento em blocos. Análise da versão 3 traz os blocos com título; a antiga (lista solta)
+ * vira um bloco só, sem título. Bloco sem item não entra.
+ */
+export function blocosDoResumo(a: Analise): { titulo: string | null; itens: string[] }[] {
+  if (a.blocos && a.blocos.length > 0) return a.blocos.filter((b) => b.itens.length > 0);
+  const itens = a.resumoExecutivo ?? [];
+  return itens.length > 0 ? [{ titulo: null, itens }] : [];
+}
+
+export type GrupoDePontos = {
+  chave: "destaque" | "atencao" | "critico" | "info";
+  titulo: string;
+  itens: { titulo: string; detalhe: string; criterio: string | null }[];
+};
+
+const TITULOS_DOS_GRUPOS: Record<GrupoDePontos["chave"], string> = {
+  destaque: "Destaques do período",
+  atencao: "Pontos de atenção",
+  critico: "Pontos críticos",
+  // só nas análises antigas: a versão 3 levou esses fatos para o resumo
+  info: "Para saber",
+};
+
+/**
+ * Os pontos marcados pelos cortes fixos, nos grupos e na ordem da tela: destaques, atenção, críticos (e
+ * "Para saber", só em análise antiga). Grupo sem ponto não entra.
+ */
+export function gruposDePontos(a: Analise): GrupoDePontos[] {
+  const ponto = (p: { titulo: string; detalhe: string; criterio?: string }) => ({
+    titulo: p.titulo,
+    detalhe: p.detalhe,
+    criterio: p.criterio ?? null,
+  });
+  const grupos: GrupoDePontos[] = [
+    { chave: "destaque", titulo: TITULOS_DOS_GRUPOS.destaque, itens: (a.destaques ?? []).map(ponto) },
+    ...(["atencao", "critico", "info"] as const).map((chave) => ({
+      chave,
+      titulo: TITULOS_DOS_GRUPOS[chave],
+      itens: a.alertas.filter((x) => x.severidade === chave).map(ponto),
+    })),
+  ];
+  return grupos.filter((g) => g.itens.length > 0);
 }

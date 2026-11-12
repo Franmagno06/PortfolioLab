@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   agruparPorAtivo,
+  blocosDoResumo,
   ehAnoInteiro,
   ehOficial,
+  gruposDePontos,
   periodoAnterior,
   relatoriosAntigos,
   rotuloDoPeriodo,
@@ -166,9 +168,9 @@ describe("tabelaComparativa", () => {
 
     expect(t?.colunas.map((c) => c.rotulo)).toEqual(["2T26", "1T26"]);
     expect(t?.linhas).toEqual([
-      { nome: "Receita", valores: ["R$ 1,07 bi (-15,4%)", "R$ 1,00 bi"] },
-      { nome: "Lucro", valores: ["R$ 567,14 mi", "R$ 300,00 mi"] },
-      { nome: "Margem líquida", valores: ["53,1%", null] },
+      { nome: "Receita", definicao: null, valores: ["R$ 1,07 bi (-15,4%)", "R$ 1,00 bi"] },
+      { nome: "Lucro", definicao: null, valores: ["R$ 567,14 mi", "R$ 300,00 mi"] },
+      { nome: "Margem líquida", definicao: null, valores: ["53,1%", null] },
     ]);
   });
 
@@ -209,5 +211,73 @@ describe("tabelaComparativa", () => {
   it("com um período só (ou nenhum) não há tabela", () => {
     expect(tabelaComparativa(doGrupo([relatorio("BBAS3", "2026-T1")]))).toBeNull();
     expect(tabelaComparativa([])).toBeNull();
+  });
+});
+
+describe("tabelaComparativa: definição do indicador", () => {
+  it("leva a definição do período mais recente que a traz; análise antiga sem definição fica com null", () => {
+    const novo = relatorio("BBAS3", "2026-T2", [["Margem líquida", "20,0%"]]);
+    novo.analysis!.indicadores[0]!.definicao = "Lucro ÷ receita, no mesmo período.";
+    const t = tabelaComparativa([novo, relatorio("BBAS3", "2026-T1", [["Margem líquida", "18,0%"], ["Lucro", "R$ 1,00 bi"]])]);
+
+    expect(t?.linhas.map((l) => [l.nome, l.definicao])).toEqual([
+      ["Margem líquida", "Lucro ÷ receita, no mesmo período."],
+      ["Lucro", null],
+    ]);
+  });
+});
+
+describe("blocosDoResumo", () => {
+  it("análise nova: os blocos como vieram, sem bloco vazio", () => {
+    const a = relatorio("BBAS3", "2026-T2").analysis!;
+    a.blocos = [
+      { titulo: "O documento", itens: ["Texto."] },
+      { titulo: "Balanço na data-base", itens: [] },
+    ];
+
+    expect(blocosDoResumo(a)).toEqual([{ titulo: "O documento", itens: ["Texto."] }]);
+  });
+
+  it("análise antiga (lista solta): um bloco só, sem título", () => {
+    const a = { tipoDocumento: "ITR", resumoExecutivo: ["texto antigo"], alertas: [], indicadores: [] };
+
+    expect(blocosDoResumo(a)).toEqual([{ titulo: null, itens: ["texto antigo"] }]);
+    expect(blocosDoResumo({ tipoDocumento: "ITR", alertas: [], indicadores: [] })).toEqual([]);
+  });
+});
+
+describe("gruposDePontos", () => {
+  it("três grupos na ordem da tela, cada ponto com o critério, e grupo vazio não entra", () => {
+    const a = relatorio("BBAS3", "2026-T2").analysis!;
+    a.destaques = [{ titulo: "Lucro no período", detalhe: "Lucro: R$ 1,00 bi.", criterio: "lucro do período acima de zero" }];
+    a.alertas = [
+      { titulo: "Prejuízo", severidade: "critico", detalhe: "d1", criterio: "c1" },
+      { titulo: "Receita em queda", severidade: "atencao", detalhe: "d2", criterio: "c2" },
+    ];
+
+    const grupos = gruposDePontos(a);
+    expect(grupos.map((g) => g.titulo)).toEqual(["Destaques do período", "Pontos de atenção", "Pontos críticos"]);
+    expect(grupos[0]?.itens[0]).toEqual({ titulo: "Lucro no período", detalhe: "Lucro: R$ 1,00 bi.", criterio: "lucro do período acima de zero" });
+
+    a.destaques = [];
+    a.alertas = [{ titulo: "Prejuízo", severidade: "critico", detalhe: "d1", criterio: "c1" }];
+    expect(gruposDePontos(a).map((g) => g.titulo)).toEqual(["Pontos críticos"]);
+  });
+
+  it("análise antiga: sem destaques e sem critério, e o 'info' de antes vira o grupo Para saber", () => {
+    const a = {
+      tipoDocumento: "ITR",
+      resumoExecutivo: [],
+      indicadores: [],
+      alertas: [
+        { titulo: "Menos cotistas", severidade: "info" as const, detalhe: "d" },
+        { titulo: "Queda", severidade: "atencao" as const, detalhe: "d" },
+      ],
+    };
+
+    const grupos = gruposDePontos(a);
+    expect(grupos.map((g) => g.titulo)).toEqual(["Pontos de atenção", "Para saber"]);
+    expect(grupos[0]?.itens[0]?.criterio).toBeNull();
+    expect(gruposDePontos({ tipoDocumento: "ITR", alertas: [], indicadores: [] })).toEqual([]);
   });
 });

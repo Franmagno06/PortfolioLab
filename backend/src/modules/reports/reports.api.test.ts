@@ -76,7 +76,14 @@ describe("POST /reports", () => {
       asset: { ticker: TICKER, type: "ACAO" },
     });
     expect(res.body.analysis.tipoDocumento).toBe("Informações Trimestrais (ITR)");
-    expect(res.body.analysis.indicadores).toContainEqual({ nome: "Margem líquida", valor: "20,0%" });
+    expect(res.body.analysis.indicadores).toContainEqual({
+      nome: "Margem líquida",
+      valor: "20,0%",
+      definicao: "Lucro ÷ receita, no mesmo período.",
+    });
+    expect(res.body.analysis.versao).toBe(3);
+    expect(res.body.analysis.destaques.map((d: { titulo: string }) => d.titulo)).toContain("Lucro no período");
+    expect(res.body.analysis.blocos[0].titulo).toBe("O documento");
   });
 
   it("pedir de novo o mesmo período devolve o mesmo relatório com 200, sem duplicar", async () => {

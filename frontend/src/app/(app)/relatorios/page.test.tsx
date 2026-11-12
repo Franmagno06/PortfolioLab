@@ -25,13 +25,17 @@ function relatorio(ticker: string, period: string, extra: Partial<Relatorio> = {
     period,
     asset: { ticker, name: `${ticker} S.A.`, type: tri ? "ACAO" : "FII" },
     analysis: {
-      versao: 2,
+      versao: 3,
       tipoDocumento: tri ? "Informações Trimestrais (ITR)" : "Informe Mensal de FII",
-      resumoExecutivo: [`Resumo de ${ticker} em ${period}.`],
+      blocos: [
+        { titulo: "O documento", itens: [`Resumo de ${ticker} em ${period}.`] },
+        { titulo: "Balanço na data-base", itens: [`Balanço de ${ticker} em ${period}.`] },
+      ],
+      destaques: [],
       alertas: [],
       indicadores: [
-        { nome: "Lucro", valor: `lucro de ${period}` },
-        { nome: "Patrimônio líquido", valor: `PL de ${period}` },
+        { nome: "Lucro", valor: `lucro de ${period}`, definicao: "Resultado depois de custos e impostos." },
+        { nome: "Patrimônio líquido", valor: `PL de ${period}`, definicao: "Ativo total menos obrigações." },
       ],
       dataReferencia: tri ? "2026-06-30" : "2026-09-01",
       link: tri ? "https://www.rad.cvm.gov.br/doc/1" : null,
@@ -139,14 +143,85 @@ describe("tela de Relatórios: o que mostra", () => {
     expect(link.getAttribute("rel")).toContain("noopener");
   });
 
-  it("pontos de atenção aparecem com a gravidade escrita, não só na cor", async () => {
-    const comAlerta = relatorio("BBAS3", "2026-T2");
-    comAlerta.analysis!.alertas = [{ titulo: "Prejuízo no período", severidade: "critico", detalhe: "Lucro: R$ -50,00 mi." }];
-    await abrir({ relatorios: [comAlerta] });
+  it("o resumo vem em blocos com título, e cada indicador mostra a definição", async () => {
+    await abrir({ relatorios: [relatorio("MXRF11", "2026-09")] });
 
+    expect(screen.getByRole("heading", { name: "O documento", level: 3 })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Balanço na data-base", level: 3 })).toBeTruthy();
+    expect(screen.getByText("Balanço de MXRF11 em 2026-09.")).toBeTruthy();
+    expect(screen.getByText("Resultado depois de custos e impostos.")).toBeTruthy();
+  });
+
+  it("a tabela também mostra a definição embaixo do nome do indicador", async () => {
+    await abrir({ relatorios: BBAS3 });
+
+    const lucro = within(tabela()).getByRole("rowheader", { name: /^Lucro/ });
+    expect(lucro.textContent).toContain("Resultado depois de custos e impostos.");
+  });
+
+  it("os três grupos aparecem com o título e o critério de cada ponto", async () => {
+    const comPontos = relatorio("BBAS3", "2026-T2");
+    comPontos.analysis!.destaques = [
+      { titulo: "Lucro no período", detalhe: "Lucro: R$ 1,00 bi.", criterio: "lucro do período acima de zero" },
+    ];
+    comPontos.analysis!.alertas = [
+      { titulo: "Receita 15% ou mais abaixo da base de comparação", severidade: "atencao", detalhe: "Receita recuou 20%.", criterio: "receita 15% ou mais abaixo da base de comparação" },
+      { titulo: "Patrimônio líquido negativo", severidade: "critico", detalhe: "PL de R$ -1,00 mi.", criterio: "patrimônio líquido abaixo de zero" },
+    ];
+    await abrir({ relatorios: [comPontos] });
+
+    const titulos = screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent);
+    expect(titulos).toEqual(expect.arrayContaining(["Destaques do período", "Pontos de atenção", "Pontos críticos"]));
+    // a ordem da tela: destaques, atenção, críticos
+    const i = (t: string) => titulos.indexOf(t);
+    expect(i("Destaques do período")).toBeLessThan(i("Pontos de atenção"));
+    expect(i("Pontos de atenção")).toBeLessThan(i("Pontos críticos"));
+
+    const destaques = screen.getByRole("region", { name: "Destaques do período" });
+    expect(within(destaques).getByText("Lucro no período")).toBeTruthy();
+    expect(within(destaques).getByText("Critério: lucro do período acima de zero")).toBeTruthy();
+    expect(within(screen.getByRole("region", { name: "Pontos críticos" })).getByText("Critério: patrimônio líquido abaixo de zero")).toBeTruthy();
+    expect(screen.queryByText(/pontos positivos/i)).toBeNull();
+  });
+
+  it("grupo sem ponto não aparece", async () => {
+    const soDestaque = relatorio("BBAS3", "2026-T2");
+    soDestaque.analysis!.destaques = [{ titulo: "Lucro no período", detalhe: "d", criterio: "c" }];
+    await abrir({ relatorios: [soDestaque] });
+
+    expect(screen.getByRole("heading", { name: "Destaques do período" })).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "Pontos de atenção" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Pontos críticos" })).toBeNull();
+  });
+
+  it("sem nenhum ponto, nenhum dos grupos aparece", async () => {
+    await abrir({ relatorios: BBAS3 });
+
+    expect(screen.queryByRole("heading", { name: /Destaques do período|Pontos de atenção|Pontos críticos/ })).toBeNull();
+  });
+
+  it("relatório da versão anterior (lista solta, alerta 'info', sem critério) ainda abre", async () => {
+    const v2 = relatorio("MXRF11", "2026-09", {
+      analysis: {
+        versao: 2,
+        tipoDocumento: "Informe Mensal de FII",
+        resumoExecutivo: ["Resumo da versão 2."],
+        alertas: [
+          { titulo: "Menos cotistas que no mês anterior", severidade: "info", detalhe: "De 10 para 9." },
+          { titulo: "Dividend yield menor que no mês anterior", severidade: "atencao", detalhe: "Passou de 1,00% para 0,80%." },
+        ],
+        indicadores: [{ nome: "Dividend yield do mês", valor: "0,80%" }],
+        dataReferencia: "2026-09-01",
+        link: null,
+      },
+    });
+    await abrir({ relatorios: [v2] });
+
+    expect(screen.getByText("Resumo da versão 2.")).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Pontos de atenção" })).toBeTruthy();
-    expect(screen.getByText("Crítico:")).toBeTruthy();
-    expect(screen.getByText("Lucro: R$ -50,00 mi.")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Para saber" })).toBeTruthy();
+    expect(screen.queryByText(/^Critério:/)).toBeNull();
+    expect(screen.getByText("0,80%")).toBeTruthy();
   });
 
   it("conta sem relatório: diz o que fazer", async () => {

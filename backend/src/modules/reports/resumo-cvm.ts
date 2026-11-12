@@ -1,15 +1,20 @@
 import { Prisma } from "@prisma/client";
-import { VERSAO_DA_ANALISE, type Analise } from "./analise.js";
+import { VERSAO_DA_ANALISE, type Alerta, type Analise, type BlocoDoResumo, type Destaque } from "./analise.js";
 import type { ContaCvm, DadosAcao, DadosFii, InformeFii } from "./cvm.provider.js";
 
-// Transforma os números da CVM na análise que a tela mostra: indicadores, um resumo em frases e
-// pontos de atenção. Tudo por regra fixa. Três cuidados valem para o arquivo inteiro:
+// Transforma os números da CVM na análise que a tela mostra: indicadores com a definição de cada um,
+// um resumo em blocos e três grupos de pontos (destaques do período, atenção, críticos). Tudo por
+// regra fixa. Três cuidados valem para o arquivo inteiro:
 // - nenhum número é escrito aqui: todos vêm de `DadosCvm` ou de uma conta feita com eles;
-// - nenhuma frase julga ("saudável", "robusto", "preocupante") nem recomenda: diz o fato e a conta;
+// - nenhuma frase julga ("saudável", "robusto", "bom sinal", "forte") nem recomenda: diz o fato, a
+//   conta e a direção do número. Um destaque diz que o número subiu além de um corte; não diz que a
+//   empresa vai bem. Cada ponto leva o critério que o gerou;
 // - mudou o que este arquivo escreve ou calcula? Suba VERSAO_DA_ANALISE (analise.ts), ou o cache
 //   continua servindo o texto antigo.
 
 export type DadosCvm = DadosAcao | DadosFii;
+
+type Resultado = Pick<Analise, "blocos" | "destaques" | "alertas">;
 
 const CEM = new Prisma.Decimal(100);
 
@@ -38,6 +43,15 @@ function pctVariacao(atual: Prisma.Decimal | null, anterior: Prisma.Decimal | nu
   return atual.minus(anterior).div(anterior.abs()).mul(CEM);
 }
 
+/**
+ * Variação percentual só quando as duas pontas são positivas. É a que os cortes usam: sobre base zero
+ * não há conta, e sobre base negativa (prejuízo, patrimônio negativo) o percentual não diz nada.
+ */
+function pctSobreBasePositiva(atual: Prisma.Decimal | null | undefined, anterior: Prisma.Decimal | null | undefined) {
+  if (!atual?.gt(0) || !anterior?.gt(0)) return null;
+  return pctVariacao(atual, anterior);
+}
+
 /** Variação percentual de `anterior` para `atual`, com sinal: "+12,5%". Null quando não há base. */
 export function variacao(atual: Prisma.Decimal | null, anterior: Prisma.Decimal | null): string | null {
   const pct = pctVariacao(atual, anterior)?.toDecimalPlaces(1);
@@ -45,11 +59,20 @@ export function variacao(atual: Prisma.Decimal | null, anterior: Prisma.Decimal 
   // o que arredonda para zero sai sem sinal: "-0,0%" e "+0,0%" sugerem um movimento que não houve
   if (pct.isZero()) return "0,0%";
   const texto = pct.toNumber().toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
-  return pct.isNegative() ? `${texto}%` : `+${texto}%`;
+  return pct.lt(0) ? `${texto}%` : `+${texto}%`;
+}
+
+/**
+ * Subiu de verdade: as duas pontas positivas e a alta aparece na casa que a tela mostra (+0,1% ou mais).
+ * Alta que arredonda para "0,0%" não é movimento.
+ */
+function subiuNaTela(atual: Prisma.Decimal | null | undefined, anterior: Prisma.Decimal | null | undefined): boolean {
+  return pctSobreBasePositiva(atual, anterior)?.toDecimalPlaces(1).gt(0) ?? false;
 }
 
 const inteiro = (d: Prisma.Decimal) => d.toNumber().toLocaleString("pt-BR", { maximumFractionDigits: 0 });
 const umaCasa = (d: Prisma.Decimal) => d.abs().toNumber().toLocaleString("pt-BR", { maximumFractionDigits: 1 });
+const semVazios = (blocos: BlocoDoResumo[]) => blocos.filter((b) => b.itens.length > 0);
 
 // ---------------------------------------------------------------------------
 // Ações
@@ -98,7 +121,8 @@ function comVariacao(conta: ContaCvm): string {
   return v ? `${formatarReais(conta.atual)} (${v})` : formatarReais(conta.atual);
 }
 
-const nomeDoLucro = (l: ContaCvm) => (/controladora/i.test(l.conta) ? "Lucro líquido atribuído aos controladores" : l.conta);
+const ehDosControladores = (l: ContaCvm) => /controladora/i.test(l.conta);
+const nomeDoLucro = (l: ContaCvm) => (ehDosControladores(l) ? "Lucro líquido atribuído aos controladores" : l.conta);
 
 /** Com o que a DRE compara: o trimestre contra o mesmo trimestre do ano anterior; a DFP, o exercício anterior. */
 const baseDaDre = (d: DadosAcao) => (d.documento === "DFP" ? "o exercício anterior" : "o mesmo trimestre do ano anterior");
@@ -111,16 +135,32 @@ const periodoDaDre = (d: DadosAcao) => (d.documento === "DFP" ? "exercício" : "
 function retornoSobrePatrimonio(d: DadosAcao): Prisma.Decimal | null {
   const l = lucro(d)?.atual;
   const pl = patrimonioLiquido(d)?.atual;
-  if (!l || !pl || !pl.isPositive()) return null;
+  if (!l || !pl || !pl.gt(0)) return null;
   return l.div(pl);
 }
 
 function margemLiquida(d: DadosAcao): Prisma.Decimal | null {
   const r = receita(d);
   const l = lucro(d)?.atual;
-  if (!r?.atual || !l || !r.atual.isPositive() || !temReceitaDeVenda(r)) return null;
+  if (!r?.atual || !l || !r.atual.gt(0) || !temReceitaDeVenda(r)) return null;
   return l.div(r.atual);
 }
+
+// As definições dizem o que a conta é ou como o indicador é calculado. Nenhuma diz se o número é alto ou baixo.
+const DEFINICAO = {
+  receitaDeVenda:
+    "Primeira linha da DRE (conta 3.01): o que a companhia vendeu no período, já sem os impostos sobre a venda, antes de custos e despesas.",
+  receitaDeOutroSetor:
+    "Primeira linha da DRE (conta 3.01), com o nome que o plano de contas do setor usa. Em banco, são juros e rendas de crédito, títulos e outras operações, antes do custo de captação; por isso não se calcula margem líquida sobre ela.",
+  lucro: "Resultado do período depois de custos, despesas, resultado financeiro e impostos. Abaixo de zero, é prejuízo.",
+  lucroDosControladores:
+    "Resultado do período depois de custos, despesas, resultado financeiro e impostos, na parte que cabe aos acionistas da companhia (sem a dos sócios minoritários das controladas).",
+  margem: "Lucro ÷ receita, no mesmo período.",
+  retornoTrimestre: "Lucro do trimestre ÷ patrimônio líquido na data-base, sem anualizar.",
+  retornoExercicio: "Lucro do exercício ÷ patrimônio líquido no fim do exercício.",
+  patrimonio: "O que pertence aos acionistas: ativo total menos as obrigações com terceiros. A variação é contra o fim do exercício anterior.",
+  ativo: "Tudo o que a companhia tem ou tem a receber na data-base. A variação é contra o fim do exercício anterior.",
+};
 
 function indicadoresAcao(d: DadosAcao): Analise["indicadores"] {
   const indicadores: Analise["indicadores"] = [];
@@ -131,20 +171,37 @@ function indicadoresAcao(d: DadosAcao): Analise["indicadores"] {
   const margem = margemLiquida(d);
   const retorno = retornoSobrePatrimonio(d);
 
-  if (r) indicadores.push({ nome: r.conta, valor: comVariacao(r) });
-  if (l) indicadores.push({ nome: nomeDoLucro(l), valor: comVariacao(l) });
-  if (margem) indicadores.push({ nome: "Margem líquida", valor: formatarFracao(margem, 1) });
-  if (retorno) {
-    indicadores.push({ nome: `Retorno sobre o patrimônio no ${periodoDaDre(d)}`, valor: formatarFracao(retorno, 1) });
+  if (r) {
+    indicadores.push({
+      nome: r.conta,
+      valor: comVariacao(r),
+      definicao: temReceitaDeVenda(r) ? DEFINICAO.receitaDeVenda : DEFINICAO.receitaDeOutroSetor,
+    });
   }
-  if (pl) indicadores.push({ nome: "Patrimônio líquido", valor: comVariacao(pl) });
-  if (at?.atual) indicadores.push({ nome: "Ativo total", valor: comVariacao(at) });
+  if (l) {
+    indicadores.push({
+      nome: nomeDoLucro(l),
+      valor: comVariacao(l),
+      definicao: ehDosControladores(l) ? DEFINICAO.lucroDosControladores : DEFINICAO.lucro,
+    });
+  }
+  if (margem) indicadores.push({ nome: "Margem líquida", valor: formatarFracao(margem, 1), definicao: DEFINICAO.margem });
+  if (retorno) {
+    indicadores.push({
+      nome: `Retorno sobre o patrimônio no ${periodoDaDre(d)}`,
+      valor: formatarFracao(retorno, 1),
+      definicao: d.documento === "DFP" ? DEFINICAO.retornoExercicio : DEFINICAO.retornoTrimestre,
+    });
+  }
+  if (pl) indicadores.push({ nome: "Patrimônio líquido", valor: comVariacao(pl), definicao: DEFINICAO.patrimonio });
+  if (at?.atual) indicadores.push({ nome: "Ativo total", valor: comVariacao(at), definicao: DEFINICAO.ativo });
   return indicadores;
 }
 
-function analiseAcao(d: DadosAcao): Pick<Analise, "resumoExecutivo" | "alertas"> {
-  const resumoExecutivo: string[] = [];
-  const alertas: Analise["alertas"] = [];
+/** Variação, em %, a partir da qual receita ou lucro viram destaque (para cima) ou atenção (para baixo). Um corte fixo, não um juízo. */
+const CORTE_DE_VARIACAO = 15;
+
+function blocosAcao(d: DadosAcao): BlocoDoResumo[] {
   const r = receita(d);
   const l = lucro(d);
   const pl = patrimonioLiquido(d);
@@ -153,81 +210,164 @@ function analiseAcao(d: DadosAcao): Pick<Analise, "resumoExecutivo" | "alertas">
   const retorno = retornoSobrePatrimonio(d);
   const base = baseDaDre(d);
 
-  resumoExecutivo.push(
+  const documento = [
     `${d.denominacao}: demonstrações ${d.consolidado ? "consolidadas" : "individuais"} do ${periodoDaDre(d)} ` +
       `encerrado em ${dataPorExtenso(d.dataReferencia)}. O resultado é comparado com ${base}; ` +
       `o balanço, com o fim do exercício anterior.`,
-  );
+    d.documento === "DFP"
+      ? "As Demonstrações Financeiras Padronizadas (DFP) reúnem o exercício inteiro e são auditadas por auditor independente registrado na CVM. A DRE mostra receitas, custos e lucro do exercício; o balanço, o que a companhia tem (ativo) e o que deve (passivo) no fim dele."
+      : "As Informações Trimestrais (ITR) são as demonstrações que a companhia aberta entrega à CVM a cada trimestre. A DRE mostra receitas, custos e lucro do trimestre; o balanço, o que a companhia tem (ativo) e o que deve (passivo) na data-base.",
+    d.consolidado
+      ? "Consolidadas: somam a companhia e as controladas como um grupo só."
+      : "Individuais: só a companhia, sem somar as controladas.",
+  ];
 
+  const resultado: string[] = [];
   if (r?.atual) {
     const v = variacao(r.atual, r.anterior);
-    resumoExecutivo.push(`${r.conta}: ${formatarReais(r.atual)}${v ? `, ${v} contra ${base}` : ""}.`);
+    resultado.push(`${r.conta}: ${formatarReais(r.atual)}${v ? `, ${v} contra ${base}` : ""}.`);
   }
   if (l?.atual) {
     const v = variacao(l.atual, l.anterior);
-    resumoExecutivo.push(`${nomeDoLucro(l)}: ${formatarReais(l.atual)}${v ? `, ${v} contra ${base}` : ""}.`);
+    resultado.push(`${nomeDoLucro(l)}: ${formatarReais(l.atual)}${v ? `, ${v} contra ${base}` : ""}.`);
   }
   if (margem) {
-    resumoExecutivo.push(`Margem líquida (lucro dividido pela receita): ${formatarFracao(margem, 1)}.`);
+    resultado.push(`Margem líquida (lucro dividido pela receita): ${formatarFracao(margem, 1)}.`);
   }
   if (retorno) {
-    resumoExecutivo.push(
+    resultado.push(
       d.documento === "DFP"
         ? `Retorno sobre o patrimônio no exercício (lucro dividido pelo patrimônio líquido): ${formatarFracao(retorno, 1)}.`
         : `Retorno sobre o patrimônio no trimestre (lucro do trimestre dividido pelo patrimônio líquido, sem anualizar): ${formatarFracao(retorno, 1)}.`,
     );
   }
+
+  const balanco: string[] = [];
   if (pl?.atual) {
     const v = variacao(pl.atual, pl.anterior);
-    resumoExecutivo.push(`Patrimônio líquido: ${formatarReais(pl.atual)}${v ? `, ${v} desde o fim do exercício anterior` : ""}.`);
+    balanco.push(`Patrimônio líquido: ${formatarReais(pl.atual)}${v ? `, ${v} desde o fim do exercício anterior` : ""}.`);
   }
   if (at?.atual) {
     const v = variacao(at.atual, at.anterior);
-    resumoExecutivo.push(`Ativo total: ${formatarReais(at.atual)}${v ? `, ${v} desde o fim do exercício anterior` : ""}.`);
+    balanco.push(`Ativo total: ${formatarReais(at.atual)}${v ? `, ${v} desde o fim do exercício anterior` : ""}.`);
+  }
+  // identidade contábil: ativo = passivo com terceiros + patrimônio líquido. Só com ativo positivo (divisão protegida).
+  if (at?.atual?.gt(0) && pl?.atual) {
+    const terceiros = at.atual.minus(pl.atual);
+    if (!terceiros.lt(0)) {
+      balanco.push(
+        `Obrigações com terceiros (ativo total menos patrimônio líquido): ${formatarReais(terceiros)}, ${formatarFracao(terceiros.div(at.atual), 1)} do ativo.`,
+      );
+    }
   }
 
-  if (l?.atual?.isNegative()) {
-    alertas.push({
-      titulo: "Prejuízo no período",
-      severidade: "critico",
-      detalhe: `${nomeDoLucro(l)}: ${formatarReais(l.atual)}.`,
+  return semVazios([
+    { titulo: "O documento", itens: documento },
+    { titulo: `Resultado do ${periodoDaDre(d)}`, itens: resultado },
+    { titulo: "Balanço na data-base", itens: balanco },
+  ]);
+}
+
+function destaquesAcao(d: DadosAcao): Destaque[] {
+  const destaques: Destaque[] = [];
+  const r = receita(d);
+  const l = lucro(d);
+  const pl = patrimonioLiquido(d);
+  const base = baseDaDre(d);
+
+  const varReceita = pctSobreBasePositiva(r?.atual, r?.anterior);
+  if (r && varReceita?.gte(CORTE_DE_VARIACAO)) {
+    destaques.push({
+      titulo: `Receita ${CORTE_DE_VARIACAO}% ou mais acima da base de comparação`,
+      detalhe: `${r.conta} subiu ${umaCasa(varReceita)}% contra ${base}.`,
+      criterio: `receita ${CORTE_DE_VARIACAO}% ou mais acima da base de comparação`,
     });
   }
 
-  if (pl?.atual?.isNegative()) {
-    alertas.push({
-      titulo: "Patrimônio líquido negativo",
-      severidade: "critico",
-      detalhe: `O passivo supera o ativo: patrimônio líquido de ${formatarReais(pl.atual)}.`,
+  if (l?.atual?.gt(0)) {
+    const naBase = l.anterior && !l.anterior.gt(0) ? ` Na base de comparação, o resultado foi de ${formatarReais(l.anterior)}.` : "";
+    destaques.push({
+      titulo: "Lucro no período",
+      detalhe: `${nomeDoLucro(l)}: ${formatarReais(l.atual)}.${naBase}`,
+      criterio: "lucro do período acima de zero",
     });
-  }
 
-  const varReceita = pctVariacao(r?.atual ?? null, r?.anterior ?? null);
-  if (r && varReceita && varReceita.lte(-QUEDA_QUE_VIRA_ALERTA)) {
-    alertas.push({
-      titulo: `Receita ${QUEDA_QUE_VIRA_ALERTA}% ou mais abaixo da base de comparação`,
-      severidade: "atencao",
-      detalhe: `${r.conta} recuou ${umaCasa(varReceita)}% contra ${base}.`,
-    });
-  }
-
-  // lucro que virou prejuízo já tem o alerta de cima; variação sobre base negativa não diz nada
-  if (l?.atual && l.anterior && !l.atual.isNegative() && l.anterior.isPositive()) {
-    const varLucro = pctVariacao(l.atual, l.anterior);
-    if (varLucro && varLucro.lte(-QUEDA_QUE_VIRA_ALERTA)) {
-      alertas.push({
-        titulo: `Lucro ${QUEDA_QUE_VIRA_ALERTA}% ou mais abaixo da base de comparação`,
-        severidade: "atencao",
-        detalhe: `${nomeDoLucro(l)} recuou ${umaCasa(varLucro)}% contra ${base}.`,
+    const varLucro = pctSobreBasePositiva(l.atual, l.anterior);
+    if (varLucro?.gte(CORTE_DE_VARIACAO)) {
+      destaques.push({
+        titulo: `Lucro ${CORTE_DE_VARIACAO}% ou mais acima da base de comparação`,
+        detalhe: `${nomeDoLucro(l)} subiu ${umaCasa(varLucro)}% contra ${base}.`,
+        criterio: `lucro ${CORTE_DE_VARIACAO}% ou mais acima da base de comparação, com lucro nos dois períodos`,
       });
     }
   }
 
-  return { resumoExecutivo, alertas };
+  if (pl?.atual && pl.anterior && subiuNaTela(pl.atual, pl.anterior)) {
+    destaques.push({
+      titulo: "Patrimônio líquido maior que no fim do exercício anterior",
+      detalhe: `De ${formatarReais(pl.anterior)} para ${formatarReais(pl.atual)} (${variacao(pl.atual, pl.anterior)}).`,
+      criterio: "patrimônio líquido acima do fim do exercício anterior",
+    });
+  }
+
+  return destaques;
 }
 
-/** Queda, em %, a partir da qual receita ou lucro viram ponto de atenção. Um corte fixo, não um juízo. */
-const QUEDA_QUE_VIRA_ALERTA = 15;
+function alertasAcao(d: DadosAcao): Alerta[] {
+  const alertas: Alerta[] = [];
+  const r = receita(d);
+  const l = lucro(d);
+  const pl = patrimonioLiquido(d);
+  const base = baseDaDre(d);
+
+  if (l?.atual?.lt(0)) {
+    alertas.push({
+      titulo: "Prejuízo no período",
+      severidade: "critico",
+      detalhe: `${nomeDoLucro(l)}: ${formatarReais(l.atual)}.`,
+      criterio: "lucro do período abaixo de zero",
+    });
+  }
+
+  if (pl?.atual?.lt(0)) {
+    alertas.push({
+      titulo: "Patrimônio líquido negativo",
+      severidade: "critico",
+      detalhe: `O passivo supera o ativo: patrimônio líquido de ${formatarReais(pl.atual)}.`,
+      criterio: "patrimônio líquido abaixo de zero",
+    });
+  }
+
+  // receita com base zero ou negativa não tem variação que se compare
+  const varReceita = r?.anterior?.gt(0) ? pctVariacao(r.atual, r.anterior) : null;
+  if (r && varReceita?.lte(-CORTE_DE_VARIACAO)) {
+    alertas.push({
+      titulo: `Receita ${CORTE_DE_VARIACAO}% ou mais abaixo da base de comparação`,
+      severidade: "atencao",
+      detalhe: `${r.conta} recuou ${umaCasa(varReceita)}% contra ${base}.`,
+      criterio: `receita ${CORTE_DE_VARIACAO}% ou mais abaixo da base de comparação`,
+    });
+  }
+
+  // lucro que virou prejuízo já tem o alerta de cima; variação sobre base negativa não diz nada
+  if (l?.atual && l.anterior && !l.atual.lt(0) && l.anterior.gt(0)) {
+    const varLucro = pctVariacao(l.atual, l.anterior);
+    if (varLucro?.lte(-CORTE_DE_VARIACAO)) {
+      alertas.push({
+        titulo: `Lucro ${CORTE_DE_VARIACAO}% ou mais abaixo da base de comparação`,
+        severidade: "atencao",
+        detalhe: `${nomeDoLucro(l)} recuou ${umaCasa(varLucro)}% contra ${base}.`,
+        criterio: `lucro ${CORTE_DE_VARIACAO}% ou mais abaixo da base de comparação, com lucro nos dois períodos`,
+      });
+    }
+  }
+
+  return alertas;
+}
+
+function analiseAcao(d: DadosAcao): Resultado {
+  return { blocos: blocosAcao(d), destaques: destaquesAcao(d), alertas: alertasAcao(d) };
+}
 
 // ---------------------------------------------------------------------------
 // FIIs
@@ -237,15 +377,37 @@ type CampoFii = {
   nome: string;
   valor: (i: InformeFii) => Prisma.Decimal | null;
   formato: "reais" | "fracao" | "inteiro";
+  definicao: string;
 };
 
-// Os campos do informe que viram indicador na tela, na ordem em que aparecem.
+// Os campos do informe que viram indicador na tela, na ordem em que aparecem. As taxas (DY e
+// rentabilidade) são calculadas pelo administrador do fundo; a definição não inventa a fórmula dele.
 const INDICADORES_FII: CampoFii[] = [
-  { nome: "Patrimônio líquido", valor: (i) => i.patrimonioLiquido, formato: "reais" },
-  { nome: "Valor patrimonial por cota", valor: (i) => i.valorPatrimonialCota, formato: "reais" },
-  { nome: "Dividend yield do mês", valor: (i) => i.dividendYieldMes, formato: "fracao" },
-  { nome: "Rentabilidade efetiva do mês", valor: (i) => i.rentabilidadeEfetivaMes, formato: "fracao" },
-  { nome: "Número de cotistas", valor: (i) => i.cotistas, formato: "inteiro" },
+  { nome: "Patrimônio líquido", valor: (i) => i.patrimonioLiquido, formato: "reais", definicao: "Ativo do fundo menos o passivo." },
+  {
+    nome: "Valor patrimonial por cota",
+    valor: (i) => i.valorPatrimonialCota,
+    formato: "reais",
+    definicao: "Patrimônio líquido ÷ número de cotas emitidas.",
+  },
+  {
+    nome: "Dividend yield do mês",
+    valor: (i) => i.dividendYieldMes,
+    formato: "fracao",
+    definicao: "Percentual de rendimento do mês, calculado e informado pelo próprio fundo à CVM.",
+  },
+  {
+    nome: "Rentabilidade efetiva do mês",
+    valor: (i) => i.rentabilidadeEfetivaMes,
+    formato: "fracao",
+    definicao: "Rentabilidade do mês, calculada e informada pelo próprio fundo à CVM.",
+  },
+  {
+    nome: "Número de cotistas",
+    valor: (i) => i.cotistas,
+    formato: "inteiro",
+    definicao: "Quantidade de investidores com cotas do fundo no fim do mês.",
+  },
 ];
 
 function formatarCampo(valor: Prisma.Decimal, formato: CampoFii["formato"]): string {
@@ -261,7 +423,7 @@ function indicadoresFii(d: DadosFii): Analise["indicadores"] {
     // variação percentual de uma taxa (DY, rentabilidade) confunde: fica só o valor do mês
     const v = c.formato === "fracao" || !d.mesAnterior ? null : variacao(atual, c.valor(d.mesAnterior));
     const texto = formatarCampo(atual, c.formato);
-    return [{ nome: c.nome, valor: v ? `${texto} (${v} no mês)` : texto }];
+    return [{ nome: c.nome, valor: v ? `${texto} (${v} no mês)` : texto, definicao: c.definicao }];
   });
 }
 
@@ -269,6 +431,18 @@ function indicadoresFii(d: DadosFii): Analise["indicadores"] {
 const PASSIVO_QUE_VIRA_ALERTA = new Prisma.Decimal("0.15");
 /** Grupo da carteira abaixo desta fração do ativo não entra na frase da composição. */
 const FATIA_QUE_ENTRA_NA_COMPOSICAO = new Prisma.Decimal("0.005");
+
+/**
+ * Taxa do mês contra a do mês anterior, na precisão que a tela mostra (duas casas do percentual, quatro
+ * da fração). Diferença que some no arredondamento não é movimento: "1,00% para 1,00%" não é queda.
+ * -1, 0 ou 1; null sem as duas taxas.
+ */
+function compararTaxa(atual: Prisma.Decimal | null, anterior: Prisma.Decimal | null | undefined): -1 | 0 | 1 | null {
+  if (!atual || !anterior) return null;
+  const a = atual.toDecimalPlaces(4);
+  const b = anterior.toDecimalPlaces(4);
+  return a.gt(b) ? 1 : a.lt(b) ? -1 : 0;
+}
 
 /**
  * Os grandes grupos do ativo do fundo, com a fatia de cada um. Usa os totais que somam várias colunas
@@ -283,18 +457,16 @@ function composicaoDoAtivo(m: InformeFii): string[] {
     ["cotas de outros FIIs", m.cotasDeFii],
     ["caixa e aplicações de liquidez", m.liquidezTotal ?? m.disponibilidades],
   ];
-  const ativo = m.valorAtivo?.isPositive() ? m.valorAtivo : null;
+  const ativo = m.valorAtivo?.gt(0) ? m.valorAtivo : null;
   return grupos.flatMap(([nome, valor]) => {
-    if (!valor?.isPositive()) return [];
+    if (!valor?.gt(0)) return [];
     if (!ativo) return [`${nome}, ${formatarReais(valor)}`];
     const fatia = valor.div(ativo);
     return fatia.lt(FATIA_QUE_ENTRA_NA_COMPOSICAO) ? [] : [`${nome}, ${formatarReais(valor)} (${formatarFracao(fatia, 1)} do ativo)`];
   });
 }
 
-function analiseFii(d: DadosFii, rotulo: string): Pick<Analise, "resumoExecutivo" | "alertas"> {
-  const resumoExecutivo: string[] = [];
-  const alertas: Analise["alertas"] = [];
+function blocosFii(d: DadosFii, rotulo: string): BlocoDoResumo[] {
   const m = d.mes;
   const a = d.mesAnterior;
   const contraOMesAnterior = (atual: Prisma.Decimal, anterior: Prisma.Decimal | null | undefined) => {
@@ -305,84 +477,129 @@ function analiseFii(d: DadosFii, rotulo: string): Pick<Analise, "resumoExecutivo
   const perfil = [d.segmento && `segmento ${d.segmento}`, d.mandato && `mandato ${d.mandato}`, d.tipoGestao && `gestão ${d.tipoGestao}`]
     .filter(Boolean)
     .join(", ");
-  resumoExecutivo.push(`${d.nome}: informe mensal de ${rotulo}${perfil ? ` (${perfil})` : ""}.`);
+  const informe = [
+    `${d.nome}: informe mensal de ${rotulo}${perfil ? ` (${perfil})` : ""}.`,
+    "O Informe Mensal é o documento que o fundo imobiliário entrega à CVM todo mês, com patrimônio, cotas, rendimento e a composição da carteira. As variações são contra o informe do mês anterior.",
+  ];
 
+  const cotas: string[] = [];
   if (m.patrimonioLiquido) {
-    resumoExecutivo.push(
-      `Patrimônio líquido: ${formatarReais(m.patrimonioLiquido)}${contraOMesAnterior(m.patrimonioLiquido, a?.patrimonioLiquido)}.`,
-    );
+    cotas.push(`Patrimônio líquido: ${formatarReais(m.patrimonioLiquido)}${contraOMesAnterior(m.patrimonioLiquido, a?.patrimonioLiquido)}.`);
   }
   if (m.valorPatrimonialCota) {
-    resumoExecutivo.push(
+    cotas.push(
       `Valor patrimonial por cota: ${formatarReais(m.valorPatrimonialCota)}${contraOMesAnterior(m.valorPatrimonialCota, a?.valorPatrimonialCota)}.`,
     );
   }
+  if (m.cotistas) {
+    cotas.push(`Cotistas: ${inteiro(m.cotistas)}${contraOMesAnterior(m.cotistas, a?.cotistas)}.`);
+  }
+  if (m.cotasEmitidas) {
+    const mudou = a?.cotasEmitidas && !a.cotasEmitidas.eq(m.cotasEmitidas) ? ` (eram ${inteiro(a.cotasEmitidas)} no mês anterior)` : "";
+    const emitiu = a?.cotasEmitidas && m.cotasEmitidas.gt(a.cotasEmitidas)
+      ? " Emissão de cotas aumenta o patrimônio e divide os rendimentos por mais cotas."
+      : "";
+    cotas.push(`Cotas emitidas: ${inteiro(m.cotasEmitidas)}${mudou}.${emitiu}`);
+  }
+
+  const rendimento: string[] = [];
   if (m.dividendYieldMes) {
     const antes = a?.dividendYieldMes ? ` (${formatarFracao(a.dividendYieldMes)} no mês anterior)` : "";
-    resumoExecutivo.push(`Dividend yield do mês, como o fundo informa à CVM: ${formatarFracao(m.dividendYieldMes)}${antes}.`);
+    rendimento.push(`Dividend yield do mês, como o fundo informa à CVM: ${formatarFracao(m.dividendYieldMes)}${antes}.`);
   }
   if (m.rentabilidadeEfetivaMes || m.rentabilidadePatrimonialMes) {
     const partes = [
       m.rentabilidadeEfetivaMes && `efetiva de ${formatarFracao(m.rentabilidadeEfetivaMes)}`,
       m.rentabilidadePatrimonialMes && `patrimonial de ${formatarFracao(m.rentabilidadePatrimonialMes)}`,
     ].filter(Boolean);
-    resumoExecutivo.push(`Rentabilidade no mês: ${partes.join(" e ")}.`);
+    rendimento.push(`Rentabilidade no mês: ${partes.join(" e ")}.`);
   }
-  if (m.cotistas) {
-    resumoExecutivo.push(`Cotistas: ${inteiro(m.cotistas)}${contraOMesAnterior(m.cotistas, a?.cotistas)}.`);
-  }
-  if (m.cotasEmitidas) {
-    const mudou = a?.cotasEmitidas && !a.cotasEmitidas.eq(m.cotasEmitidas) ? ` (eram ${inteiro(a.cotasEmitidas)} no mês anterior)` : "";
-    resumoExecutivo.push(`Cotas emitidas: ${inteiro(m.cotasEmitidas)}${mudou}.`);
-  }
-
-  const carteira = composicaoDoAtivo(m);
-  if (carteira.length > 0) resumoExecutivo.push(`Composição do ativo: ${carteira.join("; ")}.`);
-
-  if (m.totalPassivo?.isPositive()) resumoExecutivo.push(`Total do passivo: ${formatarReais(m.totalPassivo)}.`);
   if (m.taxaAdministracaoMes) {
-    resumoExecutivo.push(`Taxa de administração paga no mês: ${formatarFracao(m.taxaAdministracaoMes)} do patrimônio líquido.`);
+    rendimento.push(`Taxa de administração paga no mês: ${formatarFracao(m.taxaAdministracaoMes)} do patrimônio líquido.`);
   }
 
-  if (a?.dividendYieldMes && m.dividendYieldMes && m.dividendYieldMes.lt(a.dividendYieldMes)) {
+  const carteira: string[] = [];
+  const composicao = composicaoDoAtivo(m);
+  if (composicao.length > 0) carteira.push(`Composição do ativo: ${composicao.join("; ")}.`);
+  if (m.totalPassivo?.gt(0)) carteira.push(`Total do passivo: ${formatarReais(m.totalPassivo)}.`);
+
+  return semVazios([
+    { titulo: "O informe", itens: informe },
+    { titulo: "Patrimônio e cotas", itens: cotas },
+    { titulo: "Rendimento do mês", itens: rendimento },
+    { titulo: "Carteira e passivo", itens: carteira },
+  ]);
+}
+
+function destaquesFii(d: DadosFii): Destaque[] {
+  const destaques: Destaque[] = [];
+  const m = d.mes;
+  const a = d.mesAnterior;
+  if (!a) return destaques;
+
+  if (m.dividendYieldMes && a.dividendYieldMes && compararTaxa(m.dividendYieldMes, a.dividendYieldMes) === 1) {
+    destaques.push({
+      titulo: "Dividend yield maior que no mês anterior",
+      detalhe: `Passou de ${formatarFracao(a.dividendYieldMes)} para ${formatarFracao(m.dividendYieldMes)}.`,
+      criterio: "dividend yield do mês acima do informado no mês anterior",
+    });
+  }
+
+  if (m.rentabilidadeEfetivaMes && a.rentabilidadeEfetivaMes && compararTaxa(m.rentabilidadeEfetivaMes, a.rentabilidadeEfetivaMes) === 1) {
+    destaques.push({
+      titulo: "Rentabilidade efetiva maior que no mês anterior",
+      detalhe: `Passou de ${formatarFracao(a.rentabilidadeEfetivaMes)} para ${formatarFracao(m.rentabilidadeEfetivaMes)}.`,
+      criterio: "rentabilidade efetiva do mês acima da informada no mês anterior",
+    });
+  }
+
+  if (m.valorPatrimonialCota && a.valorPatrimonialCota && subiuNaTela(m.valorPatrimonialCota, a.valorPatrimonialCota)) {
+    destaques.push({
+      titulo: "Valor patrimonial por cota maior que no mês anterior",
+      detalhe: `De ${formatarReais(a.valorPatrimonialCota)} para ${formatarReais(m.valorPatrimonialCota)} (${variacao(m.valorPatrimonialCota, a.valorPatrimonialCota)}).`,
+      criterio: "valor patrimonial por cota acima do informado no mês anterior",
+    });
+  }
+
+  return destaques;
+}
+
+function alertasFii(d: DadosFii): Alerta[] {
+  const alertas: Alerta[] = [];
+  const m = d.mes;
+  const a = d.mesAnterior;
+
+  if (a?.dividendYieldMes && m.dividendYieldMes && compararTaxa(m.dividendYieldMes, a.dividendYieldMes) === -1) {
     alertas.push({
       titulo: "Dividend yield menor que no mês anterior",
       severidade: "atencao",
       detalhe: `Passou de ${formatarFracao(a.dividendYieldMes)} para ${formatarFracao(m.dividendYieldMes)}.`,
+      criterio: "dividend yield do mês abaixo do informado no mês anterior",
     });
   }
 
-  if (m.totalPassivo && m.valorAtivo?.isPositive()) {
+  if (m.totalPassivo && m.valorAtivo?.gt(0)) {
     const fracao = m.totalPassivo.div(m.valorAtivo);
     if (fracao.gt(PASSIVO_QUE_VIRA_ALERTA)) {
       alertas.push({
         titulo: `Passivo acima de ${formatarFracao(PASSIVO_QUE_VIRA_ALERTA, 0)} do ativo`,
         severidade: "atencao",
         detalhe: `O passivo total (${formatarReais(m.totalPassivo)}) equivale a ${formatarFracao(fracao, 1)} do ativo do fundo. O passivo inclui rendimentos a distribuir e obrigações por aquisição de imóveis, além de dívida.`,
+        criterio: `passivo total acima de ${formatarFracao(PASSIVO_QUE_VIRA_ALERTA, 0)} do ativo do fundo`,
       });
     }
   }
 
-  if (a?.cotistas && m.cotistas && m.cotistas.lt(a.cotistas)) {
-    alertas.push({
-      titulo: "Menos cotistas que no mês anterior",
-      severidade: "info",
-      detalhe: `De ${inteiro(a.cotistas)} para ${inteiro(m.cotistas)}: ${inteiro(a.cotistas.minus(m.cotistas))} a menos.`,
-    });
-  }
-
-  if (a?.cotasEmitidas && m.cotasEmitidas && m.cotasEmitidas.gt(a.cotasEmitidas)) {
-    alertas.push({
-      titulo: "Novas cotas emitidas no mês",
-      severidade: "info",
-      detalhe: `De ${inteiro(a.cotasEmitidas)} para ${inteiro(m.cotasEmitidas)} cotas. Emissão aumenta o patrimônio e divide os rendimentos por mais cotas.`,
-    });
-  }
-
+  // Menos cotistas e novas cotas emitidas eram "para saber" até a versão 2. Não são corte de atenção
+  // nem destaque: ficam no bloco "Patrimônio e cotas", com os dois números.
   // Sem alerta de "caixa baixo": a coluna de disponibilidades fica perto de zero em quase todo fundo
   // (o caixa mora em aplicações de liquidez), então o aviso dispararia sempre e não diria nada.
 
-  return { resumoExecutivo, alertas };
+  return alertas;
+}
+
+function analiseFii(d: DadosFii, rotulo: string): Resultado {
+  return { blocos: blocosFii(d, rotulo), destaques: destaquesFii(d), alertas: alertasFii(d) };
 }
 
 // ---------------------------------------------------------------------------
@@ -412,11 +629,12 @@ export function tipoDocumentoCvm(d: DadosCvm): string {
  * tela o escreve ("1T26", "março de 2026").
  */
 export function montarAnalise(d: DadosCvm, rotulo: string): Analise {
-  const { resumoExecutivo, alertas } = d.tipo === "ACAO" ? analiseAcao(d) : analiseFii(d, rotulo);
+  const { blocos, destaques, alertas } = d.tipo === "ACAO" ? analiseAcao(d) : analiseFii(d, rotulo);
   return {
     versao: VERSAO_DA_ANALISE,
     tipoDocumento: tipoDocumentoCvm(d),
-    resumoExecutivo,
+    blocos,
+    destaques,
     alertas,
     indicadores: indicadoresCvm(d),
     dataReferencia: d.dataReferencia,

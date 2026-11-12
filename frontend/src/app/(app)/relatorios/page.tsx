@@ -12,13 +12,15 @@ import { api, ApiError, type Pagina } from "@/lib/api";
 import { dataCurta } from "@/lib/format";
 import {
   agruparPorAtivo,
+  blocosDoResumo,
+  gruposDePontos,
   periodoAnterior,
   relatoriosAntigos,
   rotuloDoPeriodo,
   tabelaComparativa,
-  type Alerta,
   type Analise,
   type GrupoDeAtivo,
+  type GrupoDePontos,
   type Relatorio,
 } from "@/lib/relatorios";
 
@@ -31,10 +33,15 @@ import {
  * gravam (buscar, carregar período, apagar) não aparecem, em vez de aparecerem para devolver 403.
  */
 
-const severidades: Record<Alerta["severidade"], { barra: string; rotulo: string }> = {
-  critico: { barra: "var(--color-loss)", rotulo: "Crítico" },
-  atencao: { barra: "var(--color-etf)", rotulo: "Atenção" },
-  info: { barra: "var(--color-fii)", rotulo: "Para saber" },
+/**
+ * A cor da barra de cada grupo de pontos. O título do grupo diz o que ele é; a cor só repete o título.
+ * Destaque usa o verde de alta: diz a direção do número (subiu), não que a empresa vai bem.
+ */
+const barraDoGrupo: Record<GrupoDePontos["chave"], string> = {
+  destaque: "var(--color-gain)",
+  atencao: "var(--color-etf)",
+  critico: "var(--color-loss)",
+  info: "var(--color-fii)",
 };
 
 /** Um por conta é o teto do backend (COTA_RELATORIOS); cabe numa página só. */
@@ -448,8 +455,9 @@ function Comparacao({ grupo, selecionado }: { grupo: GrupoDeAtivo; selecionado: 
           <tbody>
             {tabela.linhas.map((l) => (
               <tr key={l.nome} className="border-b border-line last:border-b-0">
-                <th scope="row" className="max-w-[240px] py-3 pr-3 pl-6 text-left font-medium text-ink-2">
+                <th scope="row" className="max-w-[260px] py-3 pr-3 pl-6 text-left font-medium text-ink-2">
                   {l.nome}
+                  {l.definicao && <span className="mt-0.5 block text-xs leading-snug font-normal text-mute">{l.definicao}</span>}
                 </th>
                 {l.valores.map((v, i) => {
                   const coluna = tabela.colunas[i];
@@ -494,6 +502,8 @@ function Detalhe({
   comIndicadores: boolean;
 }) {
   const periodo = relatorio.period ? rotuloDoPeriodo(relatorio.period) : null;
+  const blocos = blocosDoResumo(analise);
+  const grupos = gruposDePontos(analise);
 
   return (
     <>
@@ -503,14 +513,21 @@ function Detalhe({
         >
           {oficial && periodo ? `O que o documento de ${periodo} traz` : "Resumo guardado"}
         </TituloCard>
-        <ul className="mt-4 space-y-2.5">
-          {analise.resumoExecutivo.map((topico, i) => (
-            <li key={i} className="flex gap-3 text-sm leading-relaxed">
-              <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-ink-2" aria-hidden />
-              <span className="min-w-0 break-words">{topico}</span>
-            </li>
+        <div className="mt-4 space-y-5">
+          {blocos.map((bloco, b) => (
+            <div key={bloco.titulo ?? b}>
+              {bloco.titulo && <h3 className="text-sm font-semibold text-ink">{bloco.titulo}</h3>}
+              <ul className={`space-y-2.5 ${bloco.titulo ? "mt-2" : ""}`}>
+                {bloco.itens.map((topico, i) => (
+                  <li key={i} className="flex max-w-[72ch] gap-3 text-sm leading-relaxed">
+                    <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-ink-2" aria-hidden />
+                    <span className="min-w-0 break-words">{topico}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
           ))}
-        </ul>
+        </div>
         {oficial && (
           <p className="mt-5 border-t border-line pt-4 text-xs leading-relaxed text-mute">
             Fonte: dados abertos da CVM
@@ -535,29 +552,31 @@ function Detalhe({
         )}
       </Card>
 
-      {analise.alertas.length > 0 && (
-        <Card>
-          <TituloCard>Pontos de atenção</TituloCard>
-          {oficial && (
+      {grupos.map((g, i) => (
+        <section
+          key={g.chave}
+          aria-labelledby={`grupo-${g.chave}`}
+          className="rounded-md border border-line bg-card p-6"
+        >
+          <h2 id={`grupo-${g.chave}`} className="font-leitura text-xl leading-7 font-semibold">
+            {g.titulo}
+          </h2>
+          {oficial && i === 0 && (
             <p className="mt-1 text-sm text-mute">
-              Marcados por cortes fixos nos números do documento. Indicam onde olhar, não o que fazer.
+              Marcados por cortes fixos nos números do documento. Dizem para onde o número andou, não o que fazer.
             </p>
           )}
-          <div className="mt-4 space-y-3">
-            {analise.alertas.map((a, i) => {
-              const sev = severidades[a.severidade] ?? severidades.info;
-              return (
-                <div key={i} className="rounded border-l-3 bg-paper py-3 pr-4 pl-4" style={{ borderColor: sev.barra }}>
-                  <p className="text-sm font-semibold">
-                    <span className="font-normal text-ink-2">{sev.rotulo}:</span> {a.titulo}
-                  </p>
-                  <p className="mt-1 text-sm leading-relaxed text-ink-2">{a.detalhe}</p>
-                </div>
-              );
-            })}
-          </div>
-        </Card>
-      )}
+          <ul className="mt-4 space-y-3">
+            {g.itens.map((p, j) => (
+              <li key={j} className="rounded border-l-3 bg-paper py-3 pr-4 pl-4" style={{ borderColor: barraDoGrupo[g.chave] }}>
+                <p className="text-sm font-semibold">{p.titulo}</p>
+                <p className="mt-1 text-sm leading-relaxed text-ink-2">{p.detalhe}</p>
+                {p.criterio && <p className="mt-1.5 text-xs text-mute">Critério: {p.criterio}</p>}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))}
 
       {comIndicadores && analise.indicadores.length > 0 && (
         <Card>
@@ -565,7 +584,10 @@ function Detalhe({
           <dl className="mt-4 grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
             {analise.indicadores.map((ind, i) => (
               <div key={i} className="flex items-baseline justify-between gap-3 border-b border-line py-1.5">
-                <dt className="min-w-0 text-ink-2">{ind.nome}</dt>
+                <dt className="min-w-0 text-ink-2">
+                  {ind.nome}
+                  {ind.definicao && <span className="mt-0.5 block text-xs leading-snug text-mute">{ind.definicao}</span>}
+                </dt>
                 <dd className="tnum shrink-0 font-semibold">{ind.valor}</dd>
               </div>
             ))}
