@@ -127,25 +127,68 @@ export async function buscarCotacao(ticker: string): Promise<Cotacao | null> {
 type CredenciaisYahoo = { cookie: string; crumb: string };
 let credenciaisCache: CredenciaisYahoo | null = null;
 
+/**
+ * Diagnóstico das falhas do quoteSummary. Sem isto, o servidor de produção passou semanas sem
+ * indicador nenhum e nada no log dizia por quê: toda falha virava `null` em silêncio. Registra a
+ * etapa e o status HTTP (ou o tipo do erro de rede), nunca o cookie, o crumb ou a URL com o crumb.
+ * No máximo um aviso por etapa a cada 10 minutos: o aquecimento do catálogo passa por 15 ações em
+ * seguida, e cada visita a uma ficha tenta de novo.
+ */
+const AVISO_A_CADA_MS = 10 * 60 * 1000;
+const ultimoAvisoPorEtapa = new Map<string, number>();
+
+type EtapaDoYahoo = "cookie" | "crumb" | "quoteSummary";
+
+function avisarFalhaDoYahoo(etapa: EtapaDoYahoo, detalhe: string): void {
+  const agora = Date.now();
+  const anterior = ultimoAvisoPorEtapa.get(etapa);
+  if (anterior !== undefined && agora - anterior < AVISO_A_CADA_MS) return;
+  ultimoAvisoPorEtapa.set(etapa, agora);
+  console.warn(
+    `[Yahoo] indicadores fundamentalistas: falha na etapa ${etapa} (${detalhe}). ` +
+      "Avisos desta etapa ficam suspensos por 10 min.",
+  );
+}
+
+/** Só o tipo do erro e o código de rede: a mensagem pode trazer a URL, e a URL leva o crumb. */
+function descreverErro(erro: unknown): string {
+  if (!(erro instanceof Error)) return "erro desconhecido";
+  const causa = (erro as Error & { cause?: { code?: unknown } }).cause;
+  const codigo = typeof causa?.code === "string" ? ` ${causa.code}` : "";
+  return `${erro.name}${codigo}`;
+}
+
 async function obterCredenciaisYahoo(): Promise<CredenciaisYahoo | null> {
+  let etapa: EtapaDoYahoo = "cookie";
   try {
     // fc.yahoo.com devolve 404 de propósito (não é uma página real) — o que
     // importa é o Set-Cookie da resposta, presente mesmo com esse status.
     const resCookie = await fetch("https://fc.yahoo.com", { headers: CABECALHOS });
     const cookies = resCookie.headers.getSetCookie?.() ?? [];
     const cookie = cookies.map((c) => c.split(";")[0]).join("; ");
-    if (!cookie) return null;
+    if (!cookie) {
+      avisarFalhaDoYahoo("cookie", `HTTP ${resCookie.status}, sem Set-Cookie`);
+      return null;
+    }
 
+    etapa = "crumb";
     const resCrumb = await fetch("https://query1.finance.yahoo.com/v1/test/getcrumb", {
       headers: { ...CABECALHOS, Cookie: cookie },
     });
-    if (!resCrumb.ok) return null;
+    if (!resCrumb.ok) {
+      avisarFalhaDoYahoo("crumb", `HTTP ${resCrumb.status}`);
+      return null;
+    }
 
     const crumb = (await resCrumb.text()).trim();
-    if (!crumb) return null;
+    if (!crumb) {
+      avisarFalhaDoYahoo("crumb", `HTTP ${resCrumb.status}, crumb vazio`);
+      return null;
+    }
 
     return { cookie, crumb };
-  } catch {
+  } catch (erro) {
+    avisarFalhaDoYahoo(etapa, descreverErro(erro));
     return null;
   }
 }
@@ -270,10 +313,14 @@ export async function buscarIndicadoresFundamentalistas(
       );
 
       if (res.status === 401 && !forcarRenovacao) continue; // crumb expirado: tenta renovar
-      if (!res.ok) return null;
+      if (!res.ok) {
+        avisarFalhaDoYahoo("quoteSummary", `HTTP ${res.status} em ${simbolo}`);
+        return null;
+      }
 
       return await interpretarRespostaIndicadores(res);
-    } catch {
+    } catch (erro) {
+      avisarFalhaDoYahoo("quoteSummary", `${descreverErro(erro)} em ${simbolo}`);
       return null;
     } finally {
       clearTimeout(timer);

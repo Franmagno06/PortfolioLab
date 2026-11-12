@@ -1,8 +1,9 @@
 import { Prisma } from "@prisma/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { buscarIndicadoresFundamentalistas, buscarProventosOuNulo } from "../quotes/quotes.provider.js";
+import { buscarCotacao, buscarIndicadoresFundamentalistas, buscarProventosOuNulo } from "../quotes/quotes.provider.js";
 import { indicatorsRepository } from "./indicators.repository.js";
 import {
+  atualizarIndicador,
   calcularDividendYield,
   DY_CALCULADO_PELO_ATIVO_DESDE,
   estaDesatualizado,
@@ -15,10 +16,12 @@ vi.mock("./indicators.repository.js", () => ({
   indicatorsRepository: {
     ativosAcaoDoUsuario: vi.fn(),
     upsert: vi.fn(),
+    resultadosDaCvm: vi.fn(),
   },
 }));
 
 vi.mock("../quotes/quotes.provider.js", () => ({
+  buscarCotacao: vi.fn(),
   buscarIndicadoresFundamentalistas: vi.fn(),
   buscarProventosOuNulo: vi.fn(),
 }));
@@ -29,6 +32,9 @@ beforeEach(() => {
   // padrão: o Yahoo respondeu e o ativo não pagou nada. Os testes de proventos sobrescrevem.
   vi.mocked(buscarProventosOuNulo).mockResolvedValue([]);
   vi.mocked(indicatorsRepository.upsert).mockReset();
+  // padrão: sem fotografia da CVM, então o cálculo alternativo não tem o que usar
+  vi.mocked(indicatorsRepository.resultadosDaCvm).mockReset().mockResolvedValue(null);
+  vi.mocked(buscarCotacao).mockReset().mockResolvedValue(null);
 });
 
 // Cache fresco (agora mesmo) — as chamadas do provedor não devem disparar,
@@ -393,5 +399,109 @@ describe("calcularDividendYield", () => {
   it("preço ausente ou zero: devolve null, não divide por zero", () => {
     expect(calcularDividendYield(0.645, null)).toBeNull();
     expect(calcularDividendYield(0.645, 0)).toBeNull();
+  });
+});
+
+describe("atualizarIndicador: alternativa pela CVM quando o Yahoo não responde", () => {
+  // Mesma conta de indicators.cvm.test.ts: lucro 12m 4 bi, PL dos controladores 20 bi, ativo 80 bi,
+  // 1 bi de ações, preço R$ 30 → P/L 7,5; P/VP 1,5; ROE 20%; ROA 5%.
+  const trimestre = (periodo: string, lucro: number) => ({
+    periodo,
+    dataReferencia: "2026-06-30",
+    lucroLiquido: lucro,
+    patrimonioLiquido: 21_000_000_000,
+    patrimonioDosControladores: 20_000_000_000,
+    ativoTotal: 80_000_000_000,
+    acoesTotal: 1_000_000_000,
+    acoesEmTesouraria: 0,
+  });
+  const FOTOGRAFIA = [
+    trimestre("3T25", 1_000_000_000),
+    trimestre("4T25", 1_200_000_000),
+    trimestre("1T26", 800_000_000),
+    trimestre("2T26", 1_000_000_000),
+  ];
+  const WEGE3 = { id: "asset-wege", ticker: "WEGE3" };
+  const cotacao = (preco: number) => ({ ticker: "WEGE3", nome: "WEG", preco, tipo: "ACAO" as const });
+
+  it("calcula P/L, P/VP, ROE e ROA pela fotografia da CVM e grava sem tocar em margem, dívida e setor", async () => {
+    vi.mocked(buscarIndicadoresFundamentalistas).mockResolvedValue(null);
+    vi.mocked(indicatorsRepository.resultadosDaCvm).mockResolvedValue(FOTOGRAFIA);
+    vi.mocked(buscarCotacao).mockResolvedValue(cotacao(30));
+    vi.mocked(buscarProventosOuNulo).mockResolvedValue([{ dataEx: new Date(), valorPorCota: 1.5 }]);
+
+    await atualizarIndicador(WEGE3);
+
+    expect(indicatorsRepository.resultadosDaCvm).toHaveBeenCalledWith("asset-wege");
+    const [, gravado] = vi.mocked(indicatorsRepository.upsert).mock.calls[0] ?? [];
+    // DY = 1,50 ÷ 30 = 5%, com o mesmo preço do P/L
+    expect(gravado).toEqual({ pl: 7.5, pvp: 1.5, roe: 20, roa: 5, dividendYield: 5 });
+    // ausentes, e não null: o Prisma deixa como estão no banco
+    expect(gravado).not.toHaveProperty("margemLiquida");
+    expect(gravado).not.toHaveProperty("dividaEbitda");
+    expect(gravado).not.toHaveProperty("industria");
+  });
+
+  it("Yahoo respondendo: a CVM nem é consultada", async () => {
+    vi.mocked(buscarIndicadoresFundamentalistas).mockResolvedValue({
+      pl: 34,
+      pvp: 10,
+      roe: 30,
+      roa: 11,
+      margemLiquida: 16,
+      dividaEbitda: 0.1,
+      industria: "Electrical Equipment & Parts",
+      precoAtual: 51,
+    });
+
+    await atualizarIndicador(WEGE3);
+
+    expect(indicatorsRepository.resultadosDaCvm).not.toHaveBeenCalled();
+    expect(buscarCotacao).not.toHaveBeenCalled();
+  });
+
+  it("sem fotografia da CVM: não grava nada (o cache anterior fica)", async () => {
+    vi.mocked(buscarIndicadoresFundamentalistas).mockResolvedValue(null);
+
+    expect(await atualizarIndicador(WEGE3)).toBeNull();
+    expect(indicatorsRepository.upsert).not.toHaveBeenCalled();
+    expect(buscarCotacao).not.toHaveBeenCalled();
+  });
+
+  it("ativo fora do catálogo de Ativos: não há fotografia a consultar", async () => {
+    vi.mocked(buscarIndicadoresFundamentalistas).mockResolvedValue(null);
+
+    expect(await atualizarIndicador({ id: "x", ticker: "KLBN4" })).toBeNull();
+    expect(indicatorsRepository.resultadosDaCvm).not.toHaveBeenCalled();
+  });
+
+  it("cotação fora do ar: grava ROE e ROA, P/L e P/VP nulos, e o DY gravado fica como está", async () => {
+    vi.mocked(buscarIndicadoresFundamentalistas).mockResolvedValue(null);
+    vi.mocked(indicatorsRepository.resultadosDaCvm).mockResolvedValue(FOTOGRAFIA);
+    vi.mocked(buscarCotacao).mockResolvedValue(null);
+
+    await atualizarIndicador(WEGE3);
+
+    const [, gravado] = vi.mocked(indicatorsRepository.upsert).mock.calls[0] ?? [];
+    expect(gravado).toEqual({ pl: null, pvp: null, roe: 20, roa: 5 });
+  });
+
+  it("unit (TAEE11, 3 ações por unit): P/L e P/VP na base da unit", async () => {
+    vi.mocked(buscarIndicadoresFundamentalistas).mockResolvedValue(null);
+    vi.mocked(indicatorsRepository.resultadosDaCvm).mockResolvedValue(FOTOGRAFIA);
+    vi.mocked(buscarCotacao).mockResolvedValue(cotacao(90));
+
+    await atualizarIndicador({ id: "asset-taee", ticker: "TAEE11" });
+
+    const [, gravado] = vi.mocked(indicatorsRepository.upsert).mock.calls[0] ?? [];
+    expect(gravado).toMatchObject({ pl: 7.5, pvp: 1.5 });
+  });
+
+  it("fotografia com formato inesperado: null, sem lançar", async () => {
+    vi.mocked(buscarIndicadoresFundamentalistas).mockResolvedValue(null);
+    vi.mocked(indicatorsRepository.resultadosDaCvm).mockResolvedValue({ qualquer: "coisa" });
+
+    expect(await atualizarIndicador(WEGE3)).toBeNull();
+    expect(indicatorsRepository.upsert).not.toHaveBeenCalled();
   });
 });

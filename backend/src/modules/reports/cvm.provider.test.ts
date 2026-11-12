@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { linhasComCnpj, montarDadosAcao, montarDadosFii } from "./cvm.provider.js";
+import { capitalDoDocumento, linhasComCnpj, montarDadosAcao, montarDadosFii } from "./cvm.provider.js";
 
 // Fixtures no formato real dos CSVs da CVM (cabeçalho, separador ";",
 // ÚLTIMO/PENÚLTIMO, escala MIL), reduzidas às linhas que importam.
@@ -169,5 +169,69 @@ describe("montarDadosFii", () => {
 
   it("mês que a CVM ainda não publicou devolve null", () => {
     expect(montarDadosFii({ geral, complemento, ativoPassivo }, FUNDO, { tipo: "mes", ano: 2026, mes: 6 })).toBeNull();
+  });
+});
+
+describe("montarDadosAcao: não controladores e composição do capital", () => {
+  const segundoTri = { tipo: "trimestre", ano: 2026, trimestre: 2 } as const;
+  const CAB_CAPITAL =
+    "CNPJ_CIA;DT_REFER;VERSAO;DENOM_CIA;QT_ACAO_ORDIN_CAP_INTEGR;QT_ACAO_PREF_CAP_INTEGR;QT_ACAO_TOTAL_CAP_INTEGR;QT_ACAO_ORDIN_TESOURO;QT_ACAO_PREF_TESOURO;QT_ACAO_TOTAL_TESOURO";
+  const CAPITAL = [
+    CAB_CAPITAL,
+    `${CNPJ};2026-03-31;1;BCO TESTE S.A.;600;400;1000;5;5;10`,
+    `${CNPJ};2026-06-30;1;BCO TESTE S.A.;700;400;1100;10;10;20`,
+    `${OUTRO};2026-06-30;1;OUTRA S.A.;1;1;2;0;0;0`,
+  ].join("\r\n");
+  const BPP_COM_MINORITARIOS = [
+    BPP,
+    bp("ÚLTIMO", "2026-06-30", "2.03.09", "Participação dos Acionistas Não Controladores", "150"),
+    bp("PENÚLTIMO", "2025-12-31", "2.03.09", "Participação dos Acionistas Não Controladores", "140"),
+    // passivo com "não controladores" no nome: não é parte do patrimônio
+    bp("ÚLTIMO", "2026-06-30", "2.01.05", "Dividendos a Pagar a Não Controladores", "77"),
+  ].join("\n");
+
+  it("lê a participação dos não controladores na conta filha do PL, em reais", () => {
+    const d = montarDadosAcao({ indice: INDICE_2T, dre: DRE_2T, bpa: BPA, bpp: BPP_COM_MINORITARIOS }, CNPJ, segundoTri, true);
+    expect(d?.patrimonioNaoControladores?.toString()).toBe("150000"); // 150 mil
+    // e o balanço que os relatórios leem continua só com nível 1 e 2
+    expect(d?.balanco.map((c) => c.codigo)).toEqual(["1", "2.03"]);
+  });
+
+  it("sem a linha dos não controladores: zero", () => {
+    const d = montarDadosAcao({ indice: INDICE_2T, dre: DRE_2T, bpa: BPA, bpp: BPP }, CNPJ, segundoTri, true);
+    expect(d?.patrimonioNaoControladores?.toString()).toBe("0");
+  });
+
+  it("composição do capital da mesma data-base e versão, sem escala", () => {
+    const d = montarDadosAcao({ indice: INDICE_2T, dre: DRE_2T, bpa: BPA, bpp: BPP, composicao: CAPITAL }, CNPJ, segundoTri, true);
+    expect(d?.capital?.total.toString()).toBe("1100");
+    expect(d?.capital?.tesouraria.toString()).toBe("20");
+  });
+
+  it("sem o arquivo de composição: capital null", () => {
+    const d = montarDadosAcao({ indice: INDICE_2T, dre: DRE_2T, bpa: BPA, bpp: BPP }, CNPJ, segundoTri, true);
+    expect(d?.capital).toBeNull();
+  });
+});
+
+describe("capitalDoDocumento", () => {
+  const CAB = "CNPJ_CIA;DT_REFER;VERSAO;DENOM_CIA;QT_ACAO_TOTAL_CAP_INTEGR;QT_ACAO_TOTAL_TESOURO";
+  const csv = (...linhas: string[]) => [CAB, ...linhas].join("\n");
+
+  it("pega a versão pedida, não a primeira linha", () => {
+    const c = capitalDoDocumento(csv(`${CNPJ};2026-06-30;1;X;1000;0`, `${CNPJ};2026-06-30;2;X;2000;50`), CNPJ, "2026-06-30", "2");
+    expect(c?.total.toString()).toBe("2000");
+    expect(c?.tesouraria.toString()).toBe("50");
+  });
+
+  it("tesouraria vazia conta como zero", () => {
+    expect(capitalDoDocumento(csv(`${CNPJ};2026-06-30;1;X;1000;`), CNPJ, "2026-06-30", "1")?.tesouraria.toString()).toBe("0");
+  });
+
+  it("quantidade zerada, ausente ou tesouraria maior que o capital: null", () => {
+    expect(capitalDoDocumento(csv(`${CNPJ};2026-06-30;1;X;0;0`), CNPJ, "2026-06-30", "1")).toBeNull();
+    expect(capitalDoDocumento(csv(`${CNPJ};2026-06-30;1;X;;0`), CNPJ, "2026-06-30", "1")).toBeNull();
+    expect(capitalDoDocumento(csv(`${CNPJ};2026-06-30;1;X;100;100`), CNPJ, "2026-06-30", "1")).toBeNull();
+    expect(capitalDoDocumento(csv(`${CNPJ};2026-03-31;1;X;100;0`), CNPJ, "2026-06-30", "1")).toBeNull();
   });
 });

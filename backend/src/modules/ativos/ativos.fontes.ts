@@ -21,7 +21,7 @@ import {
   resultadoDoTrimestre,
   trimestresConcluidos,
 } from "./ativos.composicao.js";
-import type { InformeDoFii, ResultadoTrimestral } from "./ativos.tipos.js";
+import type { InformeDoFii, ResultadoTrimestralGuardado } from "./ativos.tipos.js";
 
 /**
  * O acesso às fontes externas das páginas de Ativos. Cada função devolve o dado, ou null quando
@@ -76,7 +76,7 @@ export const fontes = {
     proventos.obter(ticker, () => buscarProventosOuNulo(ticker, new Date(Date.now() - DOZE_MESES_MS))),
 
   /** Lucro e patrimônio dos últimos quatro trimestres publicados, do mais antigo ao mais novo. */
-  async resultadosTrimestrais(ticker: string, hoje = new Date()): Promise<ResultadoTrimestral[] | null> {
+  async resultadosTrimestrais(ticker: string, hoje = new Date()): Promise<ResultadoTrimestralGuardado[] | null> {
     const cnpj = cnpjDoTicker(ticker);
     if (!cnpj) return null;
 
@@ -93,7 +93,7 @@ export const fontes = {
     };
 
     // guarda a posição de cada trimestre achado na lista de candidatos (0 = o último concluído)
-    const achados: { posicao: number; resultado: ResultadoTrimestral }[] = [];
+    const achados: { posicao: number; resultado: ResultadoTrimestralGuardado }[] = [];
     const candidatos = trimestresConcluidos(hoje, TRIMESTRES_CANDIDATOS);
     for (const [posicao, periodo] of candidatos.entries()) {
       if (achados.length === 4) break;

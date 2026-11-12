@@ -42,6 +42,7 @@ import type {
   PontoDePreco,
   ProventoDoAtivo,
   ResultadoTrimestral,
+  ResultadoTrimestralGuardado,
 } from "./ativos.tipos.js";
 
 /**
@@ -93,6 +94,13 @@ const bloco = <T>(dados: T | null, estado: EstadoDoBloco = dados === null ? "ind
 });
 
 const semFotografia = <T>(): Fotografia<T> => ({ dados: null, atualizadoEm: null, estado: "indisponivel" });
+
+const resultadoDoDto = ({ periodo, dataReferencia, lucroLiquido, patrimonioLiquido }: ResultadoTrimestral): ResultadoTrimestral => ({
+  periodo,
+  dataReferencia,
+  lucroLiquido,
+  patrimonioLiquido,
+});
 
 function historicoDeMeses(porMes: Map<string, number>): PontoDePreco[] {
   return [...porMes.entries()]
@@ -218,9 +226,26 @@ function resumoDaAcao(
   };
 }
 
+/**
+ * Valor patrimonial da cota do último informe da CVM. Alguns fundos deixam a coluna
+ * Valor_Patrimonial_Cotas vazia; aí ele sai do mesmo informe, patrimônio líquido ÷ cotas emitidas.
+ * Null se nem isso der (fotografia antiga, sem as cotas, ou números zerados).
+ */
+export function valorPatrimonialDaCota(
+  informe: Partial<Pick<InformeDoFii, "valorPatrimonialCota" | "patrimonioLiquido" | "cotasEmitidas">> | null | undefined,
+): Prisma.Decimal | null {
+  if (!informe) return null;
+  const { valorPatrimonialCota, patrimonioLiquido, cotasEmitidas } = informe;
+  if (typeof valorPatrimonialCota === "number" && valorPatrimonialCota > 0) return new Prisma.Decimal(valorPatrimonialCota);
+  if (typeof patrimonioLiquido === "number" && patrimonioLiquido > 0 && typeof cotasEmitidas === "number" && cotasEmitidas > 0) {
+    return new Prisma.Decimal(patrimonioLiquido).div(cotasEmitidas);
+  }
+  return null;
+}
+
 /** P/VP do FII: preço da cota ÷ valor patrimonial da cota do último informe da CVM. */
-function pvpDoFii(preco: number | null, valorPatrimonialCota: number | null | undefined): number | null {
-  if (preco === null || !valorPatrimonialCota || valorPatrimonialCota <= 0) return null;
+function pvpDoFii(preco: number | null, valorPatrimonialCota: Prisma.Decimal | null): number | null {
+  if (preco === null || preco <= 0 || !valorPatrimonialCota || !valorPatrimonialCota.gt(0)) return null;
   return new Prisma.Decimal(preco).div(valorPatrimonialCota).toDecimalPlaces(2).toNumber();
 }
 
@@ -243,7 +268,7 @@ function resumoDoFii(
   cotacao: Cotacao | null,
   asset: AssetComIndicador | null,
   proventos: ProventoDoProvedor[] | null,
-  valorPatrimonialCota: number | null,
+  valorPatrimonialCota: Prisma.Decimal | null,
 ): FiiResumoDto {
   const preco = cotacao?.preco ?? numero(asset?.currentPrice) ?? null;
   return {
@@ -305,14 +330,16 @@ async function aquecerAcao(item: AcaoDoCatalogo): Promise<void> {
   const asset = await garantirAsset(item, "ACAO", cotacao);
   if (!asset) return;
 
-  await lerIndicadoresDaAcao(asset, ESPERA_EM_SEGUNDO_PLANO_MS);
-  await Promise.all([fontes.historicoMensal(item.ticker), fontes.proventos12Meses(item.ticker)]);
+  // Os resultados da CVM antes dos indicadores: sem o Yahoo (o caso do servidor de produção), os
+  // indicadores são calculados a partir desta fotografia (indicators.service:indicadoresPelaCvm).
   await obterFotografia({
     assetId: asset.id,
     tipo: "CVM_RESULTS",
     buscar: () => fontes.resultadosTrimestrais(item.ticker),
     esperaMaximaMs: ESPERA_EM_SEGUNDO_PLANO_MS,
   });
+  await lerIndicadoresDaAcao(asset, ESPERA_EM_SEGUNDO_PLANO_MS);
+  await Promise.all([fontes.historicoMensal(item.ticker), fontes.proventos12Meses(item.ticker)]);
   await obterFotografia({
     assetId: asset.id,
     tipo: "NEWS",
@@ -394,7 +421,7 @@ export const ativosService = {
     const informePorAsset = new Map(
       informes.map((s) => [
         s.assetId,
-        { valorPatrimonialCota: (s.data as { valorPatrimonialCota?: number | null }).valorPatrimonialCota ?? null, atualizadoEm: s.updatedAt },
+        { valorPatrimonialCota: valorPatrimonialDaCota(s.data as Partial<InformeDoFii> | null), atualizadoEm: s.updatedAt },
       ]),
     );
 
@@ -486,7 +513,7 @@ export const ativosService = {
             tipo: "CVM_RESULTS",
             buscar: () => fontes.resultadosTrimestrais(item.ticker),
           })
-        : semFotografia<ResultadoTrimestral[]>(),
+        : semFotografia<ResultadoTrimestralGuardado[]>(),
       asset
         ? obterFotografia({
             assetId: asset.id,
@@ -511,7 +538,8 @@ export const ativosService = {
       },
       historico: bloco(historico.size > 0 ? historicoDeMeses(historico) : null),
       proventos: bloco(proventos === null ? null : proventosRecentes(proventos)),
-      resultados: emBloco(resultados),
+      // a fotografia guarda também o que o cálculo pela CVM usa; a resposta leva só o que o DTO declara
+      resultados: emBloco({ ...resultados, dados: resultados.dados?.map(resultadoDoDto) ?? null }),
       noticias: emBloco(noticias),
     };
   },
@@ -546,7 +574,7 @@ export const ativosService = {
     ]);
 
     const dadosDoInforme = informe.dados;
-    const resumo = resumoDoFii(item, cotacao, asset, proventos, dadosDoInforme?.valorPatrimonialCota ?? null);
+    const resumo = resumoDoFii(item, cotacao, asset, proventos, valorPatrimonialDaCota(dadosDoInforme));
     // o preço bruto, e não o resumo.preco já arredondado: arredondar no meio da conta desloca o DY
     const precoBruto = cotacao?.preco ?? numero(asset?.currentPrice) ?? null;
 
