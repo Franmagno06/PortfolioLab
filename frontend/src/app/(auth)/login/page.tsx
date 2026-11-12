@@ -7,6 +7,7 @@ import { Campo } from "@/components/ui/campo";
 import { MensagemAviso, MensagemErro } from "@/components/ui/mensagem";
 import { api, ApiError } from "@/lib/api";
 import { destinoDepoisDoLogin } from "@/lib/navegacao";
+import { lembrarSessao } from "@/lib/sessao-do-visitante";
 import { esquecerSimulacao } from "@/lib/simulacao-guardada";
 import { GuardarNext, LinkComNext } from "../proximo-destino";
 
@@ -48,6 +49,7 @@ export default function LoginPage() {
       });
       // conta nova na aba: nada da sessão anterior fica visível
       esquecerSimulacao();
+      lembrarSessao(null); // o botão da demo volta a perguntar quem entrou
       router.push(destinoDepoisDoLogin(next));
       router.refresh();
     } catch (err) {

@@ -154,7 +154,7 @@ export default async function FichaDaAcao({ params }: Props) {
                   </GrupoDeIndicadores>
                 )}
                 <NotaDaFonte
-                  fonte="Yahoo Finance; o dividend yield é calculado pelo PortfolioLab com os proventos dos últimos 12 meses"
+                  fonte="Yahoo Finance; quando ele não responde, P/L, P/VP, ROE e ROA são calculados pelo PortfolioLab com o balanço e o resultado entregues à CVM (ITR e DFP) e o preço do Yahoo. O dividend yield é calculado pelo PortfolioLab com os proventos dos últimos 12 meses"
                   estado={ficha.indicadores.estado}
                   atualizadoEm={ficha.indicadores.atualizadoEm}
                   className=""

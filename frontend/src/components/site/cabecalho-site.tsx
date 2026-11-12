@@ -15,6 +15,7 @@ import {
   type Destino,
   type Intencao,
 } from "@/lib/navegacao";
+import { lembrarSessao } from "@/lib/sessao-do-visitante";
 import { esquecerSimulacao } from "@/lib/simulacao-guardada";
 import setaAcesa from "./seta-menu.svg";
 import setaApagada from "./seta-menu-apagada.svg";
@@ -189,6 +190,7 @@ function useSair() {
     }
     // a simulação guardada é desta conta: a próxima pessoa na aba não a vê
     esquecerSimulacao();
+    lembrarSessao("visitante");
     router.push(ROTAS.inicio);
     router.refresh();
   };
