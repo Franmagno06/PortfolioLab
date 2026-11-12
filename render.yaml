@@ -1,0 +1,46 @@
+# Blueprint do Render para a API (backend/). Só a descrição do serviço: este arquivo NÃO cria nada
+# sozinho. Ele vale quando alguém, no painel do Render, cria um Blueprint apontando para este repositório
+# (ou escolhe "New > Web Service" e preenche os mesmos campos à mão). Plano e passo a passo: docs/deploy.md.
+#
+# Nenhum valor secreto mora aqui. `sync: false` faz o Render pedir o valor no painel na criação, e
+# `generateValue: true` faz o próprio Render sortear um valor aleatório de 256 bits (base64, 44 caracteres).
+#
+# O Docker NÃO é usado em produção: o Render roda o Node direto (runtime: node). O docker-compose.yml do
+# backend é só o Postgres do desenvolvimento local.
+services:
+  - type: web
+    name: portfoliolab-api
+    runtime: node
+    # Gratuito: 0,1 CPU e 512 MB, dorme após 15 min sem tráfego, 750 h/mês por workspace, sem disco.
+    # Os riscos disso para este código estão em docs/deploy.md ("Limites do Render gratuito").
+    plan: free
+    # O Render não tem região na América do Sul; Virginia é a mais perto do Supabase (sa-east-1).
+    # Não muda depois de criado.
+    region: virginia
+    rootDir: backend
+    # Com NODE_ENV=production no ambiente, `npm ci` pularia as devDependencies (TypeScript e o CLI do
+    # Prisma) e o build quebraria; por isso o --include=dev.
+    buildCommand: npm ci --include=dev && npx prisma generate && npm run build
+    startCommand: npm start
+    # Faz SELECT 1: banco fora do ar ou hibernado vira 503.
+    healthCheckPath: /health
+    autoDeployTrigger: commit
+    # Push que só mexe no frontend ou na documentação não republica a API.
+    buildFilter:
+      paths:
+        - backend/**
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # A mesma versão maior do CI (.github/workflows/ci.yml).
+      - key: NODE_VERSION
+        value: "22"
+      # Supabase, Session pooler (porta 5432), com ?connection_limit=5 no fim. Ver docs/deploy.md.
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      # O aquecimento do catálogo ao subir interpreta os zips da CVM de 30 ativos de uma vez, o que
+      # não cabe em 0,1 CPU e 512 MB. Desligado aqui; as fichas continuam se renovando por visita.
+      - key: AQUECER_CATALOGO
+        value: "false"

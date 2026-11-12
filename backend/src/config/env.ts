@@ -24,6 +24,12 @@ export const envSchema = z
     PORT: z.coerce.number().default(3333),
     JWT_SECRET: z.string().min(1).default(JWT_SECRET_PADRAO),
     TRUST_PROXY: z.coerce.number().default(1),
+    // Liga o aquecimento do catálogo de Ativos ao subir (só tem efeito em produção). "false" o desliga:
+    // no Render gratuito (0,1 CPU, 512 MB) interpretar os zips da CVM dos 30 ativos de uma vez não cabe.
+    AQUECER_CATALOGO: z
+      .enum(["true", "false"])
+      .default("true")
+      .transform((v) => v === "true"),
   })
   // Achado 6: o .default() acima evita atrito no desenvolvimento, mas em produção
   // um segredo fraco assina os tokens de todo mundo. Aqui a promessa de fail fast

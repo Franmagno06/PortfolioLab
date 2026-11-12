@@ -31,8 +31,15 @@ Nunca rode sem confirmar o banco de destino:
 grep -rl "database/prisma" backend/src --include=*.test.ts
 ```
 
-**Ordem do deploy quando há migration.** Depois do primeiro deploy (plano em `docs/deploy.md`; em 28/10/2026 a API e o
-site ainda não estavam publicados), o Render publica a API no push para a `main`, mas a migration do
+**Onde roda a produção (decisão de 12/11/2026, tudo gratuito).** API no **Render free** (web service Node,
+`render.yaml`, 0,1 CPU e **512 MB**, dorme após 15 min sem tráfego), site na **Vercel Hobby** (Root Directory
+`frontend`, rewrite `/api/*` → `API_URL`, até 120 s), banco no Supabase pelo Session pooler (5432). Docker é só o
+Postgres do desenvolvimento local; a API não é adaptada para serverless. Em 12/11/2026 nada disso estava publicado, e a
+leitura dos zips da CVM (`cvm.provider.ts`) passava de 1,6 GB por ficha de ação: o que bloqueia e o que mudar estão em
+`docs/deploy.md`. `AQUECER_CATALOGO=false` desliga o aquecimento do catálogo ao subir (o `render.yaml` desliga).
+
+**Ordem do deploy quando há migration.** Depois do primeiro deploy (plano em `docs/deploy.md`), o Render publica a
+API no push para a `main`, mas a migration do
 Supabase de produção é manual (`npm run supabase:migrate`). Rode a migration **antes** do push que a
 contém: código novo contra um banco sem a coluna dá P2022 em toda leitura que passa pelo model alterado
 (a coluna `divida_ebitda`, por exemplo, quebraria `/indicators` e a carteira). Só rode contra a produção

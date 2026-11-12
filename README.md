@@ -16,16 +16,16 @@ mesmo visual ("caderno de laboratório": papel frio, tinta navy, anotações rox
 | Metade | O que é | Acesso |
 |---|---|---|
 | **Site público** | Página inicial, fichas de 15 ações, 15 FIIs, 10 ETFs e 8 índices, e a aba **Aprender** (14 artigos, glossário, indicadores explicados) | aberto, sem login |
-| **Área logada** | Dashboard, carteira, simulação de aporte, proventos, relatórios com IA, indicadores e notícias | login (cookie `HttpOnly`) |
+| **Área logada** | Dashboard, carteira, simulação de aporte, proventos, relatórios da CVM, indicadores e notícias | login (cookie `HttpOnly`) |
 
 | Frente | Situação |
 |---|---|
-| Backend (13 módulos, 12 migrations) | pronto; 630 testes |
+| Backend (13 módulos, 13 migrations) | pronto; 630 testes |
 | Frontend (site, área logada, Aprender) | pronto; 574 testes unitários e 189 de ponta a ponta |
 | Conteúdo educacional | 14 artigos, 38 verbetes, 9 indicadores, "Como o site calcula"; números conferidos em código e dados públicos com fonte e data |
 | Segurança | auditoria feita; decisões e pendências em [SECURITY.md](SECURITY.md) |
 | CI | verde na `main` (backend e frontend) |
-| Deploy | banco pronto no Supabase; API (Render) e site (Vercel) **ainda não publicados**. O plano está em [docs/deploy.md](docs/deploy.md) |
+| Deploy | banco no Supabase (falta 1 migration aditiva); API no Render (plano gratuito) e site na Vercel (Hobby) **ainda não publicados**. O plano e o que bloqueia estão em [docs/deploy.md](docs/deploy.md) |
 
 **O que ainda falta**
 
@@ -244,7 +244,7 @@ Resumo; a lista completa, com as decisões de **não** corrigir algo, está em [
 | Frontend | Next.js 16 (App Router), React 19, Tailwind CSS 4, Recharts, MDX (`@next/mdx`, `remark-gfm`) |
 | Fontes de dados | Yahoo Finance, CVM (dados abertos), feeds RSS, Banco Central (SGS) |
 | Testes | Vitest, Supertest, Testing Library (jsdom) e Playwright |
-| Operação | GitHub Actions (CI), Supabase (banco); Render (API) e Vercel (frontend) no plano de deploy |
+| Operação | GitHub Actions (CI); produção planejada em Supabase (banco), Render gratuito (API, Node direto, sem Docker) e Vercel Hobby (site). Docker só no desenvolvimento local |
 
 ## Como rodar
 
@@ -390,9 +390,11 @@ cd frontend && npm run typecheck && npm run lint && npm test && npm run build
 
 ## Deploy
 
-Banco no Supabase (pronto, migrations aplicadas), API no Render e site na Vercel. O primeiro deploy da API e do
-site ainda não foi feito; o passo a passo, as variáveis de ambiente, as decisões em aberto (plano, região) e as
-pendências estão em **[docs/deploy.md](docs/deploy.md)**.
+Tudo em plano gratuito: banco no Supabase, API no **Render (free)**, como processo Node comum (`npm start`, sem
+Docker; o `docker-compose.yml` é só o Postgres do desenvolvimento), e site na **Vercel (Hobby)**, que reescreve `/api/*`
+para a API. O serviço do Render está descrito em [`render.yaml`](render.yaml), sem nenhum valor secreto. O primeiro
+deploy ainda não foi feito; o passo a passo, os limites do plano gratuito (512 MB de RAM, sono após 15 min), o que
+precisa mudar antes de subir e os passos que escrevem na produção estão em **[docs/deploy.md](docs/deploy.md)**.
 
 Depois dele, o push na `main` publica a API e o site sozinhos; **a migration do Supabase continua manual**. Rode
 `npm run supabase:migrate` **antes** do push que a contém: código novo contra um banco sem a coluna quebra todas as

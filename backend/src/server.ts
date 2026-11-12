@@ -14,7 +14,9 @@ const servidor = app.listen(env.PORT, () => {
 // Páginas públicas de Ativos: põe o catálogo na fila de renovação, um ativo por vez, sem segurar a
 // subida. Só em produção: em desenvolvimento cada reinício do tsx watch refaria dezenas de consultas
 // ao Yahoo. A renovação preguiçosa por visita continua valendo em qualquer ambiente.
-if (env.NODE_ENV === "production") {
+// AQUECER_CATALOGO=false desliga: no Render gratuito, cada acordar do serviço refaria a fila inteira
+// (zips da CVM incluídos) com 0,1 CPU e 512 MB. Ver docs/deploy.md.
+if (env.NODE_ENV === "production" && env.AQUECER_CATALOGO) {
   ativosService.aquecerCatalogo();
 }
 
