@@ -109,7 +109,7 @@ export const INDICES: Indice[] = [
     fonte: { nome: "Banco Central do Brasil", serie: "SGS 432" },
     descricao: "Definida pelo Copom a cada cerca de 45 dias.",
     explicacao: [
-      "Quando a Selic sobe, o crédito fica mais caro e a renda fixa passa a render mais; em geral, a bolsa perde parte do apelo. Quando cai, costuma acontecer o contrário. Por isso ela serve de termômetro para quase tudo o que se investe no Brasil.",
+      "Selic alta encarece o crédito e eleva o retorno da renda fixa; o efeito sobre a bolsa varia. Quando ela cai, o crédito fica mais barato e a renda fixa pós-fixada passa a render menos. Por isso ela serve de referência para quase tudo o que se investe no Brasil.",
     ],
     armadilha:
       "Selic meta não é Selic over. A meta é a decisão do Copom; a over é a taxa que os bancos praticaram de fato. As duas costumam andar quase iguais.",

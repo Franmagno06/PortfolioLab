@@ -10,9 +10,10 @@ import {
   depoisDaVenda,
   dividendYieldPct,
   emCentavos,
+  EXEMPLO_DE_APORTE,
   type Centavos,
 } from "@/lib/aprender/exemplos";
-import { dataCurta, brl, brlComCasas, numero, percentual } from "@/lib/format";
+import { dataCurta, brl, numero, percentual } from "@/lib/format";
 import { ROTAS } from "@/lib/navegacao";
 import { ATIVO_DE_EXEMPLO, juroReal } from "@/lib/site-dados";
 
@@ -43,22 +44,24 @@ function exemploDePrecoMedio() {
 }
 
 function exemploDeAporte() {
-  const { compras, sobraCentavos } = aporteDeExemplo(
-    [
-      { ticker: "MXRF11", metaPct: 60, precoCentavos: emCentavos(10.85), posicaoCentavos: 0 },
-      { ticker: "BOVA11", metaPct: 40, precoCentavos: emCentavos(110), posicaoCentavos: 0 },
-    ],
-    emCentavos(200),
-  );
+  const { metas, aporteCentavos } = EXEMPLO_DE_APORTE;
+  const { compras, sobraCentavos } = aporteDeExemplo(metas, aporteCentavos);
+  const patrimonio = metas.reduce((soma, m) => soma + m.posicaoCentavos, 0);
+  const cotas = (n: number) => `${n} ${n === 1 ? "cota" : "cotas"}`;
+  const troco = compras.find((c) => c.cotasNoTroco > 0);
   return {
+    aporte: reais(aporteCentavos),
+    patrimonio: reais(patrimonio),
     linhas: compras.map((c) => [
       c.ticker,
       `${c.metaPct}%`,
-      reais(c.deficitCentavos),
+      c.deficitCentavos > 0 ? reais(c.deficitCentavos) : "acima da meta",
+      c.deficitCentavos > 0 ? reais(c.fatiaCentavos) : "—",
       reais(c.precoCentavos),
-      String(c.cotas),
+      c.cotasNoTroco > 0 ? `${c.cotasNaFatia} + ${cotas(c.cotasNoTroco)}` : c.cotas > 0 ? cotas(c.cotas) : "0",
       c.cotas > 0 ? reais(c.custoCentavos) : "—",
     ]),
+    troco: troco ? `${troco.ticker}, o mais longe da meta depois da primeira passada, recebe mais ${cotas(troco.cotasNoTroco)} com o troco` : null,
     sobra: reais(sobraCentavos),
   };
 }
@@ -79,9 +82,8 @@ const SECOES = [
 export default function ComoCalculamosPage() {
   const pm = exemploDePrecoMedio();
   const aporte = exemploDeAporte();
-  // os proventos têm 4 casas (R$ 3,0065): em centavos inteiros viraria R$ 3,01 e o DY sairia 6,56%, não o 6,55% da ficha.
-  // Por isso o primeiro argumento é centavos FRACIONÁRIOS (300,65); dividendYieldPct só divide, não arredonda.
-  const dy = dividendYieldPct(ATIVO_DE_EXEMPLO.proventos12m.porUnidade * 100, emCentavos(ATIVO_DE_EXEMPLO.preco));
+  // a empresa do exemplo é fictícia, com números redondos: R$ 2,40 ÷ R$ 40,00 = 6,00%
+  const dy = dividendYieldPct(emCentavos(ATIVO_DE_EXEMPLO.proventos12m.porUnidade), emCentavos(ATIVO_DE_EXEMPLO.preco));
   const { selicMeta, ipca12m } = DADOS_PUBLICOS;
   const real = juroReal(selicMeta.valorPct, ipca12m.valorPct);
 
@@ -138,10 +140,10 @@ export default function ComoCalculamosPage() {
               Dividend yield
             </h2>
             <p className={paragrafo}>O site soma os proventos que ele mesmo importa nos últimos 12 meses e divide pelo preço atual.</p>
-            <p className={rotuloDoExemplo}>Exemplo em reais · {ATIVO_DE_EXEMPLO.ticker}</p>
-            <Conta rotulo={`Cálculo do dividend yield da ${ATIVO_DE_EXEMPLO.ticker}`}>
+            <p className={rotuloDoExemplo}>Exemplo em reais · empresa fictícia</p>
+            <Conta rotulo={`Cálculo do dividend yield da ${ATIVO_DE_EXEMPLO.nome} (empresa fictícia)`}>
               <Parcela rotulo="Proventos em 12 meses" fundo="papel">
-                {brlComCasas(ATIVO_DE_EXEMPLO.proventos12m.porUnidade, 4)}
+                {brl(ATIVO_DE_EXEMPLO.proventos12m.porUnidade)}
               </Parcela>
               <Sinal>÷</Sinal>
               <Parcela rotulo="Preço atual" fundo="papel">
@@ -153,7 +155,7 @@ export default function ComoCalculamosPage() {
               </Parcela>
             </Conta>
             <p className="text-[13px] leading-[19px] text-mute">
-              Números da {ATIVO_DE_EXEMPLO.ticker} no fechamento de {ATIVO_DE_EXEMPLO.fechamento}; fonte: {ATIVO_DE_EXEMPLO.fonte}.
+              {ATIVO_DE_EXEMPLO.nome}: empresa fictícia, com {ATIVO_DE_EXEMPLO.fonte}.
             </p>
             <Armadilha>
               Dois sites podem mostrar DYs diferentes: o PortfolioLab não usa o campo pronto do Yahoo, e sim os proventos que ele importa.
@@ -165,18 +167,23 @@ export default function ComoCalculamosPage() {
               Aporte e rebalanceamento
             </h2>
             <p className={paragrafo}>
-              O site usa cada aporte para levar a carteira de volta às metas, sem vender nada. Ele compra só unidades inteiras e sempre no ativo
-              mais abaixo da meta.
+              O site usa cada aporte para levar a carteira de volta às metas, sem vender nada. Primeiro calcula o déficit de cada ativo: a meta
+              vezes o patrimônio somado ao aporte, menos o que você já tem. Depois divide o aporte entre os ativos com déficit, em fatias
+              proporcionais ao déficit de cada um, e compra só unidades inteiras com cada fatia, sem passar do déficit. O troco das unidades
+              inteiras vai para o ativo que continua mais longe da meta, enquanto couber uma unidade. No empate, vai primeiro a unidade mais
+              barata, e depois a ordem do ticker. Ativo na meta ou acima dela não recebe nada.
             </p>
-            <p className={rotuloDoExemplo}>Exemplo · aporte de {brl(200)}</p>
+            <p className={rotuloDoExemplo}>
+              Exemplo com ativos fictícios · aporte de {aporte.aporte} numa carteira de {aporte.patrimonio}
+            </p>
             <TabelaDeExemplo
-              legenda="Exemplo de aporte de R$ 200,00 em dois ativos"
-              colunas={["Ativo", "Meta", "Déficit", "Preço", "Compra", "Custo"]}
+              legenda={`Exemplo de aporte de ${aporte.aporte} em três ativos fictícios`}
+              colunas={["Ativo", "Meta", "Déficit", "Fatia", "Preço", "Compra", "Custo"]}
               linhas={aporte.linhas}
             />
             <p className="text-[15px] leading-[22px] text-ink-2">
-              Sobram {aporte.sobra}. O site não compra BOVA11 só para gastar a sobra: uma cota custa mais que o déficit. A sobra vai para o
-              próximo aporte.
+              {aporte.troco ? `${aporte.troco}. ` : ""}Sobram {aporte.sobra}: não pagam uma unidade de nenhum ativo com déficit, e o site não
+              compra além do que falta só para gastar a sobra. Ela vai para o próximo aporte.
             </p>
             <p className={notinha}>
               <span aria-hidden>↳ </span>limitação atual: as metas são por ticker, não por classe de ativo.
@@ -211,7 +218,11 @@ export default function ComoCalculamosPage() {
             O que o site não faz
           </h2>
           <ul className="flex flex-col gap-2">
-            {["Não recomenda o que comprar: os critérios são didáticos.", "Não tem cotação automática do Tesouro Direto: o preço entra à mão."].map((t) => (
+            {[
+              "Não recomenda o que comprar: os critérios são didáticos.",
+              "Não calcula o rendimento da renda fixa: o Tesouro Direto não tem cotação para o site buscar, e um título de renda fixa aparece por um preço fixo, sem o rendimento acumulado.",
+              "O preço médio do site não separa day trade e ainda não ajusta eventos corporativos (desdobramento, grupamento, bonificação): confira quantidade e preço médio com o informe da corretora.",
+            ].map((t) => (
               <li key={t} className="flex gap-2 text-[15px] leading-[22px] text-ink-2">
                 <span aria-hidden className="font-semibold text-anotacao">
                   •

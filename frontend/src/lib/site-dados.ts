@@ -1,11 +1,10 @@
 import { mesPorExtenso, percentual } from "./format";
-import { DICAS } from "./indicadores-explicados";
 import { ipcaEm12Meses, variacaoPct, type DadosDosIndices } from "./indices";
 
 /**
  * Números do site público. Os do mês saem de `numerosDoMes`: ao vivo (Banco Central e Yahoo, os mesmos
  * dados das páginas de índices) quando a leitura funciona, e os números fixos de `NUMEROS_DO_MES`, com a
- * data deles, quando não. O resto do arquivo (ativo de exemplo, trilhas) é fixo e didático.
+ * data deles, quando não. O resto do arquivo (a empresa fictícia do exemplo) é fixo e didático.
  */
 
 /**
@@ -108,77 +107,86 @@ export function juroReal(selicPct: number, ipcaPct: number): number {
   return ((1 + selicPct / 100) / (1 + ipcaPct / 100) - 1) * 100;
 }
 
+/** Alíquota de IR usada na frase do juro real: a menor da tabela regressiva da renda fixa (Lei 11.033/2004, art. 1º). */
+export const IR_DA_FRASE_DO_JURO_REAL = 15;
+
 /**
- * A frase do juro real na home, em três pedaços (o do meio vai em negrito). Só diz que a renda fixa
- * "rende" quando o juro real é positivo; com ele zerado ou negativo, diz que ela não cobre a inflação,
- * em vez de chamar um número negativo de régua a superar. O `+ 0` tira o "-0" do arredondamento.
+ * Juro real depois do imposto: a taxa nominal perde `irPct` do rendimento antes de descontar a inflação
+ * (Fisher sobre a taxa líquida). 13,75% com 15% de IR viram 11,6875% líquidos.
+ */
+export function juroRealLiquido(selicPct: number, ipcaPct: number, irPct = IR_DA_FRASE_DO_JURO_REAL): number {
+  return juroReal(selicPct * (1 - irPct / 100), ipcaPct);
+}
+
+/** "perto de 9%", "menos de 1%" ou "abaixo da inflação", conforme o valor. O `+ 0` tira o "-0". */
+function pertoDe(real: number): string {
+  const inteiro = Math.round(real) + 0;
+  if (real > 0 && inteiro >= 1) return `perto de ${percentual(inteiro, 0)}`;
+  if (real > 0) return "menos de 1%";
+  return "abaixo da inflação";
+}
+
+/**
+ * A frase do juro real, em três pedaços (o do meio vai em negrito). Fala da Selic, e não de "a renda fixa", diz
+ * que o número é antes do imposto, dá o depois de 15% de IR e lembra que taxa passada não garante a futura. Não
+ * chama o número de "régua a superar": é uma taxa de hoje, não uma meta. Com o juro real zerado ou negativo, diz
+ * que a Selic não cobre a inflação.
  */
 export function fraseDoJuroReal(selicPct: number, ipcaPct: number): { antes: string; destaque: string; depois: string } {
   const real = juroReal(selicPct, ipcaPct);
-  const inteiro = Math.round(real) + 0;
-  if (real > 0 && inteiro >= 1) {
-    return {
-      antes: "Descontada a inflação, a renda fixa rende ",
-      destaque: `perto de ${percentual(inteiro, 0)} ao ano`,
-      depois: ". É a régua que qualquer outro investimento precisa superar.",
-    };
-  }
+  const liquido = juroRealLiquido(selicPct, ipcaPct);
   if (real > 0) {
+    const depoisDoIr = liquido > 0 ? `${pertoDe(liquido)} depois de ${IR_DA_FRASE_DO_JURO_REAL}% de IR, a menor alíquota da renda fixa` : `abaixo da inflação depois de ${IR_DA_FRASE_DO_JURO_REAL}% de IR, a menor alíquota da renda fixa`;
     return {
-      antes: "Descontada a inflação, a renda fixa rende ",
-      destaque: "menos de 1% ao ano",
-      depois: ": sobra pouco acima da inflação.",
+      antes: "Descontada a inflação, a Selic de hoje paga ",
+      destaque: `${pertoDe(real)} ao ano antes do imposto`,
+      depois: ` (${depoisDoIr}). Taxa passada não garante a futura.`,
     };
   }
   const umaCasa = Math.round(real * 10) / 10 + 0;
   return {
-    antes: "Com esses números, a renda fixa atrelada à Selic ",
+    antes: "Com esses números, a Selic ",
     destaque: "não cobre a inflação",
-    depois: `: o juro real está em ${percentual(umaCasa, 1)} ao ano.`,
+    depois: `: o juro real está em ${percentual(umaCasa, 1)} ao ano, antes do imposto. Taxa passada não garante a futura.`,
   };
 }
 
 /**
- * TAEE11 no fechamento de 20/10/2026: tudo de UMA resposta de GET /ativos/acoes/TAEE11 (a mesma fonte da
- * ficha do ativo: Yahoo Finance, com os indicadores calculados pelo job), lida nesse dia depois do pregão.
- * Nenhum número de outra data. Campos lidos da resposta: `preco`, `fechamentoEm`, `indicadores.dados`
- * (pl, pvp, dy12m, roe, margemLiquida, dividaEbitda), `historico.dados` e `proventos.dados`.
+ * A empresa do exemplo didático da home, de /aprender/indicadores, de /aprender/como-calculamos e dos artigos
+ * de indicadores. É FICTÍCIA, de propósito: um exemplo com um ativo real e critérios aplicados a ele funcionaria
+ * como análise de valor mobiliário (Resolução CVM 20). Sem ticker, sem data e sem fonte de mercado.
  *
- * Três campos são derivados, com conta exata a partir da mesma resposta (o teste em site-dados.test.ts
- * confere cada uma):
- * - `lucroPorAcao` = preço ÷ P/L (45,87 ÷ 9,66 = 4,748…), arredondado ao centavo;
- * - `valorPatrimonialPorAcao` = preço ÷ P/VP (45,87 ÷ 1,96 = 23,403…), arredondado ao centavo;
- * - `variacaoNoMes` = fechamento de outubro (45,87) ÷ fechamento de setembro (41,81) − 1, do `historico`.
- * Os proventos ficam com as 4 casas que o Yahoo dá: arredondar para R$ 3,01 mudaria o DY para 6,56%.
+ * Os números são redondos e coerentes entre si; os por ação saem dos totais (site-dados.test.ts confere cada um):
+ * - 100 milhões de ações; lucro de R$ 400 mi; patrimônio de R$ 2 bi; receita de R$ 1,6 bi;
+ * - lucro por ação = 400 mi ÷ 100 mi = R$ 4,00; patrimônio por ação = 2 bi ÷ 100 mi = R$ 20,00;
+ * - P/L = 40 ÷ 4 = 10; P/VP = 40 ÷ 20 = 2; ROE = 400 mi ÷ 2 bi = 20%; margem = 400 mi ÷ 1,6 bi = 25%;
+ * - proventos de 12 meses = 4 × R$ 0,60 = R$ 2,40; DY = 2,40 ÷ 40 = 6%;
+ * - dívida líquida de R$ 1,2 bi ÷ EBITDA de R$ 600 mi = 2,0x.
  */
 export const ATIVO_DE_EXEMPLO = {
-  ticker: "TAEE11",
-  nome: "Taesa",
-  descricao: "transmissão de energia elétrica",
-  fechamento: "20 de outubro de 2026",
-  fechamentoIso: "2026-10-20",
-  fonte: "Yahoo Finance; indicadores calculados pelo PortfolioLab",
-  preco: 45.87,
-  /** Derivado: % de 41,81 (fim de setembro) a 45,87. */
-  variacaoNoMes: 9.71,
-  mesDaVariacao: "outubro",
-  pl: 9.66,
-  pvp: 1.96,
-  dy12m: 6.55,
-  /** Proventos com data-ex nos 12 meses até o fechamento, por unidade. */
-  proventos12m: { porUnidade: 3.0065, pagamentos: 4, valores: [0.9384, 0.9089, 0.559, 0.6002] },
-  roe: 20.86,
-  margemLiquida: 36.48,
-  /** `null` quando a ficha não trouxer o dado. */
-  dividaEbitda: 4.36 as number | null,
-  /** Derivado: preço ÷ P/L. */
-  lucroPorAcao: 4.75,
-  /** Derivado: preço ÷ P/VP. */
-  valorPatrimonialPorAcao: 23.4,
+  nome: "Empresa Exemplo S.A.",
+  aviso: "empresa fictícia, números ilustrativos",
+  fonte: "valores ilustrativos, inventados para este exemplo",
+  acoes: 100_000_000,
+  lucroLiquido: 400_000_000,
+  patrimonioLiquido: 2_000_000_000,
+  receitaLiquida: 1_600_000_000,
+  dividaLiquida: 1_200_000_000,
+  ebitda: 600_000_000,
+  preco: 40,
+  pl: 10,
+  pvp: 2,
+  dy12m: 6,
+  /** Proventos dos últimos 12 meses, por ação. */
+  proventos12m: { porUnidade: 2.4, pagamentos: 4, valores: [0.6, 0.6, 0.6, 0.6] },
+  roe: 20,
+  margemLiquida: 25,
+  dividaEbitda: 2 as number | null,
+  /** Derivado: lucro líquido ÷ número de ações. */
+  lucroPorAcao: 4,
+  /** Derivado: patrimônio líquido ÷ número de ações. */
+  valorPatrimonialPorAcao: 20,
 } as const;
-
-/** A linha da home que diz que o TAEE11 é uma Unit; o resto é o texto de DICAS, sem número inventado. */
-export const FRASE_DA_UNIT = `O ${ATIVO_DE_EXEMPLO.ticker} é uma Unit. ${DICAS.especie.texto}`;
 
 export type Criterio = {
   rotulo: string;
@@ -187,6 +195,10 @@ export type Criterio = {
   limite: number;
 };
 
+/**
+ * Critérios de EXEMPLO, aplicados só à empresa fictícia, para mostrar como uma regra pessoal funciona. Não são
+ * os critérios do site, nem uma faixa recomendada: cada pessoa escolhe os seus, e o site não avalia ativos.
+ */
 export const CRITERIOS_DE_EXEMPLO: Criterio[] = [
   { rotulo: "ROE acima de 15%", campo: "roe", comparacao: "acima", limite: 15 },
   { rotulo: "Dividend yield acima de 6%", campo: "dy12m", comparacao: "acima", limite: 6 },

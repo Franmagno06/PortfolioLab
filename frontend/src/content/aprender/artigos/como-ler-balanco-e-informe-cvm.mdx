@@ -1,16 +1,16 @@
 ---
-titulo: "Como Ler Balanço, DRE e Informe Mensal da CVM"
+titulo: "Balanço, DRE e informes de FII da CVM: o que cada um mostra"
 tituloCurto: "Lendo Balanço e CVM"
 subtitulo: "O caminho prático para interpretar dados oficiais de empresas e FIIs na fonte."
 categoria: acoes
 nivel: intermediario
 slug: como-ler-balanco-e-informe-cvm
 tempoLeitura: 4
-atualizadoEm: 2026-10-30
+atualizadoEm: 2026-11-12
 resumo:
-  - "As demonstrações financeiras oficiais na CVM eliminam ruídos e mostram a real saúde de uma companhia."
-  - "O Balanço Patrimonial e a DRE revelam o crescimento das vendas, a rentabilidade líquida e o endividamento."
-  - "O Informe Mensal Estruturado de FII permite auditar o VPA, a taxa de ocupação física e o nível de alavancagem."
+  - "As demonstrações financeiras entregues à CVM são a fonte oficial dos números de uma companhia, sem o filtro de resumos de terceiros."
+  - "O Balanço Patrimonial e a DRE mostram as vendas, o lucro, o patrimônio e o que a empresa deve."
+  - "O Informe Mensal de FII traz o patrimônio, a cota, os cotistas e os totais do ativo e do passivo; imóveis, vacância e CRIs um a um ficam no Informe Trimestral e no relatório gerencial."
 fontes:
   - rotulo: "Comissão de Valores Mobiliários (CVM), Consulta a Documentos de Companhias e Fundos"
     url: "https://sistemas.cvm.gov.br"
@@ -18,6 +18,10 @@ fontes:
     url: "https://www.cpc.org.br"
   - rotulo: "B3, Guias de Informações Trimestrais e Anuais das Empresas"
     url: "https://www.b3.com.br/pt_br/produtos-e-servicos/negociacao/renda-variavel/empresas-listadas/"
+  - rotulo: "CVM, dados abertos: Informe Mensal de FII (campos do arquivo), consultado em 12/11/2026"
+    url: "https://dados.cvm.gov.br/dataset/fii-doc-inf_mensal"
+  - rotulo: "CVM, dados abertos: Informe Trimestral de FII (imóveis, vacância, inadimplência e ativos), consultado em 12/11/2026"
+    url: "https://dados.cvm.gov.br/dataset/fii-doc-inf_trimestral"
 relacionados:
   - roe-margem-e-endividamento
   - pl-e-pvp
@@ -26,7 +30,7 @@ relacionados:
 
 Todo investidor que busca autonomia na bolsa de valores precisa aprender a consultar e interpretar os documentos contábeis protocolados na Comissão de Valores Mobiliários (CVM). Em vez de depender exclusivamente de resumos de terceiros, analisar os relatórios oficiais permite conferir a origem de cada centavo de lucro ou dívida.
 
-Tanto na aba Relatórios do PortfolioLab quanto nos portais oficiais de Relações com Investidores (RI), as informações originam-se de dois documentos padronizados: o ITR/DFP para ações e o Informe Mensal para fundos imobiliários.
+Tanto na aba Relatórios do PortfolioLab quanto nos portais oficiais de Relações com Investidores (RI), as informações originam-se de documentos padronizados: o ITR/DFP para ações e os informes Mensal e Trimestral para fundos imobiliários.
 
 ## Demonstrações de empresas: ITR e DFP
 
@@ -38,8 +42,8 @@ Ao abrir essas demonstrações, três blocos contábeis concentram as informaç�
 
 A DRE funciona como um filme do desempenho financeiro ao longo de um trimestre ou ano:
 
-- **Receita Líquida:** É o total faturado pela empresa na venda de bens ou serviços após a dedução dos tributos diretos sobre a venda (como ICMS, PIS e COFINS), devoluções e descontos comerciais concedidos aos clientes.
-- **Lucro Líquido:** É o resultado final que resta para os acionistas depois de pagar todos os custos de produção, despesas operacionais, despesas administrativas, encargos financeiros da dívida e o Imposto de Renda (IRPJ e CSLL).
+- **Receita Líquida:** É o total faturado pela empresa na venda de bens ou serviços após a dedução dos tributos indiretos que incidem sobre a venda (como ICMS, PIS e COFINS), devoluções e descontos comerciais concedidos aos clientes.
+- **Lucro Líquido:** É o resultado final que resta para os acionistas depois de pagar todos os custos de produção, despesas operacionais, despesas administrativas, encargos financeiros da dívida e os tributos sobre o lucro: o Imposto de Renda da pessoa jurídica (IRPJ) e a Contribuição Social sobre o Lucro Líquido (CSLL), que é uma contribuição, e não imposto de renda.
 - **Margem Líquida:** A divisão do Lucro Líquido pela Receita Líquida expressa a eficiência da empresa: quanto de cada R$ 100 vendidos efetivamente se transforma em sobra para a empresa.
 
 ### 2. Balanço Patrimonial (BP)
@@ -50,7 +54,7 @@ Diferente da DRE, o Balanço Patrimonial é uma fotografia instantânea dos bens
 - **Passivo Total:** O montante devido a fornecedores, bancos credores, debenturistas e compromissos trabalhistas e fiscais.
 - **Patrimônio Líquido (PL):** A riqueza residual que pertence aos proprietários (o Ativo Total menos o Passivo Total). É a base contábil para o cálculo do Valor Patrimonial por Ação (VPA) e do Retorno sobre o Patrimônio Líquido (ROE).
 
-<Trecho nota="Empresas com lucros consistentes e Patrimônio Líquido crescente ao longo dos anos costumam demonstrar boa disciplina de capital.">
+<Trecho nota="Um balanço sozinho é uma foto: compare o mesmo número em vários trimestres e anos para ver a direção.">
 
 <Conta rotulo="Equação fundamental do Balanço Patrimonial">
   <Parcela rotulo="Ativo Total">R$ 1.000.000</Parcela>
@@ -62,16 +66,19 @@ Diferente da DRE, o Balanço Patrimonial é uma fotografia instantânea dos bens
 
 </Trecho>
 
-## O Informe Mensal Estruturado de FII
+## Os informes de FII: mensal e trimestral
 
-Para os Fundos de Investimento Imobiliário (FIIs), a CVM exige o envio mensal de um formulário eletrônico detalhado denominado **Informe Mensal Estruturado**. Esse relatório traz uma radiografia completa da carteira imobiliária do fundo.
+Os Fundos de Investimento Imobiliário (FIIs) entregam à CVM formulários padronizados. Cada quadro mora num documento diferente, e vale saber onde procurar.
 
-Ao auditar o Informe Mensal de um fundo, verifique com atenção os seguintes quadros:
+O **Informe Mensal** traz, todo mês:
 
-1. **Valor Patrimonial por Cota (VPA):** É o patrimônio líquido contábil do fundo dividido pelo número total de cotas emitidas. Permite calcular o indicador P/VP comparando o valor dos laudos técnicos de avaliação dos imóveis ou títulos com o preço cotado na B3.
-2. **Dividend Yield Mensal:** A relação entre o provento distribuído por cota no mês e a cotação média de fechamento do fundo.
-3. **Número de Cotistas:** A evolução da quantidade de investidores indica a liquidez do fundo no mercado secundário e afeta o cumprimento dos requisitos legais de isenção de imposto de renda sobre rendimentos para pessoas físicas.
-4. **Alavancagem (Passivo sobre Ativo):** O quadro de obrigações detalha se o fundo adquiriu imóveis com pagamento parcelado (Certificados de Recebíveis Imobiliários alavancados pelo próprio fundo). Uma relação de obrigações superior a 25% do ativo total requer monitoramento do fluxo de caixa e dos custos de juros.
-5. **Composição da Carteira de Ativos:** Lista discriminada de cada imóvel (Área Bruta Locável, endereço e participação percentual) ou de cada Certificado de Recebíveis Imobiliários (emissor, taxa de cupom e indexador ao CDI ou IPCA).
+1. **Valor Patrimonial por Cota (VPA):** o patrimônio líquido contábil do fundo dividido pelo número de cotas emitidas. É a base do P/VP: o preço da cota na B3 dividido por ele.
+2. **Dividend Yield do mês:** a relação entre o rendimento distribuído por cota no mês e o valor da cota, no cálculo que o próprio formulário define.
+3. **Número de cotistas:** quantas pessoas e empresas têm cotas. Um mínimo de 100 cotistas é uma das condições da isenção de IR dos rendimentos para pessoa física.
+4. **Totais do ativo e do passivo:** quanto o fundo tem em imóveis, em títulos como CRI, em caixa, e quanto deve. O passivo inclui rendimentos a distribuir e obrigações por imóveis comprados a prazo, além de dívida.
 
-Compreender esses números permite avaliar com clareza a qualidade de cada investimento e identificar desvios operacionais com rapidez.
+O **Informe Trimestral** traz o que o mensal não detalha: a lista de cada imóvel, com área, endereço, percentual locado, vacância e inadimplência, e a lista de cada título da carteira, como os CRIs, com emissor e série. O **relatório gerencial**, que o próprio fundo publica, costuma trazer a taxa de ocupação, os contratos e os comentários do gestor.
+
+Na aba Relatórios, o PortfolioLab destaca quando o passivo passa de 15% do ativo. Esse é um corte usado pelo site para chamar a atenção para o número, não é regra: o passivo de cada fundo tem composição própria, e vale ler o que está dentro dele.
+
+Esses quadros mostram de onde vem cada número. Compare o mesmo fundo ao longo dos meses antes de tirar conclusões.

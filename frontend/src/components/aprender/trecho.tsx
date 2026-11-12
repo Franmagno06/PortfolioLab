@@ -4,7 +4,7 @@
  * linha, logo depois do trecho. A nota é posicionada em relação ao PRÓPRIO trecho, e não por
  * espaçadores de altura fixa como no protótipo: se o texto mudar de tamanho, a nota acompanha.
  *
- *   <Trecho nota="Na TAEE11 a conta dá 9,66.">
+ *   <Trecho nota="Na empresa fictícia a conta dá 10,00.">
  *   Parágrafo ou <Conta> comentado.
  *   </Trecho>
  */

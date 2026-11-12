@@ -7,7 +7,7 @@ import { ProventosCard } from "@/components/proventos-card";
 import { Botao } from "@/components/ui/botao";
 import { EmptyState } from "@/components/ui/empty-state";
 import { EtiquetaClasse } from "@/components/ui/etiqueta-classe";
-import { MensagemErro } from "@/components/ui/mensagem";
+import { MensagemAviso, MensagemErro } from "@/components/ui/mensagem";
 import { PageHeader, Pilula } from "@/components/ui/page-header";
 import { SkeletonPagina } from "@/components/ui/skeleton";
 import { CabecalhoTabela, CardTabela } from "@/components/ui/tabela";
@@ -36,7 +36,7 @@ const colunas = [
   { rotulo: "Preço médio", direita: true },
   { rotulo: "Preço atual", direita: true },
   { rotulo: "Valor atual", direita: true },
-  { rotulo: "Resultado", direita: true },
+  { rotulo: "Resultado (posição aberta)", direita: true },
   { rotulo: "% carteira", direita: true },
 ];
 
@@ -140,6 +140,14 @@ export default function CarteiraPage() {
           </Botao>
         </EmptyState>
       ) : (
+        <>
+        {/* Só há COMPRA e VENDA: um desdobramento deixa a quantidade e o PM errados sem
+            erro nenhum. Até os eventos existirem, o aviso fica sempre na tela. */}
+        <MensagemAviso titulo="Eventos corporativos não são ajustados">
+          Desdobramentos, grupamentos e bonificações ainda não são ajustados automaticamente.
+          Se um ativo seu teve algum, confira a quantidade e o preço médio com o informe da
+          corretora.
+        </MensagemAviso>
         <CardTabela larguraMinima="min-w-205">
           <CabecalhoTabela colunas={colunas} />
           <tbody>
@@ -220,6 +228,7 @@ export default function CarteiraPage() {
             </tr>
           </tfoot>
         </CardTabela>
+        </>
       )}
 
       <ProventosCard ativos={disponiveis} />

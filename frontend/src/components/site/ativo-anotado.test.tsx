@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import { brl, brlComCasas, indicadorOuTraco, numero, percentual } from "@/lib/format";
-import { ATIVO_DE_EXEMPLO as ativo, FRASE_DA_UNIT } from "@/lib/site-dados";
+import { brl, indicadorOuTraco, numero, percentual } from "@/lib/format";
+import { ATIVO_DE_EXEMPLO as ativo } from "@/lib/site-dados";
 import { AtivoAnotado, PainelDeCriterios } from "./ativo-anotado";
 import { ESCALA_MAXIMA_PVP, posicaoNaReguaPvp, ReguaPvp } from "./regua-pvp";
 
@@ -14,15 +14,20 @@ const textoDoCard = () => limpo(screen.getByRole("article").textContent);
 const linha = (nome: RegExp) => screen.getByRole("button", { name: nome });
 
 describe("AtivoAnotado", () => {
-  it("mostra o cabeçalho do exemplo numa data só, com fonte", () => {
+  it("o cabeçalho diz que a empresa é fictícia e os números são ilustrativos", () => {
     render(<AtivoAnotado />);
     const texto = textoDoCard();
-    for (const t of [brl(ativo.preco), ativo.ticker]) {
+    for (const t of [brl(ativo.preco), "Empresa Exemplo S.A.", "empresa fictícia, números ilustrativos"]) {
       expect(texto, t).toContain(limpo(t));
     }
-    // a fonte e a data aparecem uma vez só, no cabeçalho da seção da home, e não no card
-    expect(texto).not.toContain(ativo.fonte);
-    expect(ativo.fonte).not.toMatch(/job/i);
+    expect(screen.getByRole("heading", { name: "Empresa Exemplo S.A." })).toBeTruthy();
+  });
+
+  it("não mostra ticker real, variação de mercado nem cor de alta ou baixa", () => {
+    const { container } = render(<AtivoAnotado />);
+    for (const b of screen.getAllByRole("button")) fireEvent.click(b);
+    expect(textoDoCard()).not.toMatch(/\b[A-Z]{4}\d{1,2}\b/);
+    expect(container.querySelector(".text-gain-ink, .text-loss-ink")).toBeNull();
   });
 
   it("mostra os cinco indicadores com valor e frase sempre visíveis", () => {
@@ -51,13 +56,13 @@ describe("AtivoAnotado", () => {
     expect(corpo.hasAttribute("inert")).toBe(false);
   });
 
-  it("abrir o P/L mostra a conta preço ÷ lucro por Unit com os números do exemplo", () => {
+  it("abrir o P/L mostra a conta preço ÷ lucro por ação com os números do exemplo", () => {
     render(<AtivoAnotado />);
     const botao = linha(/Preço\/lucro/);
     fireEvent.click(botao);
     const corpo = document.getElementById(botao.getAttribute("aria-controls")!)!;
     const texto = limpo(corpo.textContent);
-    expect(texto).toContain("preço ÷ lucro por Unit = P/L");
+    expect(texto).toContain("preço ÷ lucro por ação = P/L");
     expect(texto).toContain(`${brl(ativo.preco)} ÷ ${brl(ativo.lucroPorAcao)} = ${indicadorOuTraco(ativo.pl)}`);
     expect(texto).toContain("Lucro pontual");
     // a conta bate com o P/L do próprio exemplo
@@ -77,16 +82,18 @@ describe("AtivoAnotado", () => {
     expect(Math.round((ativo.preco / ativo.valorPatrimonialPorAcao) * 100) / 100).toBe(ativo.pvp);
 
     const dy = abrir(/Dividend yield/);
-    expect(dy).toContain(`${brlComCasas(ativo.proventos12m.porUnidade, 4)} ÷ ${brl(ativo.preco)} = ${percentual(ativo.dy12m, 2)}`);
+    expect(dy).toContain(`${brl(ativo.proventos12m.porUnidade)} ÷ ${brl(ativo.preco)} = ${percentual(ativo.dy12m, 2)}`);
     expect(Math.round((ativo.proventos12m.porUnidade / ativo.preco) * 10000) / 100).toBe(ativo.dy12m);
     expect(dy).toContain("preço caindo");
 
     const roe = abrir(/Retorno sobre o patrimônio/);
-    expect(roe).toContain("lucro líquido ÷ patrimônio líquido = ROE");
-    expect(roe).toContain(`ROE = ${percentual(ativo.roe, 2)}`);
+    expect(roe).toContain("lucro por ação ÷ patrimônio por ação = ROE");
+    expect(roe).toContain(`${brl(ativo.lucroPorAcao)} ÷ ${brl(ativo.valorPatrimonialPorAcao)} = ${percentual(ativo.roe, 2)}`);
+    expect((ativo.lucroPorAcao / ativo.valorPatrimonialPorAcao) * 100).toBe(ativo.roe);
     const margem = abrir(/Margem líquida/);
-    expect(margem).toContain("lucro líquido ÷ receita = margem líquida");
-    expect(margem).toContain(`margem líquida = ${percentual(ativo.margemLiquida, 2)}`);
+    expect(margem).toContain("lucro líquido ÷ receita líquida = margem líquida");
+    expect(margem).toContain(`R$ 400 mi ÷ R$ 1,6 bi = ${percentual(ativo.margemLiquida, 2)}`);
+    expect((ativo.lucroLiquido / ativo.receitaLiquida) * 100).toBe(ativo.margemLiquida);
   });
 
   it("só o P/VP tem régua, com rótulos neutros", () => {
@@ -99,7 +106,7 @@ describe("AtivoAnotado", () => {
     const texto = limpo(reguas[0]!.textContent);
     expect(texto).toContain("abaixo do patrimônio contábil");
     expect(texto).toContain("acima do patrimônio contábil");
-    expect(screen.getByRole("img", { name: /Régua do P\/VP, de 0 a 3 ou mais: 1,96, acima do patrimônio contábil/ })).toBeTruthy();
+    expect(screen.getByRole("img", { name: /Régua do P\/VP, de 0 a 3 ou mais: 2,00, acima do patrimônio contábil/ })).toBeTruthy();
   });
 
   it("o marcador da régua fica na posição proporcional ao P/VP do exemplo", () => {
@@ -124,19 +131,16 @@ describe("AtivoAnotado", () => {
     }
   });
 
-  it("o corpo do ROE explica de onde vem o número e os outros não", () => {
+  it("o corpo do ROE lembra que um ano isolado diz pouco", () => {
     render(<AtivoAnotado />);
-    const frase = "O ROE vem pronto do Yahoo Finance, com a base de cálculo dele; por isso não coincide exatamente com a razão dos valores por Unit mostrados nas contas do P/L e do P/VP.";
-    for (const b of screen.getAllByRole("button")) fireEvent.click(b);
-    const corpos = screen.getAllByRole("button").map((b) => limpo(document.getElementById(b.getAttribute("aria-controls")!)!.textContent));
-    const com = corpos.filter((c) => c.includes(frase));
-    expect(com).toHaveLength(1);
-    expect(com[0]).toContain("ROE = ");
+    const b = linha(/Retorno sobre o patrimônio/);
+    fireEvent.click(b);
+    expect(limpo(document.getElementById(b.getAttribute("aria-controls")!)!.textContent)).toContain("Um ano isolado diz pouco");
   });
 
-  it("tem os links da ficha e dos indicadores explicados", () => {
+  it("tem os links das fichas de ações e dos indicadores explicados, sem ficha da empresa fictícia", () => {
     render(<AtivoAnotado />);
-    expect(screen.getByRole("link", { name: `Ver a ficha do ${ativo.ticker}` }).getAttribute("href")).toBe(`/ativos/acoes/${ativo.ticker}`);
+    expect(screen.getByRole("link", { name: "Ver as fichas das ações do site" }).getAttribute("href")).toBe("/ativos/acoes");
     expect(screen.getByRole("link", { name: "Indicadores explicados" }).getAttribute("href")).toBe("/aprender/indicadores");
   });
 
@@ -163,31 +167,26 @@ describe("AtivoAnotado", () => {
     render(<AtivoAnotado />);
     for (const b of screen.getAllByRole("button")) fireEvent.click(b);
     const texto = textoDoCard();
-    for (const t of ["3,01", "6,6%", "20,9%", "42,85", "9,02", "1,83", "7,02", "2 de outubro"]) {
+    for (const t of ["TAEE11", "Taesa", "Unit", "45,87", "9,66", "1,96", "6,55", "20,86", "3,0065"]) {
       expect(texto, t).not.toContain(t);
     }
-    expect(numero(ativo.pl, 2)).toBe("9,66");
+    expect(numero(ativo.pl, 2)).toBe("10,00");
   });
 });
 
-describe("FRASE_DA_UNIT", () => {
-  it("diz que o TAEE11 é uma Unit e reusa a explicação do repositório", () => {
-    expect(FRASE_DA_UNIT.startsWith("O TAEE11 é uma Unit. ")).toBe(true);
-    expect(FRASE_DA_UNIT).toContain("Unit = pacote de ações.");
-    expect(FRASE_DA_UNIT).not.toMatch(/\d+ ações/);
-  });
-});
-
-describe("guarda da frase da Unit", () => {
-  it("a regex pega um número de ações escrito na mão", () => {
-    expect("Unit = 3 ações").toMatch(/\d+ ações/);
-  });
-});
 
 describe("PainelDeCriterios", () => {
+  it("enquadra os critérios como exemplo, aplicados só à empresa fictícia, sem cor de veredito", () => {
+    const { container } = render(<PainelDeCriterios />);
+    const texto = limpo(container.textContent);
+    expect(screen.getByRole("heading", { name: "Critérios de exemplo" })).toBeTruthy();
+    expect(texto).toContain("Cada pessoa escolhe os seus, e o site não avalia ativos.");
+    expect(texto).toContain("Empresa Exemplo S.A., a empresa fictícia");
+    expect(container.querySelector(".text-gain-ink, .text-loss-ink")).toBeNull();
+  });
+
   it("continua com o link da carteira", () => {
     render(<PainelDeCriterios />);
-    expect(screen.getByRole("heading", { name: "Seus critérios" })).toBeTruthy();
     expect(screen.getByRole("link", { name: "Ver os indicadores da minha carteira" }).getAttribute("href")).toBe("/indicadores");
   });
 });

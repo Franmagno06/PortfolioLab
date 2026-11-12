@@ -16,7 +16,7 @@ import { APORTE_DO_DESAFIO, CARTEIRA_DE_NOVEMBRO } from "@/lib/carteira-exemplo"
 import { brlSemCentavos } from "@/lib/format";
 import { artigosParaComecar } from "@/lib/home-dados";
 import { ROTAS } from "@/lib/navegacao";
-import { ATIVO_DE_EXEMPLO, CONTA_DEMO, FRASE_DA_UNIT, NUMEROS_DO_MES } from "@/lib/site-dados";
+import { ATIVO_DE_EXEMPLO, CONTA_DEMO, NUMEROS_DO_MES } from "@/lib/site-dados";
 
 /**
  * Os números do mês vêm do Banco Central e do Yahoo a cada visita (a leitura guarda a resposta por 2 min).
@@ -174,7 +174,7 @@ export default function SitePage() {
 
         {/* ── 4. Como ler um ativo ──────────────────────────────────────
             Por que assim: o número e a frase ficam à vista; a conta, a explicação e a armadilha abrem
-            sob demanda. Sem nota nem ranking: o julgamento é dos critérios de quem lê. */}
+            sob demanda. A empresa é fictícia: sem nota, sem ranking e sem ativo real. */}
         <section id="como-ler-um-ativo" aria-labelledby="titulo-como-ler" className="bg-caderno">
           <div className={`${recipiente} py-20 lg:py-28`}>
             <Revelar>
@@ -183,12 +183,12 @@ export default function SitePage() {
                   Como ler um ativo
                 </h2>
                 <p className={`mt-[18px] ${apoioDeSecao}`}>
-                  Cada número vem com a frase que o traduz. Abra uma linha para ver a conta feita com os números do{" "}
-                  {ATIVO_DE_EXEMPLO.ticker}, o que ela quer dizer e o erro mais comum de leitura.
+                  Cada número vem com a frase que o traduz. Abra uma linha para ver a conta feita com os números da{" "}
+                  {ATIVO_DE_EXEMPLO.nome}, o que ela quer dizer e o erro mais comum de leitura.
                 </p>
                 <p className="mt-3 text-sm leading-[21px] text-mute">
-                  Exemplo de {ATIVO_DE_EXEMPLO.fechamento}, tudo da mesma data. Fonte: {ATIVO_DE_EXEMPLO.fonte}. {FRASE_DA_UNIT}{" "}
-                  Sem nota e sem ranking: quem julga o ativo são os seus critérios.
+                  A {ATIVO_DE_EXEMPLO.nome} é uma empresa fictícia: os números são ilustrativos, inventados para este exemplo,
+                  e não descrevem nenhuma empresa de verdade. Sem nota e sem ranking: o site não avalia ativos.
                 </p>
               </div>
             </Revelar>

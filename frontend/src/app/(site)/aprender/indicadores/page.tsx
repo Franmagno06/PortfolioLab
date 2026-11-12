@@ -8,7 +8,7 @@ import { ATIVO_DE_EXEMPLO } from "@/lib/site-dados";
 
 export const metadata: Metadata = {
   title: "Indicadores explicados · PortfolioLab",
-  description: "Para cada indicador: o que ele mede, a fórmula, como ler e onde ele engana. Os exemplos usam a mesma empresa.",
+  description: "Para cada indicador: o que ele mede, a fórmula, como ler e onde ele engana. Os exemplos usam uma empresa fictícia.",
 };
 
 export default function IndicadoresPage() {
@@ -24,7 +24,7 @@ export default function IndicadoresPage() {
         titulo="Indicadores explicados"
         anotacao="as fichas de ativos linkam direto para cada indicador (por exemplo, #pl e #dy)."
       >
-        Para cada indicador: o que ele mede, a fórmula, como ler e onde ele engana. Os de ações usam a mesma empresa, a {ATIVO_DE_EXEMPLO.ticker}; os demais, uma conta hipotética, marcada como tal.
+        Para cada indicador: o que ele mede, a fórmula, como ler e onde ele engana. Os de ações usam a mesma empresa fictícia, a {ATIVO_DE_EXEMPLO.nome}, com números ilustrativos; os demais, uma conta hipotética, marcada como tal.
       </TituloDaPagina>
 
       {/* Em tela larga, o conteúdo à esquerda e as duas caixas laterais à direita. No celular a ordem é a do
@@ -81,8 +81,9 @@ export default function IndicadoresPage() {
 
           <p className="text-[13px] leading-[19px] font-medium text-anotacao">
             <span aria-hidden>↳ </span>
-            Dados do exemplo: fechamento de {ATIVO_DE_EXEMPLO.fechamento}; fonte da metodologia: HG Brasil, análise fundamentalista. Os
-            exemplos hipotéticos servem para mostrar a conta, não descrevem nenhuma empresa ou fundo de verdade.
+            Dados do exemplo: {ATIVO_DE_EXEMPLO.nome}, empresa fictícia, com {ATIVO_DE_EXEMPLO.fonte}; fonte da metodologia: HG Brasil,
+            análise fundamentalista. Esses números e os exemplos hipotéticos servem para mostrar a conta, não descrevem nenhuma empresa ou
+            fundo de verdade.
           </p>
         </div>
 

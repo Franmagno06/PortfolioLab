@@ -7,6 +7,7 @@ import {
   CRITERIOS_DE_EXEMPLO,
   fraseDoJuroReal,
   juroReal,
+  juroRealLiquido,
   NUMEROS_DO_MES,
   numerosDoMes,
 } from "./site-dados";
@@ -29,69 +30,59 @@ describe("juroReal", () => {
     expect(juroReal(13.75, 4.58).toFixed(2)).toBe("8.77");
   });
 
-  it("o 'perto de 9%' da página sai do arredondamento dos números do mês", () => {
-    expect(Math.round(juroReal(NUMEROS_DO_MES.selic, NUMEROS_DO_MES.ipca12m))).toBe(9);
-  });
 });
 
 describe("atende", () => {
-  it("confere os três critérios de exemplo contra a TAEE11", () => {
+  it("confere os três critérios de exemplo contra a empresa fictícia", () => {
     const resultados = CRITERIOS_DE_EXEMPLO.map((c) => atende(ATIVO_DE_EXEMPLO, c));
 
-    // ROE 20,86 > 15; DY 6,55 > 6; P/VP 1,96 não é < 1,5
-    expect(resultados).toEqual([true, true, false]);
+    // ROE 20 > 15; DY 6 não é > 6 (acima é estritamente acima); P/VP 2 não é < 1,5
+    expect(resultados).toEqual([true, false, false]);
   });
 
   it("o limite exato não atende: acima é estritamente acima", () => {
     expect(
-      atende(ATIVO_DE_EXEMPLO, { rotulo: "x", campo: "roe", comparacao: "acima", limite: 20.86 }),
+      atende(ATIVO_DE_EXEMPLO, { rotulo: "x", campo: "roe", comparacao: "acima", limite: 20 }),
     ).toBe(false);
   });
 });
 
-describe("ATIVO_DE_EXEMPLO: uma data só e contas que fecham", () => {
+describe("ATIVO_DE_EXEMPLO: empresa fictícia, contas que fecham", () => {
   const a = ATIVO_DE_EXEMPLO;
-  // tolerância do arredondamento: os indicadores vêm com 2 casas
-  const perto = (valor: number, esperado: number) => expect(Math.abs(valor - esperado)).toBeLessThan(0.005);
 
-  it("é o fechamento de 20/10/2026, com a fonte", () => {
-    expect(a.fechamento).toBe("20 de outubro de 2026");
-    expect(a.fechamentoIso).toBe("2026-10-20");
-    expect(a.fonte).toBe("Yahoo Finance; indicadores calculados pelo PortfolioLab");
-  });
-
-  it("preço ÷ lucro por ação dá o P/L", () => {
-    perto(a.preco / a.lucroPorAcao, a.pl);
-  });
-
-  it("preço ÷ valor patrimonial por ação dá o P/VP", () => {
-    perto(a.preco / a.valorPatrimonialPorAcao, a.pvp);
-  });
-
-  it("os proventos de 12 meses somam o valor por unidade e dão o DY", () => {
-    const soma = a.proventos12m.valores.reduce((s, v) => s + v, 0);
-    expect(soma).toBeCloseTo(a.proventos12m.porUnidade, 9);
-    expect(a.proventos12m.valores).toHaveLength(a.proventos12m.pagamentos);
-    perto((a.proventos12m.porUnidade / a.preco) * 100, a.dy12m);
-  });
-
-  it("traz um indicador de margem e um de endividamento (null quando a ficha não tiver)", () => {
-    expect(a.margemLiquida).toBe(36.48);
-    expect(a.dividaEbitda).toBe(4.36);
-  });
-
-  it("a variação no mês é contra o fechamento de setembro da mesma resposta", () => {
-    perto(((a.preco / 41.81) - 1) * 100, a.variacaoNoMes);
-    expect(a.mesDaVariacao).toBe("outubro");
-  });
-
-  it("nenhum texto do exemplo cita outra data", () => {
+  it("é fictícia e diz isso: sem ticker, sem data, sem fonte de mercado", () => {
+    expect(a.nome).toBe("Empresa Exemplo S.A.");
+    expect(a.aviso).toBe("empresa fictícia, números ilustrativos");
+    expect(a.fonte).toBe("valores ilustrativos, inventados para este exemplo");
+    expect("ticker" in a).toBe(false);
     const textos = JSON.stringify(a);
-    const datas = [
-      ...textos.matchAll(/\d{1,2} de [a-zç]+ de \d{4}|\d{2}\/\d{2}\/\d{4}|\d{4}-\d{2}-\d{2}/g),
-    ].map((m) => m[0]);
-    expect(datas.length).toBeGreaterThan(0);
-    for (const d of datas) expect(["20 de outubro de 2026", "20/10/2026", "2026-10-20"]).toContain(d);
+    expect(textos).not.toMatch(/\d{1,2} de [a-zç]+ de \d{4}|\d{2}\/\d{2}\/\d{4}|\d{4}-\d{2}-\d{2}/);
+    expect(textos).not.toMatch(/[A-Z]{4}\d{1,2}\b/); // nada com cara de ticker da B3
+  });
+
+  it("os valores por ação saem dos totais", () => {
+    expect(a.lucroLiquido / a.acoes).toBe(a.lucroPorAcao);
+    expect(a.patrimonioLiquido / a.acoes).toBe(a.valorPatrimonialPorAcao);
+  });
+
+  it("preço ÷ lucro por ação dá o P/L, e preço ÷ patrimônio por ação dá o P/VP", () => {
+    expect(a.preco / a.lucroPorAcao).toBe(a.pl);
+    expect(a.preco / a.valorPatrimonialPorAcao).toBe(a.pvp);
+  });
+
+  it("ROE, margem e dívida/EBITDA saem dos totais", () => {
+    expect((a.lucroLiquido / a.patrimonioLiquido) * 100).toBe(a.roe);
+    expect((a.lucroLiquido / a.receitaLiquida) * 100).toBe(a.margemLiquida);
+    expect(a.dividaLiquida / a.ebitda).toBe(a.dividaEbitda);
+    // o ROE também fecha com os valores por ação: 4 ÷ 20
+    expect((a.lucroPorAcao / a.valorPatrimonialPorAcao) * 100).toBe(a.roe);
+  });
+
+  it("os proventos de 12 meses somam o valor por ação e dão o DY", () => {
+    const somaCentavos = a.proventos12m.valores.reduce((s, v) => s + Math.round(v * 100), 0);
+    expect(somaCentavos).toBe(Math.round(a.proventos12m.porUnidade * 100));
+    expect(a.proventos12m.valores).toHaveLength(a.proventos12m.pagamentos);
+    expect((Math.round(a.proventos12m.porUnidade * 100) / Math.round(a.preco * 100)) * 100).toBeCloseTo(a.dy12m, 10);
   });
 });
 
@@ -264,38 +255,57 @@ describe("numerosDoMes: pregão em andamento", () => {
   });
 });
 
+describe("juroRealLiquido", () => {
+  it("13,75% com 15% de IR viram 11,6875% líquidos, e o juro real cai para 6,80%", () => {
+    expect(juroRealLiquido(13.75, 4.58).toFixed(2)).toBe("6.80");
+    expect(juroReal(13.75 * 0.85, 4.58)).toBeCloseTo(juroRealLiquido(13.75, 4.58), 12);
+  });
+});
+
 describe("fraseDoJuroReal", () => {
   const juntar = (f: { antes: string; destaque: string; depois: string }) => f.antes + f.destaque + f.depois;
 
-  it("juro real positivo (13,75% e 4,58%): rende perto de 9% e é a régua", () => {
+  it("juro real positivo (13,75% e 4,58%): perto de 9% antes do imposto e de 7% depois de 15% de IR", () => {
     const f = fraseDoJuroReal(13.75, 4.58);
-    expect(f.destaque).toBe("perto de 9% ao ano");
+    expect(f.destaque).toBe("perto de 9% ao ano antes do imposto");
     expect(juntar(f)).toBe(
-      "Descontada a inflação, a renda fixa rende perto de 9% ao ano. É a régua que qualquer outro investimento precisa superar.",
+      "Descontada a inflação, a Selic de hoje paga perto de 9% ao ano antes do imposto (perto de 7% depois de 15% de IR, a menor alíquota da renda fixa). Taxa passada não garante a futura.",
     );
+    expect(juntar(f)).not.toContain("régua");
+  });
+
+  it("os números do conjunto fixo dão os mesmos 9% e 7%", () => {
+    expect(Math.round(juroReal(NUMEROS_DO_MES.selic, NUMEROS_DO_MES.ipca12m))).toBe(9);
+    expect(Math.round(juroRealLiquido(NUMEROS_DO_MES.selic, NUMEROS_DO_MES.ipca12m))).toBe(7);
+  });
+
+  it("positivo antes do IR e negativo depois: diz que fica abaixo da inflação depois do imposto", () => {
+    const f = fraseDoJuroReal(5.5, 5);
+    expect(f.destaque).toBe("menos de 1% ao ano antes do imposto");
+    expect(f.depois).toBe(" (abaixo da inflação depois de 15% de IR, a menor alíquota da renda fixa). Taxa passada não garante a futura.");
   });
 
   it("juro real zero: não cobre a inflação, sem '-0'", () => {
     const f = fraseDoJuroReal(5, 5);
     expect(f.destaque).toBe("não cobre a inflação");
     expect(juntar(f)).not.toContain("-0");
-    expect(f.depois).toBe(": o juro real está em 0,0% ao ano.");
+    expect(f.depois).toBe(": o juro real está em 0,0% ao ano, antes do imposto. Taxa passada não garante a futura.");
   });
 
   it("juro real negativo: não cobre a inflação e mostra o número negativo", () => {
     const f = fraseDoJuroReal(4, 6);
     expect(f.destaque).toBe("não cobre a inflação");
-    expect(f.depois).toBe(": o juro real está em -1,9% ao ano.");
+    expect(f.depois).toBe(": o juro real está em -1,9% ao ano, antes do imposto. Taxa passada não garante a futura.");
     expect(juntar(f)).not.toContain("régua");
   });
 
   it("negativo pequeno que arredonda para zero não vira '-0,0%'", () => {
     const f = fraseDoJuroReal(5, 5.02);
-    expect(f.depois).toBe(": o juro real está em 0,0% ao ano.");
+    expect(f.depois).toContain(": o juro real está em 0,0% ao ano");
   });
 
   it("positivo abaixo de meio ponto: não diz 'perto de 0%'", () => {
     const f = fraseDoJuroReal(5.3, 5);
-    expect(f.destaque).toBe("menos de 1% ao ano");
+    expect(f.destaque).toBe("menos de 1% ao ano antes do imposto");
   });
 });
