@@ -44,9 +44,13 @@ de verdade depende de tornar as páginas dinâmicas.
 
 **IP do visitante atrás de dois proxies.** A API usa `trust proxy = 1`. Com o
 site na Vercel reescrevendo `/api/*` para a API no Render, a requisição passa por
-dois proxies, e o IP que os limitadores enxergam pode ser o do servidor do Next,
-igual para todos os visitantes. Conferir no primeiro deploy (item de
-[docs/deploy.md](docs/deploy.md)) antes de confiar nos limites por IP.
+dois proxies. A Vercel documenta que manda o IP do visitante em
+`x-forwarded-for` para a origem externa, e o proxy do Render acrescenta o IP da
+Vercel; com `TRUST_PROXY=1` os limitadores enxergam o IP da Vercel, igual para
+todos os visitantes. Conferir no primeiro deploy (item de
+[docs/deploy.md](docs/deploy.md)) antes de confiar nos limites por IP. Subir para
+`TRUST_PROXY=2` abre a falsificação do IP para quem chamar o `*.onrender.com`
+direto, então vem junto com um cabeçalho secreto entre a Vercel e a API.
 
 **Rate limit em memória.** `express-rate-limit` sem store compartilhado conta
 por processo. Com uma instância só, funciona. No dia em que a API rodar em duas,

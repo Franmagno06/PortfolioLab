@@ -61,4 +61,26 @@ describe("validação do ambiente", () => {
     const mensagem = r.error.issues.map((i: { message: string }) => i.message).join(" ");
     expect(mensagem).toContain("openssl");
   });
+
+  // O Render gratuito (0,1 CPU, 512 MB) não aguenta o aquecimento do catálogo ao subir; o
+  // render.yaml o desliga com AQUECER_CATALOGO=false. Sem a variável, nada muda.
+  describe("AQUECER_CATALOGO", () => {
+    it("vem ligado quando a variável não existe", () => {
+      const r = envSchema.parse({ ...base });
+
+      expect(r.AQUECER_CATALOGO).toBe(true);
+    });
+
+    it('"false" desliga', () => {
+      const r = envSchema.parse({ ...base, AQUECER_CATALOGO: "false" });
+
+      expect(r.AQUECER_CATALOGO).toBe(false);
+    });
+
+    it("recusa valor que não seja true ou false, para um erro de digitação não passar calado", () => {
+      const r = envSchema.safeParse({ ...base, AQUECER_CATALOGO: "nao" });
+
+      expect(r.success).toBe(false);
+    });
+  });
 });
