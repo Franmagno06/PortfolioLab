@@ -128,18 +128,18 @@ describe("GraficoArtigo: Presets didáticos e padronização do seletor", () => 
 
     expect(container.querySelector('[data-modo="barras"]')).not.toBeNull();
     const figcaption = container.querySelector("figcaption");
-    expect(figcaption?.textContent).toContain("Comparação de múltiplos médios entre setores");
+    expect(figcaption?.textContent).toContain("Múltiplos por tipo de setor (exemplo hipotético)");
 
     const tabs = screen.getAllByRole("tab");
-    expect(tabs.map((t) => t.textContent?.trim())).toEqual(["P/L Médio", "P/VP Médio"]);
+    expect(tabs.map((t) => t.textContent?.trim())).toEqual(["P/L (hipotético)", "P/VP (hipotético)"]);
   });
 
-  it("renderiza o preset renda-fixa-curva com Selic e contratos futuros", () => {
+  it("renderiza o preset renda-fixa-curva como exemplo hipotético, com os dois formatos", () => {
     const { container } = render(<GraficoArtigo preset="renda-fixa-curva" />);
 
     expect(container.querySelector('[data-preset="renda-fixa-curva"]')).not.toBeNull();
     const figcaption = container.querySelector("figcaption");
-    expect(figcaption?.textContent).toContain("Curva de juros: taxa presente vs expectativas");
+    expect(figcaption?.textContent).toContain("Formatos da curva de juros (exemplo hipotético)");
     const tabs = screen.getAllByRole("tab");
     expect(tabs).toHaveLength(2);
   });
@@ -151,7 +151,7 @@ describe("GraficoArtigo: Presets didáticos e padronização do seletor", () => 
     const figcaption = container.querySelector("figcaption");
     expect(figcaption?.textContent).toContain("Tabela comparativa de alíquotas de Imposto de Renda");
     const tabs = screen.getAllByRole("tab");
-    expect(tabs.map((t) => t.textContent?.trim())).toEqual(["Renda Variável", "Renda Fixa (Prazo)"]);
+    expect(tabs.map((t) => t.textContent?.trim())).toEqual(["Renda Variável", "Renda Fixa (Prazo)", "ETF de Renda Fixa"]);
   });
 
   it("renderiza o preset fiis-proventos com comparação de tijolo e papel", () => {
@@ -159,9 +159,9 @@ describe("GraficoArtigo: Presets didáticos e padronização do seletor", () => 
 
     expect(container.querySelector('[data-preset="fiis-proventos"]')).not.toBeNull();
     const figcaption = container.querySelector("figcaption");
-    expect(figcaption?.textContent).toContain("Série histórica de 12 meses: FII de Tijolo vs FII de Papel");
+    expect(figcaption?.textContent).toContain("exemplo hipotético, não é de nenhum fundo");
     const tabs = screen.getAllByRole("tab");
-    expect(tabs.map((t) => t.textContent?.trim())).toEqual(["Comparativo", "FII de Tijolo", "FII de Papel"]);
+    expect(tabs.map((t) => t.textContent?.trim())).toEqual(["Comparativo", "Tijolo (hipotético)", "Papel (hipotético)"]);
   });
 });
 

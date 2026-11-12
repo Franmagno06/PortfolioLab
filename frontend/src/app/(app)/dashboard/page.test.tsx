@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { instalarObservadorFalso } from "@/components/movimento/observador-falso";
 import { brl } from "@/lib/format";
@@ -67,5 +67,42 @@ describe("Resumo: patrimônio total", () => {
     const rotulo = await screen.findByText("Patrimônio total");
     const numero = rotulo.closest("section")!.querySelector("p.text-4xl")!;
     expect(numero.querySelector('[aria-hidden="true"]')?.textContent).toBe(brl(123456.78));
+  });
+});
+
+describe("Resumo: o percentual não é rentabilidade", () => {
+  it("rotula custo e resultado como das posições abertas, com a nota do que fica de fora", async () => {
+    render(<DashboardPage />);
+    const heroi = (await screen.findByText("Patrimônio total")).closest("section")!;
+
+    expect(within(heroi).getByText("Custo das posições abertas")).toBeTruthy();
+    expect(within(heroi).getByText("Resultado das posições abertas")).toBeTruthy();
+    expect(within(heroi).queryByText("Aplicado")).toBeNull();
+    expect(heroi.textContent).toMatch(/não incluem proventos nem o resultado de vendas já feitas/);
+    expect(heroi.textContent).toMatch(/não são a rentabilidade da carteira/);
+    // o leitor de tela ouve o que o percentual é
+    expect(heroi.textContent).toContain("de resultado nas posições abertas");
+  });
+
+  it("o gráfico explica que é o resultado das posições que você tinha em cada mês", async () => {
+    render(<DashboardPage />);
+    await screen.findByText("Patrimônio total");
+    expect(screen.getByText(/resultado dessas posições naquele mês/).textContent).toMatch(
+      /não é a rentabilidade da carteira/,
+    );
+    expect(screen.queryByText(/resultado acumulado/)).toBeNull();
+  });
+});
+
+describe("Resumo: proventos", () => {
+  it("o total não se diz bruto (mistura importado e lançado à mão); a nota explica cada origem e o mês da data-ex", async () => {
+    render(<DashboardPage />);
+    await screen.findByText("Patrimônio total");
+    expect(screen.getByText("Proventos por mês da data-ex")).toBeTruthy();
+    expect(screen.getByText((_, el) => el?.tagName === "SPAN" && el.textContent === `${brl(1500.5)} no total`)).toBeTruthy();
+    expect(screen.getByText(/Os importados são o valor bruto informado pela fonte, antes de imposto/)).toBeTruthy();
+    expect(screen.getByText(/lançou à mão entram como você informou/)).toBeTruthy();
+    expect(screen.queryByText(/\(bruto\)/)).toBeNull();
+    expect(screen.queryByText("Proventos recebidos")).toBeNull();
   });
 });

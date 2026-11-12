@@ -18,22 +18,27 @@ function em2Casas(d: Prisma.Decimal): number {
 }
 
 /**
- * ALGORITMO GULOSO DE REBALANCEAMENTO POR APORTE
+ * REBALANCEAMENTO POR APORTE: FATIA PROPORCIONAL AO DÉFICIT + TROCO
  *
  * Ideia: em vez de vender o que passou da meta (gera imposto e custos),
- * o aporte novo vai para os ativos MAIS ABAIXO da meta.
+ * o aporte novo vai para os ativos ABAIXO da meta, todos andando na direção dela.
  *
  * Passos:
  *  1. patrimônio final = patrimônio atual + aporte
  *  2. déficit de cada ativo (R$) = (meta% × patrimônio final) − posição atual
- *  3. ordena por maior déficit  ................................. O(n log n)
- *     (empate: menor preço primeiro — mais granularidade — depois ticker)
- *  4. percorre a lista comprando unidades INTEIRAS, limitado pelo
- *     déficit do ativo e pelo dinheiro restante  ................ O(n)
+ *  3. ordena por maior déficit (empate: menor preço primeiro, depois ticker)
+ *     e descarta quem está sem preço ou já acima da meta
+ *  4. PRIMEIRA PASSADA: cada ativo recebe a fatia do aporte proporcional ao seu
+ *     déficit (aporte × déficit ÷ soma dos déficits), limitada ao próprio déficit
+ *     e ao dinheiro que restou, e compra unidades INTEIRAS
+ *  5. SEGUNDA PASSADA (troco): o dinheiro que sobrou das cotas inteiras vai, uma
+ *     compra de cada vez, para o ativo que continua mais longe da meta, até nada
+ *     mais caber. Cada volta compra ao menos uma unidade, então o laço termina.
  *
- * Complexidade total: O(n log n), dominada pela ordenação.
- * É "guloso" porque em cada passo faz a escolha localmente ótima
- * (atacar o maior déficit) sem reconsiderar decisões anteriores.
+ * O desenho anterior era guloso (maior déficit primeiro, levando quase tudo
+ * quando o aporte é menor que a soma dos déficits); ver o comentário da primeira
+ * passada. A documentação em docs/algoritmo-rebalanceamento.md e a página
+ * "Como calculamos" descrevem ESTE algoritmo: mudou aqui, mude lá.
  *
  * Função pura: recebe dados, devolve resultado — testável sem banco.
  */
@@ -61,7 +66,7 @@ export function calcularAporte(
     return a.ticker < b.ticker ? -1 : a.ticker > b.ticker ? 1 : 0;
   });
 
-  // Passo 4: alocação gulosa em unidades inteiras
+  // Passos 4 e 5: alocação em unidades inteiras (duas passadas, abaixo)
   let restante = new Prisma.Decimal(valorAporte);
   const compras: {
     ticker: string;

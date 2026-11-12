@@ -18,7 +18,7 @@ import { MensagemErro } from "@/components/ui/mensagem";
 import { PageHeader, Pilula } from "@/components/ui/page-header";
 import { SkeletonPagina } from "@/components/ui/skeleton";
 import { api, ApiError, type Pagina } from "@/lib/api";
-import { brl, coresClasse, nomesClasse, pct } from "@/lib/format";
+import { brl, coresClasse, mesCurto, nomesClasse, pct } from "@/lib/format";
 import { maioresPosicoes } from "@/lib/alocacao";
 import { calcularDesvios, formatarDesvio, type DesvioDeMeta } from "@/lib/goals";
 import { CURVA, DURACAO_GRAFICO_MS } from "@/lib/movimento";
@@ -46,13 +46,16 @@ type Metas = { metas: { ticker: string; targetWeight: number }[] };
 /** "AAAA-MM" — mesmo formato que o backend devolve em /portfolio/evolution. */
 type PontoEvolucao = { mes: string; aplicado: number; resultado: number; patrimonio: number };
 
+/**
+ * Soma por mês da data (`paidAt`, que para o que vem da fonte é a data-ex). O mês sai do
+ * próprio texto ISO, como em dataCurta: o lançamento manual é meia-noite UTC, e ler no fuso
+ * do navegador jogava o provento do dia 1º no mês anterior.
+ */
 function agruparPorMes(proventos: Provento[]) {
   const porMes = new Map<string, { rotulo: string; total: number }>();
   for (const p of proventos) {
-    const data = new Date(p.paidAt);
-    const chave = `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, "0")}`;
-    const rotulo = data.toLocaleDateString("pt-BR", { month: "short" }).replace(".", "");
-    const atual = porMes.get(chave) ?? { rotulo, total: 0 };
+    const chave = p.paidAt.slice(0, 7);
+    const atual = porMes.get(chave) ?? { rotulo: mesCurto(chave), total: 0 };
     atual.total += Number(p.amount);
     porMes.set(chave, atual);
   }
@@ -407,12 +410,16 @@ export default function DashboardPage() {
         >
           <div className="flex items-start justify-between gap-4">
             <p className="text-sm text-slate-300">Patrimônio total</p>
+            {/* lucroPct é o resultado NÃO realizado sobre o custo das posições abertas:
+                o rótulo diz isso, para ninguém ler como rentabilidade da carteira */}
             <span
+              title="Resultado das posições abertas sobre o custo delas. Não é a rentabilidade da carteira."
               className={`tnum rounded-full px-2.5 py-1 text-xs font-semibold ${
                 ganhou ? "bg-emerald-400/15 text-emerald-300" : "bg-red-400/15 text-red-300"
               }`}
             >
               {pct(summary.lucroPct)}
+              <span className="sr-only"> de resultado nas posições abertas</span>
             </span>
           </div>
 
@@ -424,13 +431,13 @@ export default function DashboardPage() {
 
           <dl className="mt-7 grid grid-cols-1 gap-4 border-t border-white/10 pt-5 sm:grid-cols-3">
             <div>
-              <dt className="text-xs text-slate-300">Aplicado</dt>
+              <dt className="text-xs text-slate-300">Custo das posições abertas</dt>
               <dd className="tnum mt-0.5 text-sm font-semibold">
                 {brl(summary.totalAplicado)}
               </dd>
             </div>
             <div>
-              <dt className="text-xs text-slate-300">Resultado</dt>
+              <dt className="text-xs text-slate-300">Resultado das posições abertas</dt>
               <dd
                 className={`tnum mt-0.5 text-sm font-semibold ${
                   ganhou ? "text-emerald-300" : "text-red-300"
@@ -446,6 +453,10 @@ export default function DashboardPage() {
               </dd>
             </div>
           </dl>
+          <p className="mt-3 text-xs leading-relaxed text-slate-300">
+            O percentual e o resultado não incluem proventos nem o resultado de vendas já feitas;
+            não são a rentabilidade da carteira.
+          </p>
 
           <div className="mt-7 border-t border-white/10 pt-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -503,7 +514,9 @@ export default function DashboardPage() {
                     cursor={{ fill: "rgba(14,27,51,0.04)" }}
                     formatter={(v, nome) => [
                       brl(Number(v)),
-                      nome === "aplicado" ? "Aplicado" : "Resultado",
+                      nome === "aplicado"
+                        ? "Custo das posições abertas"
+                        : "Resultado das posições abertas",
                     ]}
                     labelFormatter={(rotulo, item) => item[0]?.payload?.mes ?? rotulo}
                   />
@@ -540,7 +553,10 @@ export default function DashboardPage() {
             </div>
           )}
           <p className="mt-3 text-xs text-mute">
-            Cinza é o quanto você aplicou; verde ou coral é o resultado acumulado naquele mês.
+            Cinza é o custo das posições que você tinha em cada mês; verde ou coral é o
+            resultado dessas posições naquele mês. Não inclui proventos nem o resultado de
+            vendas já feitas (uma venda com lucro sai do gráfico); não é a rentabilidade da
+            carteira.
           </p>
         </Card>
 
@@ -553,8 +569,14 @@ export default function DashboardPage() {
               </span>
             }
           >
-            Proventos recebidos
+            Proventos por mês da data-ex
           </TituloCard>
+          <p className="mt-1 max-w-prose text-xs text-mute">
+            Os importados são o valor bruto informado pela fonte, antes de imposto (o JCP ainda
+            tem IR a descontar), agrupado pelo mês da data-ex, não pelo do pagamento. Os que você
+            lançou à mão entram como você informou, no mês que você escolheu. O gráfico mostra os
+            lançamentos mais recentes; o total ao lado soma todos.
+          </p>
 
           {proventosPorMes.length === 0 ? (
             <p className="mt-4 text-sm text-mute">

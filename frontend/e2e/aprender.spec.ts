@@ -281,8 +281,8 @@ test.describe("artigo", () => {
     const resumo = page.getByRole("region", { name: "Em resumo" });
     await expect(resumo.getByRole("listitem")).toHaveCount(3);
 
-    await expect(page.getByRole("group", { name: "Cálculo do P/L" })).toContainText("9,66");
-    await expect(page.getByRole("group", { name: "Cálculo do P/VP" })).toContainText("1,96");
+    await expect(page.getByRole("group", { name: "Cálculo do P/L" })).toContainText("10,00");
+    await expect(page.getByRole("group", { name: "Cálculo do P/VP" })).toContainText("2,00");
     await expect(page.getByRole("note")).toHaveCount(2);
 
     const veja = page.getByRole("region", { name: "Veja no site" });
@@ -407,8 +407,8 @@ test.describe("indicadores explicados", () => {
     await expect(pl).toContainText("Preço ÷ Lucro por ação");
     await expect(pl).toContainText("Como ler");
     await expect(pl.getByRole("note")).toBeVisible();
-    await expect(pl).toContainText("9,66");
-    await expect(page.getByRole("region", { name: "Dividend yield (DY)" })).toContainText("6,55% (R$ 3,0065 em 4 pagamentos)");
+    await expect(pl).toContainText("10,00");
+    await expect(page.getByRole("region", { name: "Dividend yield (DY)" })).toContainText(/6,00% \(R\$\s2,40 em 4 pagamentos, com a ação a R\$\s40,00\)/);
   });
 
   test("os exemplos hipotéticos dizem que são hipotéticos", async ({ page }) => {
@@ -416,7 +416,7 @@ test.describe("indicadores explicados", () => {
     const vacancia = page.getByRole("region", { name: "Vacância (FII de tijolo)" });
     await expect(vacancia).toContainText("Exemplo hipotético:");
     await expect(vacancia).toContainText("7,5%");
-    await expect(page.getByRole("region", { name: "Preço/lucro (P/L)" })).toContainText("No exemplo (TAEE11):");
+    await expect(page.getByRole("region", { name: "Preço/lucro (P/L)" })).toContainText("No exemplo (empresa fictícia):");
   });
 
   test("o link 'Saiba mais' da ficha de um ativo chega no indicador certo", async ({ page }) => {
@@ -447,13 +447,14 @@ test.describe("como o site calcula", () => {
     await expect(pm.getByRole("row", { name: /Venda 5 — — R\$ 25,20 15/ })).toBeVisible();
     await expect(page.getByText("(R$ 202,00 + R$ 302,00) ÷ 20 = R$ 25,20")).toBeVisible();
 
-    await expect(page.getByRole("group", { name: /dividend yield da TAEE11/ })).toContainText("6,55%");
+    await expect(page.getByRole("group", { name: /dividend yield da Empresa Exemplo S\.A\. \(empresa fictícia\)/ })).toContainText("6,00%");
 
-    const aporte = page.getByRole("table", { name: /aporte de R\$ 200,00/ });
-    await expect(aporte.getByRole("row", { name: /MXRF11 60% R\$ 120,00 R\$ 10,85 11 R\$ 119,35/ })).toBeVisible();
-    await expect(aporte.getByRole("row", { name: /BOVA11 40% R\$ 80,00 R\$ 110,00 0 —/ })).toBeVisible();
     // brl() separa "R$" do número com um espaço não separável: \s casa os dois.
-    await expect(page.getByText(/Sobram R\$\s80,65/)).toBeVisible();
+    const aporte = page.getByRole("table", { name: /aporte de R\$\s1\.000,00 em três ativos fictícios/ });
+    await expect(aporte.getByRole("row", { name: /Ativo A 50% R\$\s1\.000,00 R\$\s625,00 R\$\s30,00 20 \+ 3 cotas R\$\s690,00/ })).toBeVisible();
+    await expect(aporte.getByRole("row", { name: /Ativo C 20% R\$\s600,00 R\$\s375,00 R\$\s100,00 3 cotas R\$\s300,00/ })).toBeVisible();
+    await expect(aporte.getByRole("row", { name: /Ativo B 30% acima da meta — R\$\s50,00 0 —/ })).toBeVisible();
+    await expect(page.getByText(/Sobram R\$\s10,00/)).toBeVisible();
   });
 
   test("mostra a fonte e a data dos dados públicos", async ({ page }) => {

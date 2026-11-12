@@ -6,7 +6,7 @@ import { Campo, Selecao } from "@/components/ui/campo";
 import { Card, TituloCard } from "@/components/ui/card";
 import { MensagemErro } from "@/components/ui/mensagem";
 import { api, ApiError, type Pagina } from "@/lib/api";
-import { brl } from "@/lib/format";
+import { brl, dataCurta } from "@/lib/format";
 
 type Provento = {
   id: string;
@@ -83,7 +83,7 @@ export function ProventosCard({ ativos }: Props) {
         acessorio={
           <div className="flex items-center gap-3">
             <span className="tnum text-sm font-semibold text-gain-ink">
-              {total === null ? "—" : `${brl(total)} recebidos`}
+              {total === null ? "—" : `${brl(total)} no total`}
             </span>
             <Botao
               type="button"
@@ -102,8 +102,19 @@ export function ProventosCard({ ativos }: Props) {
       </TituloCard>
 
       <p className="mt-1 max-w-prose text-xs text-mute">
-        Os proventos dos seus ativos são importados da B3 e calculados sobre a quantidade que
-        você tinha na data-ex. Use o lançamento manual só para o que a fonte não cobre.
+        Os proventos dos seus ativos são importados do Yahoo Finance e calculados sobre a
+        quantidade que você tinha no fim do dia anterior à data-ex. Use o lançamento manual só
+        para o que a fonte não cobre.
+      </p>
+      <p className="mt-1 max-w-prose text-xs text-mute">
+        Os valores importados são brutos, como a fonte informa, antes de imposto (o JCP ainda tem
+        IR a descontar), e a data deles é a data-ex, não a do pagamento, que pode ser depois. Os
+        que você lança à mão valem como você informou. Se lançar à mão um provento que a busca
+        também traz, ele soma duas vezes: apague um dos dois.
+      </p>
+      <p className="mt-1 max-w-prose text-xs text-mute">
+        Se um ativo seu teve desdobramento, grupamento ou bonificação, a quantidade e os valores
+        por cota podem não bater: confira com o informe de rendimentos da corretora.
       </p>
 
       {/* registrar novo — recolhido, porque o caminho normal é a importação */}
@@ -170,7 +181,7 @@ export function ProventosCard({ ativos }: Props) {
         <p className="mt-4 text-sm text-mute">Carregando...</p>
       ) : proventos.length === 0 ? (
         <p className="mt-4 text-sm text-mute">
-          Nenhum provento registrado. Use Buscar proventos para importar da B3.
+          Nenhum provento registrado. Use Buscar proventos para importar do Yahoo Finance.
         </p>
       ) : (
         <ul className="mt-4 divide-y divide-line">
@@ -187,9 +198,12 @@ export function ProventosCard({ ativos }: Props) {
               </span>
               <span className="tnum ml-auto font-semibold text-gain-ink">
                 {brl(Number(p.amount))}
+                <span className="sr-only">{p.source === "PROVEDOR" ? " bruto" : " como você informou"}</span>
               </span>
-              <span className="tnum w-24 shrink-0 text-right text-xs text-mute">
-                {new Date(p.paidAt).toLocaleDateString("pt-BR")}
+              {/* o dia sai do texto ISO, não do fuso do navegador: o lançamento manual é
+                  meia-noite UTC e, lido em Brasília, mostrava a véspera */}
+              <span className="tnum w-28 shrink-0 text-right text-xs text-mute">
+                {p.source === "PROVEDOR" ? `data-ex ${dataCurta(p.paidAt)}` : dataCurta(p.paidAt)}
               </span>
             </li>
           ))}

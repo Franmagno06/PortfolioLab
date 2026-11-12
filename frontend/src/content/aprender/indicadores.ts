@@ -1,12 +1,11 @@
 import { razaoPct } from "@/lib/aprender/exemplos";
-import { brlComCasas, numero, percentual } from "@/lib/format";
+import { brl, numero, percentual } from "@/lib/format";
 import type { IdDaDica } from "@/lib/indicadores-explicados";
 import { ATIVO_DE_EXEMPLO } from "@/lib/site-dados";
 
 /**
  * Os indicadores de /aprender/indicadores: o que mede, a fórmula, como ler e onde engana. Os de ações usam o
- * ATIVO_DE_EXEMPLO (src/lib/site-dados.ts), o mesmo da página inicial: se o dado do mês mudar, esta página
- * muda junto. Os que o exemplo não tem (ROA, margem, vacância, FII) usam uma conta hipotética, rotulada como
+ * ATIVO_DE_EXEMPLO (src/lib/site-dados.ts), a mesma empresa FICTÍCIA da página inicial, com números ilustrativos. Os que o exemplo não tem (ROA, margem, vacância, FII) usam uma conta hipotética, rotulada como
  * tal e calculada por razaoPct, que tem teste. Regra de escrita: o texto diz como LER o número e nunca se o
  * ativo é bom, barato ou uma oportunidade (Resolução CVM 20).
  *
@@ -24,7 +23,7 @@ export type IndicadorExplicado = {
   exemplo: string;
 };
 
-const NO_EXEMPLO = `No exemplo (${ATIVO_DE_EXEMPLO.ticker})`;
+const NO_EXEMPLO = "No exemplo (empresa fictícia)";
 const HIPOTETICO = "Exemplo hipotético";
 
 export const INDICADORES: IndicadorExplicado[] = [
@@ -50,18 +49,18 @@ export const INDICADORES: IndicadorExplicado[] = [
     id: "dy",
     nome: "Dividend yield (DY)",
     formula: "Proventos dos últimos 12 meses ÷ Preço",
-    comoLer: "Quanto você recebeu em proventos para cada R$ 100 investidos.",
+    comoLer: "Quanto o ativo pagou nos últimos 12 meses para cada R$ 100 do preço de hoje; nada garante que se repita.",
     armadilha: "DY alto pode ser o preço caindo, não o provento subindo.",
     exemploRotulo: NO_EXEMPLO,
-    exemplo: `${percentual(ATIVO_DE_EXEMPLO.dy12m, 2)} (${brlComCasas(ATIVO_DE_EXEMPLO.proventos12m.porUnidade, 4)} em ${ATIVO_DE_EXEMPLO.proventos12m.pagamentos} pagamentos)`,
+    exemplo: `${percentual(ATIVO_DE_EXEMPLO.dy12m, 2)} (${brl(ATIVO_DE_EXEMPLO.proventos12m.porUnidade)} em ${ATIVO_DE_EXEMPLO.proventos12m.pagamentos} pagamentos, com a ação a ${brl(ATIVO_DE_EXEMPLO.preco)})`,
   },
   {
     id: "roe",
     nome: "ROE",
     formula: "Lucro líquido ÷ Patrimônio líquido",
     comoLer:
-      "Quanto a empresa rende sobre o dinheiro dos acionistas. Acima de ~15% de forma consistente é bom sinal (regra prática).",
-    armadilha: "Dívida alta infla o ROE: alto demais pode ser alavancagem, não qualidade.",
+      "ROE mostra quanto a empresa lucra com o dinheiro dos sócios. Um ano isolado diz pouco, e dívida alta infla o número: compare a série de vários anos e empresas do mesmo setor.",
+    armadilha: "Dívida alta infla o ROE: um número alto pode vir de alavancagem, e não só do negócio.",
     exemploRotulo: NO_EXEMPLO,
     exemplo: percentual(ATIVO_DE_EXEMPLO.roe, 2),
   },
@@ -96,7 +95,7 @@ export const INDICADORES: IndicadorExplicado[] = [
     id: "vacancia",
     nome: "Vacância (FII de tijolo)",
     formula: "Área vaga ÷ Área total",
-    comoLer: "Quanto dos imóveis do fundo está sem inquilino. Menor é melhor: imóvel vazio não paga aluguel e ainda gera custo.",
+    comoLer: "Quanto dos imóveis do fundo está sem inquilino. Imóvel vazio não paga aluguel e ainda gera custo de condomínio e IPTU.",
     armadilha: "Contratos que vencem no mesmo ano podem fazer a vacância pular de uma vez. Leia o relatório gerencial.",
     exemploRotulo: HIPOTETICO,
     exemplo: `${percentual(razaoPct(1500, 20000), 1)} (1.500 m² vagos ÷ 20.000 m²)`,
@@ -108,7 +107,7 @@ export const INDICADORES: IndicadorExplicado[] = [
     comoLer: "As mesmas contas das ações, com a cota no lugar da ação. P/VP perto de 1 quer dizer pagar o valor dos imóveis e títulos do fundo.",
     armadilha: "P/VP abaixo de 1 com DY muito alto pede cuidado: o rendimento pode ter um ganho que não se repete.",
     exemploRotulo: HIPOTETICO,
-    exemplo: `DY ${percentual(razaoPct(1.1, 10), 1)} e P/VP ${numero(9.5 / 10, 2)} (cota de R$ 9,50, patrimônio de R$ 10,00 por cota)`,
+    exemplo: `DY ${percentual(razaoPct(1.1, 9.5), 1)} e P/VP ${numero(9.5 / 10, 2)} (R$ 1,10 pagos em 12 meses, cota a R$ 9,50, patrimônio de R$ 10,00 por cota)`,
   },
 ];
 

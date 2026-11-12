@@ -1,9 +1,9 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { dataCurta } from "../format";
-import { ATIVO_DE_EXEMPLO, juroReal } from "../site-dados";
+import { ATIVO_DE_EXEMPLO, juroReal, juroRealLiquido } from "../site-dados";
 import {
+  ALIQUOTAS_ETF_RENDA_FIXA,
   aliquotaDeIrNaRendaFixa,
   aporteDeExemplo,
   cdbEquivalente,
@@ -12,6 +12,7 @@ import {
   depoisDaVenda,
   dividendYieldPct,
   emCentavos,
+  EXEMPLO_DE_APORTE,
   inflacaoMaisJuro,
   jurosCompostos,
   poderDeCompra,
@@ -19,6 +20,7 @@ import {
   rendimentoDeUmAno,
   rendimentoLiquido,
   PRESETS_GRAFICO_ARTIGO,
+  PROVENTOS_HIPOTETICOS_DE_FII,
   simularJurosCompostosAportes,
 } from "./exemplos";
 
@@ -42,71 +44,105 @@ describe("preço médio (regra da Receita Federal)", () => {
   });
 });
 
-describe("os números do ativo de exemplo (TAEE11, 20/10/2026)", () => {
-  it("P/L = preço ÷ lucro por ação", () => {
-    expect(ATIVO_DE_EXEMPLO.preco / 4.75).toBeCloseTo(9.66, 2);
-    expect(ATIVO_DE_EXEMPLO.lucroPorAcao).toBe(4.75);
-    expect(ATIVO_DE_EXEMPLO.pl).toBe(9.66);
+describe("os números da empresa fictícia do exemplo (Empresa Exemplo S.A.)", () => {
+  it("P/L = preço ÷ lucro por ação: R$ 40,00 ÷ R$ 4,00 = 10", () => {
+    expect(ATIVO_DE_EXEMPLO.preco / ATIVO_DE_EXEMPLO.lucroPorAcao).toBe(10);
+    expect(ATIVO_DE_EXEMPLO.pl).toBe(10);
   });
 
-  it("P/VP = preço ÷ patrimônio por ação", () => {
-    expect(ATIVO_DE_EXEMPLO.preco / 23.4).toBeCloseTo(1.96, 2);
-    expect(ATIVO_DE_EXEMPLO.valorPatrimonialPorAcao).toBe(23.4);
-    expect(ATIVO_DE_EXEMPLO.pvp).toBe(1.96);
+  it("P/VP = preço ÷ patrimônio por ação: R$ 40,00 ÷ R$ 20,00 = 2", () => {
+    expect(ATIVO_DE_EXEMPLO.preco / ATIVO_DE_EXEMPLO.valorPatrimonialPorAcao).toBe(2);
+    expect(ATIVO_DE_EXEMPLO.pvp).toBe(2);
   });
 
-  it("DY = proventos de 12 meses ÷ preço: R$ 3,0065 ÷ R$ 45,87 = 6,55%", () => {
-    // os proventos vêm com 4 casas (0,6002 + 0,559 + 0,9089 + 0,9384): arredondar para R$ 3,01 daria 6,56%
-    const dy = dividendYieldPct(300.65, emCentavos(45.87));
-    expect(dy.toFixed(2)).toBe("6.55");
-    expect(ATIVO_DE_EXEMPLO.proventos12m.porUnidade).toBe(3.0065);
-    expect(ATIVO_DE_EXEMPLO.dy12m).toBe(6.55);
+  it("DY = proventos de 12 meses ÷ preço: R$ 2,40 ÷ R$ 40,00 = 6,00%; com o preço a R$ 30,00, 8,00%", () => {
+    expect(dividendYieldPct(emCentavos(2.4), emCentavos(40)).toFixed(2)).toBe("6.00");
+    expect(dividendYieldPct(emCentavos(2.4), emCentavos(30)).toFixed(2)).toBe("8.00");
+    expect(ATIVO_DE_EXEMPLO.proventos12m.porUnidade).toBe(2.4);
+    expect(ATIVO_DE_EXEMPLO.dy12m).toBe(6);
+  });
+
+  it("ROE = lucro ÷ patrimônio: R$ 400 mi ÷ R$ 2 bi = 20%", () => {
+    expect(razaoPct(ATIVO_DE_EXEMPLO.lucroLiquido, ATIVO_DE_EXEMPLO.patrimonioLiquido)).toBe(ATIVO_DE_EXEMPLO.roe);
+    expect(ATIVO_DE_EXEMPLO.roe).toBe(20);
   });
 
   it("o artigo P/L e P/VP escreve os mesmos números que a conta dá", () => {
     const texto = artigo("pl-e-pvp");
-    for (const trecho of ["R$ 45,87", "≈ R$ 4,75", "≈ R$ 23,40", "9,66", "1,96"]) expect(texto, trecho).toContain(trecho);
+    for (const trecho of ["R$ 40,00", "R$ 4,00", "R$ 20,00", "10,00", "2,00"]) expect(texto, trecho).toContain(trecho);
   });
 
-  it("os artigos que citam a TAEE11 usam a data do exemplo, e não a antiga", () => {
+  it("os artigos que usam a empresa do exemplo dizem que ela é fictícia e não citam ticker real como exemplo", () => {
     for (const slug of ["pl-e-pvp", "dividend-yield", "roe-margem-e-endividamento"]) {
       const texto = artigo(slug);
-      expect(texto, slug).toContain(`TAEE11, fechamento de ${dataCurta(ATIVO_DE_EXEMPLO.fechamentoIso)}`);
-      expect(texto, slug).not.toContain("02/10/2026");
+      expect(texto, slug).toContain("Empresa Exemplo S.A.");
+      expect(texto, slug).toContain("empresa fictícia");
+      expect(texto, slug).toContain("valores ilustrativos, inventados para este exemplo");
+      expect(texto, slug).not.toContain("TAEE11");
     }
   });
 });
 
-describe("aporte de exemplo: R$ 200 numa carteira vazia, metas 60% e 40%", () => {
-  const { compras, sobraCentavos } = aporteDeExemplo(
-    [
-      { ticker: "MXRF11", metaPct: 60, precoCentavos: emCentavos(10.85), posicaoCentavos: 0 },
-      { ticker: "BOVA11", metaPct: 40, precoCentavos: emCentavos(110), posicaoCentavos: 0 },
-    ],
-    emCentavos(200),
-  );
+describe("aporte de exemplo: R$ 1.000 numa carteira de R$ 7.000, metas 50%, 30% e 20%", () => {
+  // A conta à mão, como o backend faz (rebalance.service.ts, calcularAporte):
+  // patrimônio projetado = 7.000 + 1.000 = 8.000.
+  // déficits: A = 50% × 8.000 − 3.000 = 1.000; B = 30% × 8.000 − 3.000 = −600 (acima da meta); C = 20% × 8.000 − 1.000 = 600.
+  // soma dos déficits positivos = 1.600. Fatias: A = 1.000 × 1.000 ÷ 1.600 = 625; C = 1.000 × 600 ÷ 1.600 = 375.
+  // 1ª passada: A compra ⌊625 ÷ 30⌋ = 20 cotas (R$ 600), sobram 400; C compra ⌊375 ÷ 100⌋ = 3 cotas (R$ 300), sobram 100.
+  // 2ª passada: ainda faltam 400 em A e 300 em C; A, o maior, compra ⌊min(400, 100) ÷ 30⌋ = 3 cotas (R$ 90), sobram 10.
+  // R$ 10 não compram uma cota de nenhum: fim. A = 23 cotas (R$ 690), C = 3 cotas (R$ 300), B = 0, sobra = R$ 10.
+  const { compras, sobraCentavos } = aporteDeExemplo(EXEMPLO_DE_APORTE.metas, EXEMPLO_DE_APORTE.aporteCentavos);
+  const de = (t: string) => compras.find((c) => c.ticker === t)!;
 
-  it("MXRF11: déficit de R$ 120, 11 cotas, custo de R$ 119,35", () => {
-    expect(compras[0]).toMatchObject({ ticker: "MXRF11", deficitCentavos: 12000, cotas: 11, custoCentavos: 11935 });
+  it("a ordem é a do maior déficit para o menor", () => {
+    expect(compras.map((c) => c.ticker)).toEqual(["Ativo A", "Ativo C", "Ativo B"]);
   });
 
-  it("BOVA11: déficit de R$ 80 e nenhuma cota, porque uma custa mais que o déficit", () => {
-    expect(compras[1]).toMatchObject({ ticker: "BOVA11", deficitCentavos: 8000, cotas: 0, custoCentavos: 0 });
+  it("Ativo A: déficit de R$ 1.000, fatia de R$ 625, 20 cotas na fatia e 3 no troco", () => {
+    expect(de("Ativo A")).toMatchObject({ deficitCentavos: 100000, fatiaCentavos: 62500, cotasNaFatia: 20, cotasNoTroco: 3, cotas: 23, custoCentavos: 69000 });
   });
 
-  it("sobram R$ 80,65 para o próximo aporte", () => {
-    expect(sobraCentavos).toBe(8065);
+  it("Ativo C: déficit de R$ 600, fatia de R$ 375, 3 cotas", () => {
+    expect(de("Ativo C")).toMatchObject({ deficitCentavos: 60000, fatiaCentavos: 37500, cotasNaFatia: 3, cotasNoTroco: 0, cotas: 3, custoCentavos: 30000 });
   });
 
-  it("ativo acima da meta não recebe aporte", () => {
+  it("Ativo B está acima da meta e não recebe nada", () => {
+    expect(de("Ativo B")).toMatchObject({ deficitCentavos: -60000, fatiaCentavos: 0, cotas: 0, custoCentavos: 0 });
+  });
+
+  it("sobram R$ 10,00 para o próximo aporte, e ninguém passa do próprio déficit", () => {
+    expect(sobraCentavos).toBe(1000);
+    for (const c of compras) if (c.deficitCentavos > 0) expect(c.custoCentavos).toBeLessThanOrEqual(c.deficitCentavos);
+    expect(compras.reduce((s, c) => s + c.custoCentavos, 0) + sobraCentavos).toBe(EXEMPLO_DE_APORTE.aporteCentavos);
+  });
+
+  it("um algoritmo guloso (maior déficit leva tudo) daria outra resposta: 33 cotas de A e nenhuma de C", () => {
+    // é o motivo de o site usar a fatia proporcional: aqui, C também anda na direção da meta
+    expect(Math.floor(100000 / 3000)).toBe(33);
+    expect(de("Ativo C").cotas).toBeGreaterThan(0);
+  });
+
+  it("carteira vazia com R$ 200 (o exemplo antigo): MXRF11 11 cotas, BOVA11 nenhuma, sobra R$ 80,65", () => {
     const r = aporteDeExemplo(
       [
-        { ticker: "AAAA3", metaPct: 50, precoCentavos: 1000, posicaoCentavos: 9000 },
-        { ticker: "BBBB3", metaPct: 50, precoCentavos: 1000, posicaoCentavos: 0 },
+        { ticker: "MXRF11", metaPct: 60, precoCentavos: emCentavos(10.85), posicaoCentavos: 0 },
+        { ticker: "BOVA11", metaPct: 40, precoCentavos: emCentavos(110), posicaoCentavos: 0 },
       ],
-      1000,
+      emCentavos(200),
     );
-    expect(r.compras.find((c) => c.ticker === "AAAA3")?.cotas).toBe(0);
+    expect(r.compras.map((c) => [c.ticker, c.cotas])).toEqual([["MXRF11", 11], ["BOVA11", 0]]);
+    expect(r.sobraCentavos).toBe(8065);
+  });
+
+  it("empate no déficit: o mais barato vem primeiro, e depois o ticker", () => {
+    const r = aporteDeExemplo(
+      [
+        { ticker: "ZZZ", metaPct: 50, precoCentavos: 1000, posicaoCentavos: 0 },
+        { ticker: "AAA", metaPct: 50, precoCentavos: 2000, posicaoCentavos: 0 },
+      ],
+      10000,
+    );
+    expect(r.compras.map((c) => c.ticker)).toEqual(["ZZZ", "AAA"]);
   });
 });
 
@@ -114,6 +150,11 @@ describe("juro real (Fisher) com os dados públicos conferidos no Banco Central"
   it("(1 + 13,75%) ÷ (1 + 4,58%) − 1 = 8,77% ao ano", () => {
     const real = juroReal(DADOS_PUBLICOS.selicMeta.valorPct, DADOS_PUBLICOS.ipca12m.valorPct);
     expect(real.toFixed(2)).toBe("8.77");
+  });
+
+  it("depois de 15% de IR: 13,75% × 0,85 = 11,6875% e (1,116875 ÷ 1,0458) − 1 = 6,80% ao ano", () => {
+    expect((DADOS_PUBLICOS.selicMeta.valorPct * 0.85).toFixed(4)).toBe("11.6875");
+    expect(juroRealLiquido(DADOS_PUBLICOS.selicMeta.valorPct, DADOS_PUBLICOS.ipca12m.valorPct).toFixed(2)).toBe("6.80");
   });
 
   it("cada dado público traz a fonte, e o da Selic traz a data da conferência", () => {
@@ -137,6 +178,8 @@ const NUMEROS_DOS_ARTIGOS: Record<string, [descricao: string, esperado: string][
     ["poder de compra de R$ 1.000", reais(poderDeCompra(100000, ipca12m.valorPct))],
     ["juro real", `${pct(juroReal(selicMeta.valorPct, ipca12m.valorPct))} ao ano`],
     ["a subtração que engana", pct(selicMeta.valorPct - ipca12m.valorPct)],
+    ["Selic depois de 15% de IR", pct(selicMeta.valorPct * 0.85, 4)],
+    ["juro real depois de 15% de IR", `${pct(juroRealLiquido(selicMeta.valorPct, ipca12m.valorPct))} ao ano`],
   ],
   "reserva-de-emergencia": [
     ["6 meses de R$ 2.000", "R$ 12.000"],
@@ -169,13 +212,14 @@ const NUMEROS_DOS_ARTIGOS: Record<string, [descricao: string, esperado: string][
     ["líquido depois de 720 dias", reais(rendimentoLiquido(13650, 800).liquidoCentavos)],
   ],
   "dividend-yield": [
-    ["DY da TAEE11", pct(dividendYieldPct(300.65, 4587))],
-    ["proventos de 12 meses da TAEE11", "R$ 3,0065"],
-    ["preço da TAEE11", "R$ 45,87"],
-    ["DY com o preço em queda", pct(dividendYieldPct(300.65, 3000))],
+    ["DY da empresa fictícia", pct(dividendYieldPct(emCentavos(ATIVO_DE_EXEMPLO.proventos12m.porUnidade), emCentavos(ATIVO_DE_EXEMPLO.preco)))],
+    ["proventos de 12 meses da empresa fictícia", reais(emCentavos(ATIVO_DE_EXEMPLO.proventos12m.porUnidade))],
+    ["cada um dos quatro pagamentos", reais(emCentavos(ATIVO_DE_EXEMPLO.proventos12m.valores[0]))],
+    ["preço da empresa fictícia", reais(emCentavos(ATIVO_DE_EXEMPLO.preco))],
+    ["DY com o preço em queda", pct(dividendYieldPct(emCentavos(ATIVO_DE_EXEMPLO.proventos12m.porUnidade), 3000))],
   ],
   "roe-margem-e-endividamento": [
-    ["ROE da TAEE11", pct(ATIVO_DE_EXEMPLO.roe)],
+    ["ROE da empresa fictícia", pct(razaoPct(ATIVO_DE_EXEMPLO.lucroLiquido, ATIVO_DE_EXEMPLO.patrimonioLiquido))],
     ["lucro para cada R$ 100 de patrimônio", reais(Math.round(ATIVO_DE_EXEMPLO.roe * 100))],
     ["ROE com metade do patrimônio", `${razaoPct(20, 50)}%`],
     ["margem líquida", pct(razaoPct(15, 120), 1)],
@@ -183,8 +227,8 @@ const NUMEROS_DOS_ARTIGOS: Record<string, [descricao: string, esperado: string][
   ],
   "fiis-tijolo-ou-papel": [
     ["vacância", pct(razaoPct(1500, 20000), 1)],
-    ["DY de FII", pct(razaoPct(1.1, 10), 1)],
-    ["P/VP de FII", "0,95"],
+    ["DY de FII sobre a cota de R$ 9,50", pct(razaoPct(110, 950), 1)],
+    ["P/VP de FII", (950 / 1000).toFixed(2).replace(".", ",")],
   ],
   "preco-medio": [
     ["preço médio depois da primeira compra", "R$ 20,20"],
@@ -195,8 +239,12 @@ const NUMEROS_DOS_ARTIGOS: Record<string, [descricao: string, esperado: string][
   "etfs-uma-cota-varios-ativos": [["diferença para o índice", "0,2 ponto"]],
   "rebalancear-com-aportes": [
     ["peso das ações depois da alta", pct(razaoPct(1300, 2300), 1)],
-    ["custo das 11 cotas", "R$ 119,35"],
-    ["sobra", "R$ 80,65"],
+    ["déficit de A", reais(100000)],
+    ["fatia de A", reais(62500)],
+    ["fatia de C", reais(37500)],
+    ["custo de A", reais(69000)],
+    ["custo de C", reais(30000)],
+    ["sobra", reais(1000)],
   ],
 };
 
@@ -241,10 +289,21 @@ describe("presets do GraficoArtigo", () => {
     expect(p30.investido).toBe(180000);
     expect(p30.total).toBeGreaterThan(1000000); // Mais de 1 milhão
     expect(p30.juros).toBeGreaterThan(p30.investido * 4); // Juros superam em mais de 4x o investido
+    expect(p30.juros / p30.total).toBeGreaterThan(0.8); // "mais de 80% do patrimônio final"
+
+    const p20 = simularJurosCompostosAportes(emCentavos(500), 10, 20)[20]!;
+    expect(p20.juros).toBeGreaterThan(p20.investido * 2); // "ultrapassam o dobro"
+  });
+
+  it("a taxa dos juros compostos está rotulada como hipotética, antes de imposto e inflação", () => {
+    const p = PRESETS_GRAFICO_ARTIGO["juros-compostos"];
+    expect(p.titulo).toContain("taxa hipotética");
+    expect(p.descricao).toContain("antes de imposto e inflação");
   });
 
   it("todos os 5 presets estão catalogados e possuem dados válidos", () => {
     const chaves = ["juros-compostos", "pl-setorial", "renda-fixa-curva", "ir-aliquotas", "fiis-proventos"] as const;
+    expect(Object.keys(PRESETS_GRAFICO_ARTIGO).sort()).toEqual([...chaves].sort());
     for (const c of chaves) {
       const p = PRESETS_GRAFICO_ARTIGO[c];
       expect(p).toBeDefined();
@@ -257,10 +316,34 @@ describe("presets do GraficoArtigo", () => {
     }
   });
 
-  it("renda-fixa-curva usa a taxa Selic conferida no Banco Central", () => {
-    const curva = PRESETS_GRAFICO_ARTIGO["renda-fixa-curva"];
-    const atual = curva.cenarios.find((c) => c.id === "curva-atual")!;
-    const selicPonto = atual.dados.find((d) => d.prazo === "Hoje (Selic)");
-    expect(selicPonto?.taxa).toBe(DADOS_PUBLICOS.selicMeta.valorPct);
+  it("os gráficos com números inventados dizem que são hipotéticos, em todos os cenários", () => {
+    for (const c of ["pl-setorial", "renda-fixa-curva", "fiis-proventos"] as const) {
+      const p = PRESETS_GRAFICO_ARTIGO[c];
+      expect(p.titulo, c).toMatch(/hipot[eé]tic/);
+      for (const cen of p.cenarios) expect(`${cen.rotulo} ${cen.descricao ?? ""}`, `${c}/${cen.id}`).toMatch(/hipot[eé]tic/i);
+    }
+  });
+
+  it("nenhum gráfico hipotético usa mês real, ticker real ou 'média do setor'", () => {
+    const textos = JSON.stringify([PRESETS_GRAFICO_ARTIGO["pl-setorial"], PRESETS_GRAFICO_ARTIGO["renda-fixa-curva"], PRESETS_GRAFICO_ARTIGO["fiis-proventos"]]);
+    expect(textos).not.toMatch(/\b(Jan|Fev|Mar|Abr|Mai|Jun|Jul|Ago|Set|Out|Nov|Dez)\/\d{2}\b/);
+    expect(textos).not.toMatch(/\b[A-Z]{4}\d{1,2}\b/);
+    expect(textos).not.toMatch(/m[eé]dia do setor|P\/L m[eé]dio|P\/VP m[eé]dio/i);
+    expect(textos).not.toContain("Selic");
+  });
+
+  it("fiis-proventos: 12 meses rotulados de Mês 1 a Mês 12, sem generalização sobre tipos de fundo", () => {
+    expect(PROVENTOS_HIPOTETICOS_DE_FII.map((m) => m.mes)).toEqual(Array.from({ length: 12 }, (_, i) => `Mês ${i + 1}`));
+    const p = PRESETS_GRAFICO_ARTIGO["fiis-proventos"];
+    expect(p.titulo).toContain("exemplo hipotético, não é de nenhum fundo");
+    expect(JSON.stringify(p)).not.toContain("lineares");
+    for (const cen of p.cenarios) expect(cen.dados).toHaveLength(12);
+  });
+
+  it("ir-aliquotas: o ETF de renda fixa segue o prazo médio da carteira (Lei 13.043/2014, art. 2º)", () => {
+    expect(ALIQUOTAS_ETF_RENDA_FIXA).toEqual({ ate180: 25, ate720: 20, acima720: 15 });
+    const etf = PRESETS_GRAFICO_ARTIGO["ir-aliquotas"].cenarios.find((c) => c.id === "etf-renda-fixa")!;
+    expect(etf.dados.map((d) => d.aliquota)).toEqual([25, 20, 15]);
+    expect(etf.descricao).toContain("prazo médio da carteira");
   });
 });

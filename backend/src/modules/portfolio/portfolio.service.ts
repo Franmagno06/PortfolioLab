@@ -129,6 +129,11 @@ export type PontoEvolucao = {
  * mês fechado sairia com a posição errada. Ler e escrever em UTC dos dois
  * lados elimina esse descompasso.
  *
+ * O que o `resultado` de cada mês é: o ganho NÃO realizado das posições que
+ * estavam abertas no fim daquele mês. Uma venda com lucro tira a posição da conta
+ * e o lucro some do gráfico; proventos também não entram. Não é rentabilidade
+ * acumulada, e a tela diz isso.
+ *
  * Pura: sem banco, sem HTTP — fácil de testar.
  */
 export function calcularEvolucaoPatrimonial(
@@ -291,6 +296,12 @@ export const portfolioService = {
       (soma, a) => soma.plus(new Prisma.Decimal(a.valorAplicado)),
       ZERO,
     );
+    // ATENÇÃO ao ler estes três números: NÃO são rentabilidade da carteira.
+    // totalAplicado = custo (quantidade × PM) só das posições ABERTAS, não o total já
+    // aportado; lucroTotal = resultado NÃO realizado dessas posições; lucroPct = um sobre
+    // o outro. Ficam de fora proventos, o resultado de vendas já feitas e o custo de
+    // venda. A tela rotula assim ("Resultado das posições abertas"); a rentabilidade de
+    // verdade é funcionalidade futura, não um ajuste aqui.
     const lucroTotal = patrimonioTotal.minus(totalAplicado);
     const lucroPct = totalAplicado.isZero()
       ? ZERO

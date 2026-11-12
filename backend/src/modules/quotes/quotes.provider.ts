@@ -403,9 +403,17 @@ export async function buscarHistoricoMensal(
 
 /** Um provento anunciado pela empresa, como o Yahoo o devolve. */
 export type ProventoDoProvedor = {
-  /** Data-ex: quem tinha a posição ANTES dela recebe; quem comprou nela, não. */
+  /**
+   * Data-ex: quem tinha a posição ANTES dela recebe; quem comprou nela, não.
+   * O instante é a abertura do pregão daquele dia em São Paulo (13:00 UTC, ou 16:00 UTC
+   * quando o pregão começa às 13h), não meia-noite: compare por dia de calendário
+   * (dividends.service:diaCivil), nunca por milissegundo.
+   */
   dataEx: Date;
-  /** Valor por cota, em reais. */
+  /**
+   * Valor por cota, em reais, como a fonte informa: bruto, sem descontar o IR do JCP. O
+   * Yahoo devolve só `amount` e `date`, sem dizer se é dividendo, JCP ou rendimento.
+   */
   valorPorCota: number;
 };
 

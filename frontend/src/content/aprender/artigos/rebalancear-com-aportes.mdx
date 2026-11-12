@@ -4,12 +4,12 @@ tituloCurto: "Rebalancear com aportes"
 subtitulo: "Sem vender nada: como cada aporte leva a carteira de volta às metas."
 categoria: rebalancear
 slug: rebalancear-com-aportes
-tempoLeitura: 2
-atualizadoEm: 2026-10-15
+tempoLeitura: 4
+atualizadoEm: 2026-11-12
 resumo:
   - "Com o tempo, o que sobe passa a pesar mais que a meta e o que cai, menos: a carteira sai do lugar."
-  - "Dá para corrigir sem vender: cada aporte vai para o que está mais abaixo da meta."
-  - "O PortfolioLab compra só cotas inteiras e não gasta a sobra comprando além do que falta."
+  - "Dá para corrigir sem vender: o aporte vai para o que está abaixo da meta, em fatias proporcionais ao que falta em cada ativo."
+  - "O PortfolioLab compra só cotas inteiras, usa o troco no ativo mais longe da meta e não compra além do que falta."
 fontes:
   - rotulo: "PortfolioLab, algoritmo de rebalanceamento por aporte (docs/algoritmo-rebalanceamento.md)"
 relacionados:
@@ -40,16 +40,25 @@ Há dois jeitos de voltar à meta. Vender o excesso, que pode gerar imposto e cu
 
 ## O aporte faz o trabalho
 
-A cada aporte, o dinheiro novo vai primeiro para o ativo mais abaixo da meta. A conta do PortfolioLab segue quatro passos: soma o aporte ao patrimônio, calcula quanto falta em cada ativo para chegar à meta, ordena do maior déficit para o menor e compra cotas inteiras, sem passar do que falta.
+A conta do PortfolioLab tem cinco passos:
 
-Um exemplo com R$ 200 numa carteira vazia, com metas de 60% em MXRF11 e 40% em BOVA11:
+1. Soma o aporte ao patrimônio.
+2. Calcula o déficit de cada ativo: a meta vezes esse patrimônio, menos o que você já tem nele. Ativo na meta ou acima dela não recebe nada.
+3. Divide o aporte entre os ativos com déficit, em fatias proporcionais ao déficit de cada um, e compra só cotas inteiras com cada fatia, sem passar do déficit.
+4. Com o troco que sobra das cotas inteiras, compra mais cotas no ativo que continua mais longe da meta, e repete enquanto couber uma cota no que falta e no dinheiro.
+5. No empate, vai primeiro o ativo de cota mais barata, e depois a ordem alfabética do ticker.
 
-| Ativo | Meta | Falta | Preço | Compra | Custo |
-|---|---|---|---|---|---|
-| MXRF11 | 60% | R$ 120,00 | R$ 10,85 | 11 cotas | R$ 119,35 |
-| BOVA11 | 40% | R$ 80,00 | R$ 110,00 | 0 | — |
+Um exemplo com ativos fictícios: R$ 1.000 numa carteira de R$ 7.000, com metas de 50%, 30% e 20%. O patrimônio passa a R$ 8.000.
 
-<Trecho nota="Sobraram R$ 80,65. Comprar uma cota de BOVA11 custaria R$ 110,00, mais que os R$ 80,00 que faltavam nele.">
+| Ativo | Meta | Tem hoje | Déficit | Fatia | Preço | Compra | Custo |
+|---|---|---|---|---|---|---|---|
+| Ativo A | 50% | R$ 3.000,00 | R$ 1.000,00 | R$ 625,00 | R$ 30,00 | 20 + 3 cotas | R$ 690,00 |
+| Ativo C | 20% | R$ 1.000,00 | R$ 600,00 | R$ 375,00 | R$ 100,00 | 3 cotas | R$ 300,00 |
+| Ativo B | 30% | R$ 3.000,00 | acima da meta | — | R$ 50,00 | 0 | — |
+
+Os déficits somam R$ 1.600, mais que o aporte, então cada um recebe a sua parte: 1.000 de 1.600 para A, 600 de 1.600 para C. A fatia de A compra 20 cotas (R$ 600,00) e a de C, 3 cotas (R$ 300,00). Sobram R$ 100,00 de troco, que vão para A, o mais longe da meta: mais 3 cotas, R$ 90,00.
+
+<Trecho nota="Sobraram R$ 10,00: não pagam uma cota de nenhum dos dois. Se o maior déficit levasse tudo, A ficaria com 33 cotas e C com nenhuma.">
 
 > O site não compra só para gastar a sobra. Ela fica para o próximo aporte.
 
@@ -59,6 +68,7 @@ Um exemplo com R$ 200 numa carteira vazia, com metas de 60% em MXRF11 e 40% em B
 
 - Aportes pequenos ajustam devagar; se a carteira estiver muito fora da meta, vai levar vários meses.
 - Ativo acima da meta não recebe nada até os outros o alcançarem.
+- Cotas inteiras deixam troco: quanto mais cara a cota perto do aporte, maior a sobra.
 - Ativo sem meta conta no patrimônio, mas não recebe aporte.
 
 <Armadilha>No PortfolioLab as metas são por ativo, e não por classe. Duas ações do mesmo setor somam o mesmo risco, mesmo com metas separadas.</Armadilha>

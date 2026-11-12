@@ -64,6 +64,26 @@ export const dividendsRepository = {
     });
   },
 
+  /**
+   * Apaga os proventos do PROVEDOR de um ativo do usuário cujo `paidAt` não está em
+   * `manter`. Só origem PROVEDOR: o que a pessoa lançou à mão nunca sai por aqui.
+   */
+  removerDoProvedorForaDe(userId: string, assetId: string, manter: Date[]) {
+    return prisma.dividend.deleteMany({
+      where: { userId, assetId, source: "PROVEDOR", paidAt: { notIn: manter } },
+    });
+  },
+
+  /**
+   * Apaga os proventos do PROVEDOR do usuário de todos os ativos que NÃO estão em `assetIds`
+   * (os que ainda têm transação). Só origem PROVEDOR: lançamento manual nunca sai por aqui.
+   */
+  removerDoProvedorDeAtivosForaDe(userId: string, assetIds: string[]) {
+    return prisma.dividend.deleteMany({
+      where: { userId, source: "PROVEDOR", assetId: { notIn: assetIds } },
+    });
+  },
+
   findByIdAndUser(id: string, userId: string) {
     return prisma.dividend.findFirst({ where: { id, userId } });
   },
