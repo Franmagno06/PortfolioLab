@@ -128,7 +128,7 @@ tela, e número e minigráfico só animam se foram vistos fora antes.
 nada de recomendação, número que muda sempre com fonte oficial e data, e todo exemplo numérico conferido em
 `lib/aprender/exemplos.test.ts`. Texto com lei, imposto ou dado de mercado é tarefa de Opus, com busca na web.
 
-Todo acesso à API passa por `src/lib/api.ts` (`api()` e `apiUpload()`), que lança `ApiError`
+Todo acesso à API passa por `src/lib/api.ts` (`api()`), que lança `ApiError`
 com a mensagem vinda do backend. Formatação de número/moeda só em `src/lib/format.ts`.
 
 Use a skill `frontend-design`e `web-design-guidelines` sempre que a tarefa envolver possível melhoria de layout — tela

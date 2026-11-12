@@ -66,18 +66,6 @@ async function encerrarSessao(): Promise<void> {
   window.location.replace(comNext("/login?expirada=1", window.location.pathname + window.location.search));
 }
 
-// Upload de arquivos (multipart/form-data): o navegador define o
-// Content-Type sozinho — por isso NÃO usamos o header JSON aqui
-export async function apiUpload<T>(path: string, form: FormData): Promise<T> {
-  const res = await fetch(`/api${path}`, { method: "POST", body: form });
-  const body = (await res.json().catch(() => null)) as (T & ApiErrorBody) | null;
-  if (!res.ok) {
-    if (res.status === 401) await encerrarSessao();
-    throw new ApiError(body?.error ?? "Erro inesperado, tente novamente", res.status);
-  }
-  return body as T;
-}
-
 // As listas paginadas do backend (transactions, dividends, reports) devolvem
 // este envelope em vez de um array. proximoCursor null significa última página.
 export type Pagina<T> = { itens: T[]; proximoCursor: string | null };
