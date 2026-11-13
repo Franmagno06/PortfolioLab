@@ -17,6 +17,7 @@ import {
 } from "@/lib/navegacao";
 import { lembrarSessao } from "@/lib/sessao-do-visitante";
 import { esquecerSimulacao } from "@/lib/simulacao-guardada";
+import { useSessaoDoVisitante } from "@/lib/use-sessao-do-visitante";
 import setaAcesa from "./seta-menu.svg";
 import setaApagada from "./seta-menu-apagada.svg";
 
@@ -197,12 +198,37 @@ function useSair() {
 }
 
 /**
- * "site": a página inicial, para quem visita — mostra "Entrar".
- * "carteira": a área logada — mostra "Sair" no lugar.
+ * O que o canto do cabeçalho oferece: "Sair" para quem está numa conta (a própria ou a demo),
+ * "Entrar" só para quem o backend disse que não entrou, e nada enquanto não se sabe.
+ */
+type Acesso = "sair" | "entrar" | "nenhum";
+
+/**
+ * "carteira": a área logada — sempre "Sair".
+ * "site": as páginas públicas (início, ativos, aprender, índices), abertas com ou sem sessão. O
+ * cabeçalho pergunta ao backend quem está vendo (GET /auth/sessao, ver lib/sessao-do-visitante.ts):
+ * conta ou demo mostram "Sair", visitante mostra "Entrar". Regra do dono: quem está numa conta
+ * nunca é levado ao login; "Entrar" só reaparece depois do "Sair".
+ *
+ * Sem resposta ainda (primeira carga, o HTML do servidor não sabe da sessão) ou com a consulta
+ * falhando (rede, 5xx), o lugar fica reservado e vazio: mostrar "Entrar" na dúvida levaria ao
+ * login alguém que está na carteira, e com o backend fora do ar nem o login funcionaria. Quem é
+ * visitante de verdade vê "Entrar" assim que a consulta volta, e até lá "Minha carteira" já o
+ * leva ao login pelo proxy (sem cookie, /dashboard redireciona para /login). Voltando da carteira
+ * pelo menu, a última resposta da aba já é conhecida e o cabeçalho nasce certo, sem piscar.
  */
 export function CabecalhoSite({ area = "site" }: { area?: "site" | "carteira" }) {
   const rota = usePathname();
   const sair = useSair();
+  const sessao = useSessaoDoVisitante(area === "site");
+  const acesso: Acesso =
+    area === "carteira" || sessao === "demo" || sessao === "conta"
+      ? "sair"
+      : sessao === "visitante"
+        ? "entrar"
+        : "nenhum";
+  // um logout que falhou deixa a pessoa logada (useSair desfaz o marcador); nada a fazer aqui
+  const aoSair = () => void sair().catch(() => undefined);
 
   // O estado lembra em qual rota o menu (ou a gaveta) abriu. Numa rota nova
   // ele simplesmente deixa de valer: mudar de página fecha tudo sem efeito.
@@ -386,21 +412,26 @@ export function CabecalhoSite({ area = "site" }: { area?: "site" | "carteira" })
         </nav>
 
         <div className="ml-auto flex items-center gap-2 lg:gap-[18px]">
-          {area === "carteira" ? (
+          {acesso === "sair" ? (
             <button
               type="button"
-              onClick={sair}
+              onClick={aoSair}
               className="hidden rounded py-2 text-[15px] font-medium text-white/78 hover:text-white lg:block"
             >
               Sair
             </button>
-          ) : (
+          ) : acesso === "entrar" ? (
             <Link
               href={ROTAS.login}
               className="hidden rounded py-2 text-[15px] font-medium text-white/78 hover:text-white lg:block"
             >
               Entrar
             </Link>
+          ) : (
+            // a largura de "Entrar", sem o link: "Minha carteira" não pula quando a resposta chega
+            <span aria-hidden className="invisible hidden py-2 text-[15px] font-medium lg:block">
+              Entrar
+            </span>
           )}
           <Link
             href={ROTAS.dashboard}
@@ -427,7 +458,8 @@ export function CabecalhoSite({ area = "site" }: { area?: "site" | "carteira" })
         <Gaveta
           fecharRef={fecharGavetaRef}
           aoFechar={() => setGaveta(null)}
-          aoSair={area === "carteira" ? sair : undefined}
+          acesso={acesso}
+          aoSair={aoSair}
         />
       )}
     </header>
@@ -438,12 +470,14 @@ export function CabecalhoSite({ area = "site" }: { area?: "site" | "carteira" })
 function Gaveta({
   fecharRef,
   aoFechar,
+  acesso,
   aoSair,
 }: {
   fecharRef: React.RefObject<HTMLButtonElement | null>;
   aoFechar: () => void;
-  /** Na área logada a gaveta termina em "Sair"; no site, em "Entrar". */
-  aoSair?: () => void;
+  /** Termina em "Sair" numa conta, em "Entrar" para visitante, e em nada enquanto não se sabe. */
+  acesso: Acesso;
+  aoSair: () => void;
 }) {
   const [secao, setSecao] = useState<IdMenu | null>(null);
 
@@ -556,21 +590,23 @@ function Gaveta({
               </li>
             ),
           )}
-          <li>
-            {aoSair ? (
-              <button
-                type="button"
-                onClick={aoSair}
-                className="flex min-h-12 w-full items-center py-3 text-left text-[17px] font-medium"
-              >
-                Sair
-              </button>
-            ) : (
-              <Link href={ROTAS.login} className="flex min-h-12 items-center py-3 text-[17px] font-medium">
-                Entrar
-              </Link>
-            )}
-          </li>
+          {acesso !== "nenhum" && (
+            <li>
+              {acesso === "sair" ? (
+                <button
+                  type="button"
+                  onClick={aoSair}
+                  className="flex min-h-12 w-full items-center py-3 text-left text-[17px] font-medium"
+                >
+                  Sair
+                </button>
+              ) : (
+                <Link href={ROTAS.login} className="flex min-h-12 items-center py-3 text-[17px] font-medium">
+                  Entrar
+                </Link>
+              )}
+            </li>
+          )}
         </ul>
       </nav>
     </div>

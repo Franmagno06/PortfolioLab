@@ -85,7 +85,7 @@ Conferido em 12/11/2026 em [render.com/docs/free](https://render.com/docs/free) 
 
 | Limite | Valor | O que isso faz com o PortfolioLab |
 |---|---|---|
-| CPU e RAM | 0,1 CPU, 512 MB | ver a seção da memória acima; leitura da CVM é CPU síncrona e fica ~10 vezes mais lenta |
+| CPU e RAM | 0,1 CPU, 512 MB | ver a seção da memória acima; leitura da CVM fica ~10 vezes mais lenta; roda num worker_thread (`cvm.trabalhador.ts`), então o `/health` responde enquanto ela trabalha |
 | Sono | dorme depois de **15 min** sem tráfego de entrada; acordar leva "cerca de um minuto" | primeira requisição depois do sono espera; ver "Contra o sono" |
 | Horas | **750 h/mês por workspace**; acabou, o serviço é suspenso até o mês seguinte | um serviço acordado o mês inteiro gasta até 744 h: cabe, se for o **único** serviço gratuito acordado no workspace |
 | Reinício | "o Render pode reiniciar um serviço gratuito a qualquer momento" | caches em memória (Yahoo, zips da CVM, séries do SGS) se perdem; o que importa está no banco (`asset_snapshots`, `index_points`) |
@@ -165,7 +165,8 @@ postgresql://postgres.<ref>:<senha>@aws-<n>-sa-east-1.pooler.supabase.com:5432/p
 | `DATABASE_URL` | **você cola** no painel (`sync: false`) | Session pooler, com `?connection_limit=5` (ver acima) |
 | `JWT_SECRET` | **o Render sorteia** (`generateValue: true`, 256 bits em base64, 44 caracteres) | a API recusa subir em produção com menos de 32 caracteres ou com placeholder conhecido. Trocar depois desloga todo mundo |
 | `AQUECER_CATALOGO` | `false` (no `render.yaml`) | ver a seção de memória |
-| `TRUST_PROXY` | não definir no começo (padrão `1`) | ver "IP do visitante" nas pendências |
+| `TRUST_PROXY` | `3` (no `render.yaml`) | visitante → Vercel → Cloudflare → proxy do Render. Só vale com o `SEGREDO_DO_PROXY`; fontes em `backend/.env.example`. Serviço criado à mão, e não pelo Blueprint: cadastrar no painel |
+| `SEGREDO_DO_PROXY` | **você gera e cola** (`sync: false`), `openssl rand -base64 32` | o **mesmo valor** na Vercel. Prova à API que a chamada passou pela Vercel; sem ele a API não confia nos 3 saltos (e avisa no log ao subir) |
 | `PORT` | o Render define | não colocar |
 
 **Site (Vercel):**
@@ -173,6 +174,7 @@ postgresql://postgres.<ref>:<senha>@aws-<n>-sa-east-1.pooler.supabase.com:5432/p
 | Variável | Valor |
 |---|---|
 | `API_URL` | endereço público da API, ex. `https://portfoliolab-api.onrender.com`, sem barra no fim |
+| `SEGREDO_DO_PROXY` | o mesmo do Render (Production). Variável de servidor: o `proxy.ts` a põe nas chamadas `/api/*`; nunca `NEXT_PUBLIC_` |
 
 O navegador nunca fala direto com a API: o Next reescreve `/api/*` para `API_URL`, então tudo fica na mesma
 origem, o cookie `SameSite=Strict` funciona e não há CORS a configurar. As páginas de ativos e índices também leem
@@ -289,7 +291,7 @@ linha que o script imprime é o banco de destino: tem de ser `SUPABASE (produç�
 | Prioridade | Item | Por quê / como |
 |---|---|---|
 | Feito | Memória da leitura da CVM | corrigida; conferir a memória nas métricas do Render no primeiro deploy (P4) |
-| **Alta** | **IP do visitante nos limitadores.** A Vercel manda o IP do visitante em `x-forwarded-for` para a origem externa (documentado), e o proxy do Render acrescenta o IP da Vercel. Com `TRUST_PROXY=1` (padrão), a API enxerga o IP da Vercel, que é de todos, e o teto de login (10 por 15 min) vira do site inteiro. | No primeiro deploy, logar `req.ip` e `x-forwarded-for` (sem cookies) de duas redes diferentes. Se a cadeia for visitante → Vercel → Render, `TRUST_PROXY=2` dá o IP real. Atenção: com 2, quem chamar o `*.onrender.com` direto pode forjar o IP. Para fechar isso, a Vercel pode mandar um cabeçalho secreto no rewrite e a API recusar quem não o tiver: mudança própria, com a skill `security-and-hardening` |
+| Feito (conferir) | **IP do visitante nos limitadores.** `TRUST_PROXY=3` no `render.yaml`: a Vercel sobrescreve o `x-forwarded-for` com o IP do visitante, a Cloudflare acrescenta o da Vercel e o proxy do Render o da Cloudflare. Os 3 saltos só valem com o `SEGREDO_DO_PROXY` que o `proxy.ts` do site põe em `/api/*`; sem ele, um salto a menos (o IP que a Cloudflare viu, que o cliente não forja). O login da demo saiu do teto rígido e tem o dele (60 por 15 min por IP); falhas de login contam por conta e IP (10) e só por conta (100, folgado contra o bloqueio da dona da conta); login e cadastro têm um teto do site inteiro, sem IP (300 por 15 min e 30 por hora), por causa do bcrypt. | No primeiro deploy, o log da API mostra `[proxy] X-Forwarded-For com N endereço(s), com/sem o segredo do proxy`: pela Vercel tem de ser 3, com o segredo. Outro número: ajuste o `TRUST_PROXY`. "sem o segredo" nas chamadas do site: confira a variável na Vercel (e se a Vercel repassa o cabeçalho que o `proxy.ts` põe antes do rewrite externo, o que só dá para ver em produção) |
 | Alta | **Dependências do backend.** `npm audit` aponta altas que só saem com versão maior (`zod` 3 → 4, CLI do Prisma). | Tarefa própria, com a bateria completa de testes |
 | Média | **Aviso de "acordando o servidor"** no login, no cadastro e na demo | seção "Contra o sono" |
 | Média | **Dinheiro somado em `number`** no resumo da carteira (`portfolio.service.ts`) e em partes do dashboard | Contra a convenção do projeto. Revisar com `auditar-calculo-financeiro` |

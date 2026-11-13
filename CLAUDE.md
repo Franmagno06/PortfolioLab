@@ -187,7 +187,9 @@ se perder:
   rota. Nunca escreva análise à mão ali: ela iria para o cache compartilhado com o rótulo de dado oficial.
 - A coluna do 4º trimestre vem da DFP, que é o exercício inteiro: receita e lucro não se comparam com os trimestres ao
   lado, e a tela diz isso.
-- Ler o zip da CVM é CPU síncrona: as leituras do módulo passam por uma fila serial (`naFilaDaCvm`).
+- Ler o zip da CVM é CPU pesada: roda num worker_thread (`reports/cvm.trabalhador.ts` + `cvm.worker.ts`), um zip por vez,
+  com prazo de 120 s por tarefa; falha, prazo vencido ou worker morto viram `null` e o worker é recriado. O laço de
+  eventos segue livre (o `/health` do Render responde). As consultas ainda passam pela fila `naFilaDaCvm`.
 
 A tabela ticker → CNPJ (`modules/assets/tabela-cnpj.json`) é fixa e se regenera com `npx tsx scripts/gerar-tabela-cnpj.ts`;
 ativo fora dela (KLBN4, por exemplo) não tem relatório.
@@ -201,9 +203,10 @@ indicadores de `AssetIndicator` (24h) e resultados trimestrais e informe de FII 
 `asset_snapshots`. A renovação é preguiçosa; em produção o catálogo também é aquecido ao subir a API.
 Duas regras que não podem se perder:
 
-- Interpretar o zip da CVM é **CPU síncrona** (0,5 a 2 s por trimestre). Essas renovações passam pela
-  fila serial de `ativos.snapshots.ts` e pausam entre um trimestre e outro; nunca as chame num caminho
-  de requisição sem limite de tempo, ou o Node para de atender todo mundo.
+- Interpretar o zip da CVM é **CPU pesada** (0,5 a 2 s por trimestre; 10 vezes isso no Render gratuito). Ela roda
+  no worker de `reports/cvm.trabalhador.ts`, fora do laço de eventos, e as renovações ainda passam pela fila serial de
+  `ativos.snapshots.ts`, pausando entre um trimestre e outro. Nunca leia o zip com `lerCsvsDoZip` direto num caminho de
+  requisição: isso volta a travar o Node (e o health check do Render reinicia a instância).
 - `buscarProventosOuNulo` distingue "o Yahoo falhou" (null) de "o ativo não pagou nada" (lista vazia).
   O Dividend Yield depende dessa diferença: falha preserva o DY gravado, nunca vira 0%.
 

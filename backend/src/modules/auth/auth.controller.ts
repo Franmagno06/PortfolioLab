@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import { env } from "../../config/env.js";
+import { lerToken, tokenDaRequisicao } from "../../shared/middlewares/auth-guard.js";
 import { loginSchema, registerSchema } from "./auth.schemas.js";
 import { authService } from "./auth.service.js";
 
@@ -34,6 +35,14 @@ export const authController = {
   async logout(_req: Request, res: Response) {
     res.clearCookie("token", OPCOES_COOKIE);
     res.status(204).send();
+  },
+
+  // Pública: o cabeçalho do site pergunta quem está vendo. Sempre 200, também para visitante: um 401
+  // aqui seria a resposta de todo visitante em toda página, e o navegador o registra como erro.
+  async sessao(req: Request, res: Response) {
+    const lido = lerToken(tokenDaRequisicao(req));
+    res.set("Cache-Control", "no-store");
+    res.json({ sessao: await authService.sessao(lido?.userId ?? null) });
   },
 
   // Rota protegida: req.userId foi injetado pelo authGuard

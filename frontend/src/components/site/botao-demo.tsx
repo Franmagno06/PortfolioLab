@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { api, ApiError } from "@/lib/api";
 import { ROTAS } from "@/lib/navegacao";
-import { consultarSessao, lembrarSessao, ultimaSessaoConhecida, type Sessao } from "@/lib/sessao-do-visitante";
+import { consultarSessao, lembrarSessao } from "@/lib/sessao-do-visitante";
+import { useSessaoDoVisitante } from "@/lib/use-sessao-do-visitante";
 import { esquecerSimulacao } from "@/lib/simulacao-guardada";
 
 // A conta de demonstração é pública de propósito (README, "Conta de
@@ -28,7 +29,8 @@ type Props = {
 /**
  * A demonstração é só para quem não entrou numa conta. Quem já está logado na própria carteira vê
  * "Ir para minha carteira", que só navega: o login da demo trocaria o cookie e a pessoa perderia a
- * sessão dela ao voltar à página inicial. Na conta demo, ou sem sessão, o botão faz o login da demo.
+ * sessão dela ao voltar à página inicial. Quem já está na demo também só navega: um login de novo
+ * não acrescenta nada e gastaria o teto de logins da demo. Só o visitante sem sessão faz o login.
  *
  * O rótulo nasce como o de visitante (a maioria, e a primeira dobra não espera a API) e muda quando
  * a consulta à sessão responde. Voltando da carteira pelo menu, a última resposta já é conhecida e
@@ -37,21 +39,11 @@ type Props = {
  */
 export function BotaoDemo({ rotulo = "Ver a demonstração", tom = "claro" }: Props) {
   const router = useRouter();
-  const [sessao, setSessao] = useState<Sessao | null>(ultimaSessaoConhecida);
+  const sessao = useSessaoDoVisitante();
   const [entrando, setEntrando] = useState(false);
   const [demorando, setDemorando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const temporizador = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    let ativo = true;
-    consultarSessao().then((r) => {
-      if (ativo && r !== "desconhecida") setSessao(r);
-    });
-    return () => {
-      ativo = false;
-    };
-  }, []);
 
   async function entrar() {
     setErro(null);
@@ -64,8 +56,7 @@ export function BotaoDemo({ rotulo = "Ver a demonstração", tom = "claro" }: Pr
         setEntrando(false);
         return;
       }
-      if (atual === "conta") {
-        setSessao("conta");
+      if (atual === "conta" || atual === "demo") {
         router.push(ROTAS.dashboard);
         return;
       }

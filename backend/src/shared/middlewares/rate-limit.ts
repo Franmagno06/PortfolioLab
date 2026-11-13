@@ -1,5 +1,7 @@
+import type { Request } from "express";
 import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import { env } from "../../config/env.js";
+import { ehEmailDaDemo } from "../conta-demo.js";
 import { AppError } from "../errors/AppError.js";
 
 // Achado 8: teto de requisições em três camadas.
@@ -18,7 +20,11 @@ type OpcoesLimitador = {
   mensagem: string;
   /** Por chave: sem isto o teto seria por IP, e um NAT puniria a rede inteira. */
   porUsuario?: boolean;
-  pular?: () => boolean;
+  /** Chave própria (sem IP), como o e-mail do login. Tem precedência sobre `porUsuario`. */
+  chave?: (req: Request) => string;
+  /** Só respostas de erro (status >= 400) gastam o teto: login certo não conta. */
+  contarSoFalhas?: boolean;
+  pular?: (req: Request) => boolean;
 };
 
 export function criarLimitador({
@@ -26,6 +32,8 @@ export function criarLimitador({
   max,
   mensagem,
   porUsuario,
+  chave,
+  contarSoFalhas,
   pular,
 }: OpcoesLimitador) {
   return rateLimit({
@@ -33,33 +41,130 @@ export function criarLimitador({
     limit: max,
     standardHeaders: true,
     legacyHeaders: false,
-    ...(pular ? { skip: pular } : {}),
+    ...(pular ? { skip: (req: Request) => pular(req) } : {}),
+    ...(contarSoFalhas ? { skipSuccessfulRequests: true } : {}),
     // ipKeyGenerator normaliza o IPv6 para o /64 do assinante: sem ele, quem
     // tem um /64 inteiro trocaria de endereço a cada requisição e escaparia do
     // limite. A v8 recusa keyGenerator custom que toque req.ip sem passar por ele.
-    ...(porUsuario
-      ? {
-          keyGenerator: (req: { userId?: string; ip?: string }) =>
-            req.userId ?? ipKeyGenerator(req.ip ?? ""),
-        }
-      : {}),
+    keyGenerator: chave
+      ? (req: Request) => chave(req)
+      : porUsuario
+        ? (req: Request) => req.userId ?? ipDe(req)
+        : ipDe,
     handler: (_req, _res, next) => {
       next(new AppError(mensagem, 429));
     },
   });
 }
 
+/**
+ * O IP que conta: o de `ip-do-visitante.ts`, que só confia nos saltos da Vercel quando a requisição
+ * traz o segredo dela (sem o middleware, como nos apps descartáveis dos testes, o `req.ip` do Express).
+ */
+export function ipDe(req: Request): string {
+  return ipKeyGenerator(req.ipDoVisitante ?? req.ip ?? "");
+}
+
 /** Desliga o limitador na suíte — ver comentário no topo. */
 const noTeste = () => env.NODE_ENV === "test";
 
 /**
+ * POST /auth/login da conta de demonstração (senha pública, README). Só o login: um cadastro com o
+ * e-mail da demo continua no teto rígido.
+ */
+export function ehLoginDaDemo(req: Request): boolean {
+  if (req.method !== "POST" || req.path !== "/login") return false;
+  const email: unknown = (req.body as { email?: unknown } | undefined)?.email;
+  return typeof email === "string" && ehEmailDaDemo(email);
+}
+
+/** E-mail do corpo, normalizado: a mesma conta com outra caixa ou espaços cai no mesmo contador. */
+export function chaveDaConta(req: Request): string {
+  const email: unknown = (req.body as { email?: unknown } | undefined)?.email;
+  return typeof email === "string" ? `conta:${email.trim().toLowerCase()}` : "conta:?";
+}
+
+/** A conta e o IP de quem tenta: errar a senha de alguém trava só a própria rede, não a dona da conta. */
+export function chaveDaContaEIp(req: Request): string {
+  return `${chaveDaConta(req)}|${ipDe(req)}`;
+}
+
+const MENSAGEM_AUTH = "Muitas tentativas de autenticação. Tente novamente em alguns minutos.";
+
+/**
  * Camada 1 — força bruta em credenciais. Rígida e por IP: um punhado de
  * tentativas por janela é mais do que qualquer pessoa legítima precisa.
+ *
+ * O login da conta demo fica de fora e tem o teto dele (`limitadorLoginDaDemo`): a senha dela é
+ * pública, não há o que adivinhar, e cada clique em "Ver a demonstração" é um login. Contado aqui,
+ * dez visitantes atrás do mesmo IP (uma rede de escritório, ou todos, se o IP real não chegar)
+ * travariam o login de todo mundo por 15 minutos.
  */
 export const limitadorAuth = criarLimitador({
   janelaMs: 15 * 60 * 1000,
   max: 10,
-  mensagem: "Muitas tentativas de autenticação. Tente novamente em alguns minutos.",
+  mensagem: MENSAGEM_AUTH,
+  pular: (req) => noTeste() || ehLoginDaDemo(req),
+});
+
+/**
+ * Camada 1b — o login da demo, à parte e por IP. Folgado (cada visita à demonstração é um login),
+ * mas limitado: cada login custa um bcrypt, que no Render gratuito (0,1 CPU) é caro.
+ */
+export const limitadorLoginDaDemo = criarLimitador({
+  janelaMs: 15 * 60 * 1000,
+  max: 60,
+  mensagem: "Muitas entradas na demonstração a partir da sua rede. Tente de novo em alguns minutos.",
+  pular: (req) => noTeste() || !ehLoginDaDemo(req),
+});
+
+/**
+ * Camada 1c — falhas de login por conta E IP. Errar a senha de uma conta trava aquela conta só para
+ * a rede que errou: quem tenta adivinhar a senha da Ana não tranca a Ana do lado de fora. Só falha
+ * conta (status >= 400); quem acerta não gasta nada.
+ */
+export const limitadorFalhasPorContaEIp = criarLimitador({
+  janelaMs: 15 * 60 * 1000,
+  max: 10,
+  mensagem: MENSAGEM_AUTH,
+  chave: chaveDaContaEIp,
+  contarSoFalhas: true,
+  pular: (req) => noTeste() || ehLoginDaDemo(req),
+});
+
+/**
+ * Camada 1d — falhas de login só por conta, bem mais folgado. Pega a força bruta distribuída (muitos
+ * IPs, ou IP forjado por quem chama o Render sem passar pela Vercel) contra uma conta só. Folgado de
+ * propósito: travar a dona da conta exige cem senhas erradas em 15 minutos, e não dez.
+ */
+export const limitadorFalhasPorConta = criarLimitador({
+  janelaMs: 15 * 60 * 1000,
+  max: 100,
+  mensagem: MENSAGEM_AUTH,
+  chave: chaveDaConta,
+  contarSoFalhas: true,
+  pular: (req) => noTeste() || ehLoginDaDemo(req),
+});
+
+/**
+ * Camada 1e — teto do site inteiro, sem IP, para login e cadastro: cada um custa um bcrypt (custo 12,
+ * perto de um segundo de CPU no Render gratuito). Não depende do IP, então nem forjar o IP nem usar
+ * mil endereços passa dele. O preço: uma enxurrada de tentativas atrasa o login de todos por alguns
+ * minutos, em vez de derrubar a API inteira por CPU.
+ */
+const TODOS = () => "todos";
+export const limitadorLoginsDoSite = criarLimitador({
+  janelaMs: 15 * 60 * 1000,
+  max: 300,
+  mensagem: "Muitas entradas no site agora. Tente de novo em alguns minutos.",
+  chave: TODOS,
+  pular: noTeste,
+});
+export const limitadorCadastrosDoSite = criarLimitador({
+  janelaMs: 60 * 60 * 1000,
+  max: 30,
+  mensagem: "Muitos cadastros no site agora. Tente de novo mais tarde.",
+  chave: TODOS,
   pular: noTeste,
 });
 

@@ -1,6 +1,11 @@
 import { Prisma } from "@prisma/client";
-import { unzipSync } from "fflate";
 import type { Mes, Trimestre } from "./periodo.js";
+import { emMemoriaCompartilhada, lerCsvsNoTrabalhador, patrimonioNoTrabalhador } from "./cvm.trabalhador.js";
+import { lerCsvsDoZip, patrimonioDasClasses, type PatrimonioDeClasse } from "./cvm.zip.js";
+
+// A leitura em si (pura, síncrona) mora em cvm.zip.ts; daqui ela segue exportada para os testes e o
+// script da tabela de CNPJ, que a chamam direto.
+export { lerCsvsDoZip, patrimonioDasClasses, type PatrimonioDeClasse };
 
 /**
  * Dados abertos da CVM (dados.cvm.gov.br).
@@ -14,6 +19,10 @@ import type { Mes, Trimestre } from "./periodo.js";
  * inteiro: `lerCsvsDoZip` com o CNPJ decodifica só as linhas da companhia (ver
  * lá). Sem isso, uma ficha de ação passava de 1,5 GB, e o Render tem 512 MB
  * (docs/deploy.md).
+ *
+ * CPU: descompactar e varrer o zip roda num worker_thread (cvm.trabalhador.ts), fora do laço de
+ * eventos, um zip por vez. O que fica aqui é rede e a montagem dos dados a partir das poucas linhas
+ * da companhia, que é barata.
  *
  * Como os outros provedores externos, nada aqui lança erro: dado ausente,
  * CVM fora do ar ou arquivo em formato inesperado viram null, e quem chama
@@ -35,6 +44,33 @@ export function limparCacheCvm() {
   cacheZip.clear();
 }
 
+/**
+ * O corpo da resposta, em memória compartilhada: o worker da leitura (cvm.trabalhador.ts) o lê sem
+ * copiar a cada tarefa. Com o tamanho anunciado, os pedaços vão direto para o buffer final, um de cada
+ * vez: `res.arrayBuffer()` juntava os 30 MB do ITR numa cópia só, que segurava o laço de eventos por
+ * perto de 100 ms (1 s no Render gratuito), e a cópia para a memória compartilhada dobrava o pico.
+ */
+async function lerCorpo(res: Response, caminho: string): Promise<Uint8Array | null> {
+  const anunciado = Number(res.headers.get("content-length"));
+  // Com compressão no transporte, o content-length é do corpo comprimido: aí, o caminho simples.
+  const comprimido = (res.headers.get("content-encoding") ?? "identity") !== "identity";
+  if (!res.body || comprimido || !Number.isInteger(anunciado) || anunciado <= 0) {
+    const bytes = new Uint8Array(await res.arrayBuffer());
+    return bytes.byteLength > MAX_ZIP_BYTES ? null : emMemoriaCompartilhada(bytes);
+  }
+  const destino = new Uint8Array(new SharedArrayBuffer(anunciado));
+  let escritos = 0;
+  for await (const pedaco of res.body as unknown as AsyncIterable<Uint8Array>) {
+    if (escritos + pedaco.byteLength > anunciado) {
+      console.error(`[CVM] ${caminho} veio maior que o content-length; ignorado`);
+      return null;
+    }
+    destino.set(pedaco, escritos);
+    escritos += pedaco.byteLength;
+  }
+  return escritos === anunciado ? destino : null;
+}
+
 async function baixar(caminho: string): Promise<Uint8Array | null> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
@@ -45,8 +81,7 @@ async function baixar(caminho: string): Promise<Uint8Array | null> {
       console.error(`[CVM] ${caminho} passa do teto de ${MAX_ZIP_BYTES} bytes; ignorado`);
       return null;
     }
-    const bytes = new Uint8Array(await res.arrayBuffer());
-    return bytes.byteLength > MAX_ZIP_BYTES ? null : bytes;
+    return await lerCorpo(res, caminho);
   } catch (err) {
     console.error(`[CVM] falha ao baixar ${caminho}:`, err instanceof Error ? err.message : err);
     return null;
@@ -70,58 +105,6 @@ export function baixarZipCvm(caminho: string): Promise<Uint8Array | null> {
   });
   cacheZip.set(caminho, { em: Date.now(), promessa });
   return promessa;
-}
-
-/**
- * Teto do tamanho descompactado de um CSV, como o zip o declara. O maior que o app lê (BPP
- * individual do ITR de um ano inteiro) tinha 93 MB em 2025. Um arquivo acima disso é ignorado sem
- * ser descompactado: o fflate aloca de uma vez o tamanho declarado.
- */
-const MAX_CSV_DESCOMPACTADO = 256 * 1024 * 1024;
-
-// Sem estado entre chamadas: decode() sem { stream: true } recomeça do zero.
-const LATIN1 = new TextDecoder("latin1");
-
-/**
- * Extrai do zip só os CSVs pedidos, já decodificados. Os arquivos da CVM são
- * ISO-8859-1; ler como UTF-8 estraga todo "Patrimônio" e "Prejuízo".
- *
- * Com `cnpj`, decodifica só o cabeçalho e as linhas que contêm o CNPJ, achadas nos
- * bytes: virar texto o CSV inteiro (o BPP do ITR passa de 40 MB) levava o processo a
- * mais de 1,5 GB. O resultado é um CSV menor no mesmo formato, e `linhasComCnpj` acha
- * nele as mesmas linhas que acharia no arquivo inteiro: cada caractere latin1 é um
- * byte, e o CNPJ é ASCII. Os arquivos são descompactados um de cada vez, para só um
- * deles estar em memória.
- */
-export function lerCsvsDoZip(zip: Uint8Array, nomes: string[], cnpj?: string): Map<string, string> {
-  const csvs = new Map<string, string>();
-  for (const nome of nomes) {
-    const bytes = unzipSync(zip, {
-      filter: (f) => f.name === nome && f.originalSize <= MAX_CSV_DESCOMPACTADO,
-    })[nome];
-    if (!bytes) continue;
-    csvs.set(nome, cnpj === undefined ? LATIN1.decode(bytes) : linhasDoCnpjEmBytes(bytes, cnpj));
-  }
-  return csvs;
-}
-
-/** O cabeçalho e as linhas que contêm o CNPJ, decodificados e unidos por "\n". */
-function linhasDoCnpjEmBytes(bytes: Uint8Array, cnpj: string): string {
-  const buf = Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  const fimDoCabecalho = buf.indexOf(0x0a);
-  if (fimDoCabecalho < 0) return "";
-  const linhas = [LATIN1.decode(bytes.subarray(0, fimDoCabecalho))];
-  if (!cnpj) return linhas[0] ?? "";
-  const agulha = Buffer.from(cnpj, "latin1");
-  let posicao = buf.indexOf(agulha, fimDoCabecalho);
-  while (posicao >= 0) {
-    const inicio = buf.lastIndexOf(0x0a, posicao) + 1;
-    let fim = buf.indexOf(0x0a, posicao);
-    if (fim < 0) fim = buf.length;
-    linhas.push(LATIN1.decode(bytes.subarray(inicio, fim)));
-    posicao = buf.indexOf(agulha, fim);
-  }
-  return linhas.join("\n");
 }
 
 export type LinhaCsv = Record<string, string>;
@@ -391,7 +374,8 @@ export async function buscarDadosAcao(cnpj: string, periodo: Trimestre): Promise
         // Um arquivo só para consolidado e individual, e pequeno (130 KB no ITR de 2026).
         composicao: `${prefixo}_composicao_capital_${periodo.ano}.csv`,
       };
-      const csvs = lerCsvsDoZip(zip, Object.values(nomes), cnpj);
+      const csvs = await lerCsvsNoTrabalhador(zip, Object.values(nomes), cnpj);
+      if (!csvs) return null;
       const dados = montarDadosAcao(
         {
           indice: csvs.get(nomes.indice) ?? "",
@@ -577,7 +561,8 @@ export async function buscarDadosFii(cnpj: string, periodo: Mes): Promise<DadosF
       complemento: `inf_mensal_fii_complemento_${periodo.ano}.csv`,
       ativoPassivo: `inf_mensal_fii_ativo_passivo_${periodo.ano}.csv`,
     };
-    const csvs = lerCsvsDoZip(zip, Object.values(nomes), cnpj);
+    const csvs = await lerCsvsNoTrabalhador(zip, Object.values(nomes), cnpj);
+    if (!csvs) return null;
     return montarDadosFii(
       {
         geral: csvs.get(nomes.geral) ?? "",
@@ -593,51 +578,14 @@ export async function buscarDadosFii(cnpj: string, periodo: Mes): Promise<DadosF
   }
 }
 
-export type PatrimonioDeClasse = { patrimonioLiquido: number; dataReferencia: string };
-
-/**
- * Pura: o patrimônio líquido das classes pedidas, a partir do registro_classe.csv da CVM
- * (separado por ";", com cabeçalho). Linha com patrimônio vazio ou data ausente é ignorada.
- */
-export function patrimonioDasClasses(csv: string, cnpjs: string[]): Map<string, PatrimonioDeClasse> {
-  const queremos = new Set(cnpjs);
-  const saida = new Map<string, PatrimonioDeClasse>();
-  const linhas = csv.split("\n");
-  const cabecalho = (linhas[0] ?? "").trim().split(";");
-  const iCnpj = cabecalho.indexOf("CNPJ_Classe");
-  const iPl = cabecalho.indexOf("Patrimonio_Liquido");
-  const iData = cabecalho.indexOf("Data_Patrimonio_Liquido");
-  if (iCnpj < 0 || iPl < 0 || iData < 0) {
-    console.error("[CVM] o cadastro de classes mudou de formato: faltam colunas esperadas");
-    return saida;
-  }
-
-  for (let i = 1; i < linhas.length; i++) {
-    const linha = linhas[i];
-    if (!linha) continue;
-    const campos = linha.split(";");
-    // um nome com ";" deslocaria as colunas em silêncio: a linha torta é descartada
-    if (campos.length !== cabecalho.length) continue;
-    const cnpj = campos[iCnpj] ?? "";
-    if (!queremos.has(cnpj)) continue;
-    const patrimonio = Number(campos[iPl]);
-    const data = (campos[iData] ?? "").trim();
-    if (!Number.isFinite(patrimonio) || patrimonio <= 0 || !/^\d{4}-\d{2}-\d{2}$/.test(data)) continue;
-    saida.set(cnpj, { patrimonioLiquido: patrimonio, dataReferencia: data });
-  }
-  return saida;
-}
-
 /** O patrimônio líquido de várias classes de fundo, do cadastro da CVM. Null se o download ou a leitura falhar. */
 export async function buscarPatrimonioDeClasses(cnpjs: string[]): Promise<Map<string, PatrimonioDeClasse> | null> {
   const zip = await baixarZipCvm("FI/CAD/DADOS/registro_fundo_classe.zip");
   if (!zip) return null;
 
   try {
-    const csvs = lerCsvsDoZip(zip, ["registro_classe.csv"]);
-    const csv = csvs.get("registro_classe.csv");
-    if (!csv) return null;
-    const achados = patrimonioDasClasses(csv, cnpjs);
+    const achados = await patrimonioNoTrabalhador(zip, cnpjs);
+    if (!achados) return null;
     // nenhum CNPJ achado quase sempre é arquivo em formato novo, e não fundos que sumiram: falha, e não dado de 24h
     return achados.size > 0 ? achados : null;
   } catch (err) {

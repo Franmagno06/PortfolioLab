@@ -52,7 +52,27 @@ function montarCsp(dev: boolean): string {
 
 const CSP = montarCsp(process.env.NODE_ENV === "development");
 
+/** Tem de bater com `CABECALHO_DO_SEGREDO` em backend/src/shared/middlewares/ip-do-visitante.ts. */
+export const CABECALHO_DO_SEGREDO = "x-portfoliolab-proxy";
+
+/**
+ * /api/* segue para a API pelo rewrite do next.config. Antes, ganha o segredo que prova à API que a
+ * chamada passou pela Vercel (SEGREDO_DO_PROXY, variável de ambiente do servidor, a mesma no Render).
+ * Só com ele a API confia no X-Forwarded-For que a Vercel escreve, e acha o IP do visitante para os
+ * limitadores de login; quem chama o Render direto não o tem e não consegue forjar o IP. `set`
+ * sobrescreve um cabeçalho de mesmo nome que o navegador tenha mandado. Sem a variável (desenvolvimento),
+ * a chamada passa como veio.
+ */
+function paraApi(request: NextRequest): NextResponse {
+  const segredo = process.env.SEGREDO_DO_PROXY;
+  const cabecalhos = new Headers(request.headers);
+  if (segredo) cabecalhos.set(CABECALHO_DO_SEGREDO, segredo);
+  else cabecalhos.delete(CABECALHO_DO_SEGREDO);
+  return NextResponse.next({ request: { headers: cabecalhos } });
+}
+
 export function proxy(request: NextRequest) {
+  if (request.nextUrl.pathname.startsWith("/api/")) return paraApi(request);
   const temToken = request.cookies.has("token");
   const { pathname } = request.nextUrl;
   const ehRotaPublica = rotasPublicas.some((rota) => pathname.startsWith(rota));
@@ -119,5 +139,7 @@ export const config = {
   // única de três variantes testadas que de fato casa. Ao mexer aqui, confirme:
   //   curl -o /dev/null -w "%{http_code}" localhost:3000/dashboard
   // sem cookie tem de dar 307, não 200.
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|.*\.svg$).*)"],
+  //
+  // "/api/:path*" entra só para o segredo do proxy (ver `paraApi`): nada de CSP nem redirecionamento ali.
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|.*\.svg$).*)", "/api/:path*"],
 };

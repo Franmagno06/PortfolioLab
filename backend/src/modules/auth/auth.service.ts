@@ -71,6 +71,17 @@ export const authService = {
     };
   },
 
+  /**
+   * Quem está vendo o site: sem token válido, ou com token de usuário que não existe mais, é
+   * visitante. A demo vem do e-mail no banco, como em getProfile.
+   */
+  async sessao(userId: string | null): Promise<"visitante" | "demo" | "conta"> {
+    if (!userId) return "visitante";
+    const user = await authRepository.findById(userId);
+    if (!user) return "visitante";
+    return ehEmailDaDemo(user.email) ? "demo" : "conta";
+  },
+
   /** Usado pelo middleware somenteLeituraNaDemo em escrita sem a claim. */
   async ehContaDemo(userId: string): Promise<boolean> {
     const user = await authRepository.findById(userId);
