@@ -69,8 +69,10 @@ model Asset {
 /// (quoteSummary: defaultKeyStatistics, financialData, assetProfile, price)
 /// e do módulo Proventos (Dividend, para o Dividend Yield). Cache global por
 /// ativo — não por usuário — porque o indicador é do ativo, não da carteira
-/// de quem o possui. Atualizado por um job diário
-/// (scripts/atualizar-indicadores.ts), nunca em tempo real na requisição.
+/// de quem o possui. Renovado de forma preguiçosa quando passa de 24h: na
+/// leitura de GET /indicators, nas fichas de Ativos e pelo script
+/// scripts/atualizar-indicadores.ts. Sem o Yahoo, P/L, P/VP, ROE e ROA saem da
+/// CVM (indicators.cvm.ts).
 model AssetIndicator {
   id      String  @id @default(uuid())
   assetId String  @unique @map("asset_id")
@@ -78,15 +80,15 @@ model AssetIndicator {
   /// Calculado na mão a partir de netIncomeToCommon/sharesOutstanding — o
   /// campo trailingPE pronto do Yahoo mostrou-se pouco confiável para ações
   /// da B3 (ex.: TAEE11 vinha ~4x inflado). Pode ser negativo (empresa com
-  /// prejuízo) ou extremo (lucro perto de zero) — isso é legítimo, não é
-  /// filtrado.
+  /// prejuízo) ou extremo (lucro perto de zero) — isso é legítimo. Só o que
+  /// não cabe na coluna vira null (noTeto em quotes.provider.ts).
   pl      Decimal? @db.Decimal(10, 2)
   /// Preço/Valor Patrimonial.
   pvp     Decimal? @db.Decimal(10, 2)
-  /// Dividend Yield: soma dos proventos por cota pagos nos últimos 12 meses
-  /// (módulo Proventos, não a fonte de cotação) dividida pelo preço atual,
-  /// em pontos percentuais. Null se ninguém sincronizou proventos deste
-  /// ativo ainda — não é erro, é ausência de dado importado.
+  /// Dividend Yield: soma dos proventos por cota pagos nos últimos 12 meses,
+  /// buscados no Yahoo para o próprio ativo (não o campo dividendYield pronto),
+  /// dividida pelo preço atual, em pontos percentuais. Falha na busca dos
+  /// proventos preserva o valor gravado; nunca vira 0%.
   dividendYield Decimal? @map("dividend_yield") @db.Decimal(7, 2)
   /// Retorno sobre patrimônio líquido, em pontos percentuais.
   roe     Decimal? @db.Decimal(7, 2)
@@ -156,15 +158,17 @@ model AssetGoal {
   @@map("asset_goals")
 }
 
-/// De onde saiu o conteúdo analisado. CVM: o PDF só identificou o período, e
-/// os números vieram dos dados abertos da CVM. PDF: o texto inteiro do
-/// arquivo foi lido pela IA — o único caso em que o chat funciona.
+/// De onde saiu o conteúdo analisado. Hoje todo relatório novo é CVM (POST
+/// /reports com ticker e período). PDF ficou de quando havia upload e IA, já
+/// removidos; o valor continua no enum para as linhas antigas.
 enum ReportSource {
   CVM
   PDF
 }
 
-// Relatório gerencial analisado pela IA (Sprint 8)
+// Relatório da CVM (ITR/DFP de ação ou Informe Mensal de FII) guardado na
+// conta. fileName, extractedText e contentHash são da época do upload de PDF
+// e ficam só nas linhas antigas.
 model Report {
   id            String       @id @default(uuid())
   userId        String       @map("user_id")
@@ -198,7 +202,7 @@ model Report {
 
 /// Análise montada a partir dos dados da CVM, cacheada por ativo e período.
 /// Global, como AssetIndicator: o ITR da Petrobras do 1T26 é o mesmo para
-/// todo usuário, e cada análise nova custa uma chamada à IA.
+/// todo usuário. Só vale se analysis.versao bater com VERSAO_DA_ANALISE.
 model CvmSummary {
   id        String   @id @default(uuid())
   assetId   String   @map("asset_id")

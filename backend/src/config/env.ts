@@ -22,7 +22,13 @@ export const envSchema = z
     NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
     DATABASE_URL: z.string().min(1, "DATABASE_URL é obrigatória"),
     PORT: z.coerce.number().default(3333),
-    JWT_SECRET: z.string().min(1).default(JWT_SECRET_PADRAO),
+    // Vazio conta como ausente: o .env.example traz JWT_SECRET="" e, copiado sem
+    // mexer, a API se recusava a subir em desenvolvimento. Em produção o padrão
+    // continua recusado (está em JWT_SECRETS_PROIBIDOS).
+    JWT_SECRET: z.preprocess(
+      (v) => (v === "" ? undefined : v),
+      z.string().min(1).default(JWT_SECRET_PADRAO),
+    ),
     TRUST_PROXY: z.coerce.number().int().min(0).default(1),
     // Segredo que o proxy.ts do site (Vercel) põe em toda chamada /api/* antes de reescrever para a
     // API. Prova que a requisição passou pela Vercel, que sobrescreve o X-Forwarded-For: só então os
@@ -33,7 +39,7 @@ export const envSchema = z
       z.string().min(32, "SEGREDO_DO_PROXY precisa ter ao menos 32 caracteres").optional(),
     ),
     // Liga o aquecimento do catálogo de Ativos ao subir (só tem efeito em produção). "false" o desliga:
-    // no Render gratuito (0,1 CPU, 512 MB) interpretar os zips da CVM dos 30 ativos de uma vez não cabe.
+    // no Render gratuito (0,1 CPU, 512 MB) interpretar os zips da CVM dos ativos do catálogo de uma vez não cabe.
     AQUECER_CATALOGO: z
       .enum(["true", "false"])
       .default("true")

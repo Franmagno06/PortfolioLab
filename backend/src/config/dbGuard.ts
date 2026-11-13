@@ -41,7 +41,8 @@ export function assertDatabaseUrlIsLocal(databaseUrl: string | undefined): void 
   try {
     host = new URL(databaseUrl).hostname;
   } catch {
-    throw new Error(`DATABASE_URL não é uma URL válida: ${databaseUrl}`);
+    // sem repetir a URL: ela leva a senha do banco, e a mensagem vai para o log
+    throw new Error("DATABASE_URL não é uma URL válida. Confira o formato postgresql://usuário:senha@host:porta/banco.");
   }
 
   if (!HOSTS_LOCAIS.test(host)) {

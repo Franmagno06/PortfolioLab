@@ -19,7 +19,7 @@ migrations e cria a conta demo, e recusa rodar se o `.env` não for local.
 
 Nunca rode sem confirmar o banco de destino:
 
-- `npm run db:seed` — `prisma/seed.ts:29-33` faz `deleteMany()` em **todas** as tabelas
+- `npm run db:seed` — `prisma/seed.ts:35-39` faz `deleteMany()` em **todas** as tabelas
 - `npx prisma migrate reset`
 - `npx prisma db push`
 
@@ -34,9 +34,10 @@ grep -rl "database/prisma" backend/src --include=*.test.ts
 **Onde roda a produção (decisão de 12/11/2026, tudo gratuito).** API no **Render free** (web service Node,
 `render.yaml`, 0,1 CPU e **512 MB**, dorme após 15 min sem tráfego), site na **Vercel Hobby** (Root Directory
 `frontend`, rewrite `/api/*` → `API_URL`, até 120 s), banco no Supabase pelo Session pooler (5432). Docker é só o
-Postgres do desenvolvimento local; a API não é adaptada para serverless. Em 12/11/2026 nada disso estava publicado, e a
-leitura dos zips da CVM (`cvm.provider.ts`) passava de 1,6 GB por ficha de ação: o que bloqueia e o que mudar estão em
-`docs/deploy.md`. `AQUECER_CATALOGO=false` desliga o aquecimento do catálogo ao subir (o `render.yaml` desliga).
+Postgres do desenvolvimento local; a API não é adaptada para serverless. Em 12/11/2026 nada disso estava publicado. A
+leitura dos zips da CVM (`cvm.provider.ts`), que passava de 1,6 GB por ficha de ação, já foi corrigida; o que ainda falta
+para o primeiro deploy está em `docs/deploy.md`. `AQUECER_CATALOGO=false` desliga o aquecimento do catálogo **e dos
+índices** ao subir (o `render.yaml` desliga).
 
 **Ordem do deploy quando há migration.** Depois do primeiro deploy (plano em `docs/deploy.md`), o Render publica a
 API no push para a `main`, mas a migration do
@@ -50,7 +51,8 @@ histórico deles): o do dia vem do Yahoo, gravado de forma preguiçosa pelo `GET
 (`modules/indices/indices.repository.ts`), e o que falta para trás, desde 2011, vem do endpoint público da
 B3 (`buscarSerieHistoricaB3`), em segundo plano, quando o ponto mais antigo do banco é posterior a 2011. A
 mesma tabela guarda a reserva mensal do SGS (slugs `sgs-432`, `sgs-433`, `sgs-4391`, `sgs-4389`), usada
-quando a API sobe com o Banco Central fora do ar. Tudo é só acréscimo (`createMany` com `skipDuplicates`).
+quando a API sobe com o Banco Central fora do ar. Nenhuma linha é apagada: o histórico entra por `createMany` com `skipDuplicates`, e só o
+ponto do dia (e o último ponto de cada lote) é regravado por upsert.
 Em produção, nunca apague, reseede nem recrie a tabela: a B3 repõe o histórico dela, mas as leituras do dia
 e a reserva do SGS não voltam. `npm run indices:backfill` preenche o histórico esperando até o fim. A migration `index_points` vai para o Supabase com
 `supabase:migrate` **antes** do push que a contém.
@@ -96,10 +98,15 @@ Routes → Controller → Service → Repository → Prisma
 - Um módulo = uma pasta em `src/modules/` com os cinco arquivos:
   `*.routes.ts`, `*.controller.ts`, `*.service.ts`, `*.repository.ts`, `*.schemas.ts`.
   Use `src/modules/auth/` como referência canônica.
+  Módulos antigos ainda fogem disso (`assets`, `indicators`, `news`, `portfolio`, `quotes`, `rebalance`
+  não têm os cinco); módulo novo tem.
+
+A documentação de referência fica em `docs/` (índice em `docs/README.md`): `arquitetura.md`, `api.md`,
+`frontend.md` e `deploy.md`.
 
 Erros esperados: `throw new AppError("mensagem", status)`. O Express 5 encaminha erros de rotas
 async sozinho — controllers **não** levam try/catch. O `errorHandler` (`shared/middlewares/`)
-é registrado por último no `app.ts` e trata `AppError`, `ZodError`, `MulterError`,
+é registrado por último no `app.ts` e trata `AppError`, JSON malformado (`SyntaxError`), `ZodError`,
 `PrismaClientInitializationError` e o resto como 500 genérico.
 
 ## Convenções
@@ -200,7 +207,7 @@ Nenhuma delas pode derrubar uma rota. Ao mexer nesses módulos, preserve o trata
 Só ticker do catálogo curado (`ativos.catalogo.ts`, 15 ações, 15 FIIs e 10 ETFs) chega às fontes; qualquer
 outro dá 404 antes de qualquer chamada externa. Cotação e proventos vêm do Yahoo (cache em memória),
 indicadores de `AssetIndicator` (24h) e resultados trimestrais e informe de FII da CVM de
-`asset_snapshots`. A renovação é preguiçosa; em produção o catálogo também é aquecido ao subir a API.
+`asset_snapshots`. A renovação é preguiçosa; o aquecimento ao subir a API existe, mas o `render.yaml` o desliga.
 Duas regras que não podem se perder:
 
 - Interpretar o zip da CVM é **CPU pesada** (0,5 a 2 s por trimestre; 10 vezes isso no Render gratuito). Ela roda

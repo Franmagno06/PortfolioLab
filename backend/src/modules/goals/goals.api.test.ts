@@ -230,3 +230,23 @@ describe("DELETE /goals/:ticker — remoção bem-sucedida", () => {
     expect(depois.body.metas.map((m: { ticker: string }) => m.ticker)).not.toContain(QUINTO);
   });
 });
+
+// 0,01 + 70,68 + 29,31 dá 100,00000000000001 em ponto flutuante. Somada em
+// number, a soma exata de 100% era recusada como "passaria de 100%".
+describe("PUT /goals/batch — soma que fecha exatamente 100%", () => {
+  it("aceita metas cuja soma em ponto flutuante passaria de 100", async () => {
+    const res = await request(app)
+      .put("/goals/batch")
+      .set("Cookie", cookies)
+      .send({
+        metas: [
+          { ticker: SEGUNDO, targetWeight: 0.01 },
+          { ticker: TERCEIRO, targetWeight: 70.68 },
+          { ticker: QUARTO, targetWeight: 29.31 },
+        ],
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.somaTotal).toBe(100);
+  });
+});

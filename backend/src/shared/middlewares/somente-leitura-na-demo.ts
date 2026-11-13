@@ -26,7 +26,7 @@ function caminhoCompleto(req: Request): string {
 /**
  * A conta de demonstração é compartilhada (qualquer visitante entra nela pela
  * página inicial), então é somente leitura: pode olhar tudo, mas não cria nem
- * apaga transação, provento manual, meta ou relatório, nem pergunta à IA.
+ * apaga transação, provento manual, meta ou relatório.
  * Vai depois do authGuard, nos mounts protegidos do app.ts.
  *
  * Quem é a demo: o caminho rápido é a claim `demo: true` do JWT. Mas tokens

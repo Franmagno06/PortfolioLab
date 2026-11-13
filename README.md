@@ -15,14 +15,14 @@ mesmo visual ("caderno de laboratório": papel frio, tinta navy, anotações rox
 
 | Metade | O que é | Acesso |
 |---|---|---|
-| **Site público** | Página inicial, fichas de 15 ações, 15 FIIs, 10 ETFs e 8 índices, e a aba **Aprender** (14 artigos, glossário, indicadores explicados) | aberto, sem login |
+| **Site público** | Página inicial, fichas de 15 ações, 15 FIIs, 10 ETFs e 8 índices, e a aba **Aprender** (18 artigos, glossário, indicadores explicados) | aberto, sem login |
 | **Área logada** | Dashboard, carteira, simulação de aporte, proventos, relatórios da CVM, indicadores e notícias | login (cookie `HttpOnly`) |
 
 | Frente | Situação |
 |---|---|
 | Backend (13 módulos, 13 migrations) | pronto; 630 testes |
 | Frontend (site, área logada, Aprender) | pronto; 574 testes unitários e 189 de ponta a ponta |
-| Conteúdo educacional | 14 artigos, 38 verbetes, 9 indicadores, "Como o site calcula"; números conferidos em código e dados públicos com fonte e data |
+| Conteúdo educacional | 18 artigos, 39 verbetes, 9 indicadores, "Como o site calcula"; números conferidos em código e dados públicos com fonte e data |
 | Segurança | auditoria feita; decisões e pendências em [SECURITY.md](SECURITY.md) |
 | CI | verde na `main` (backend e frontend) |
 | Deploy | banco no Supabase (falta 1 migration aditiva); API no Render (plano gratuito) e site na Vercel (Hobby) **ainda não publicados**. O plano e o que bloqueia estão em [docs/deploy.md](docs/deploy.md) |
@@ -77,7 +77,7 @@ Aprender é feita de **artigos**, e não de curso: sem aulas, trilhas nem progre
 
 Além dos artigos:
 
-- **Glossário** (`/aprender/glossario`): 38 verbetes de A a V, com busca que filtra enquanto se digita, navegação
+- **Glossário** (`/aprender/glossario`): 39 verbetes de A a V, com busca que filtra enquanto se digita, navegação
   por letra e âncora por verbete (`#data-ex`). O link "Ler o artigo" só aparece quando o artigo existe.
 - **Indicadores explicados** (`/aprender/indicadores`): P/L, P/VP, DY, ROE, ROA, margem líquida, dívida
   líquida/EBITDA, vacância e DY/P-VP de FII. Cada um traz fórmula, como ler, armadilha e exemplo, e tem âncora

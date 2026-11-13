@@ -399,12 +399,19 @@ test.describe("cabeçalho, rodapé e acesso", () => {
   const ROTAS_DE_ATIVOS = ["/ativos/acoes", "/ativos/acoes/VALE3", "/ativos/fiis", "/ativos/fiis/MXRF11", "/ativos/etfs", "/ativos/etfs/BOVA11"];
 
   test("o cabeçalho e o rodapé são idênticos nas seis rotas, e iguais aos da página inicial", async ({ page }) => {
+    // O cabeçalho consulta a sessão depois de montar: até a resposta, o lugar de "Entrar"/"Sair" fica vazio.
+    // A comparação só vale com ele já definido (visitante, no stub), senão a foto pega um ou outro estado.
+    const cabecalhoDefinido = () =>
+      expect(page.getByRole("banner").getByRole("link", { name: "Entrar" }).first()).toBeVisible();
+
     await page.goto("/");
+    await cabecalhoDefinido();
     const cabecalhoDaInicial = await page.getByRole("banner").ariaSnapshot();
     const rodapeDaInicial = await page.getByRole("contentinfo").ariaSnapshot();
 
     for (const rota of ROTAS_DE_ATIVOS) {
       await page.goto(rota);
+      await cabecalhoDefinido();
       expect(await page.getByRole("banner").ariaSnapshot(), `cabeçalho de ${rota}`).toBe(cabecalhoDaInicial);
       expect(await page.getByRole("contentinfo").ariaSnapshot(), `rodapé de ${rota}`).toBe(rodapeDaInicial);
     }

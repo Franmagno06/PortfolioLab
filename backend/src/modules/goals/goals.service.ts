@@ -1,13 +1,24 @@
+import { Prisma } from "@prisma/client";
 import { AppError } from "../../shared/errors/AppError.js";
 import { assetsRepository } from "../assets/assets.repository.js";
 import { quotesService } from "../quotes/quotes.service.js";
 import type { BatchGoalsInput, UpsertGoalInput } from "./goals.schemas.js";
 import { goalsRepository } from "./goals.repository.js";
 
+const CEM = new Prisma.Decimal(100);
+
+/**
+ * Soma em Decimal, nunca em number: 0,01 + 70,68 + 29,31 dá 100,00000000000001
+ * em ponto flutuante, e metas que fecham exatamente 100% eram recusadas.
+ */
+function somarPesos(pesos: Prisma.Decimal[]): Prisma.Decimal {
+  return pesos.reduce((soma, p) => soma.plus(p), new Prisma.Decimal(0));
+}
+
 export const goalsService = {
   async list(userId: string) {
     const metas = await goalsRepository.findManyByUser(userId);
-    const somaTotal = metas.reduce((soma, m) => soma + m.targetWeight.toNumber(), 0);
+    const somaTotal = somarPesos(metas.map((m) => m.targetWeight));
 
     return {
       metas: metas.map((m) => ({
@@ -16,7 +27,7 @@ export const goalsService = {
         type: m.asset.type,
         targetWeight: m.targetWeight.toNumber(),
       })),
-      somaTotal: Number(somaTotal.toFixed(2)),
+      somaTotal: somaTotal.toDecimalPlaces(2).toNumber(),
     };
   },
 
@@ -35,12 +46,12 @@ export const goalsService = {
 
     // Regra de negócio: a soma de TODAS as metas não pode passar de 100%
     const metas = await goalsRepository.findManyByUser(userId);
-    const somaOutras = metas
-      .filter((m) => m.assetId !== asset.id)
-      .reduce((soma, m) => soma + m.targetWeight.toNumber(), 0);
+    const somaOutras = somarPesos(
+      metas.filter((m) => m.assetId !== asset.id).map((m) => m.targetWeight),
+    );
 
-    const novaSoma = somaOutras + input.targetWeight;
-    if (novaSoma > 100) {
+    const novaSoma = somaOutras.plus(new Prisma.Decimal(input.targetWeight));
+    if (novaSoma.greaterThan(CEM)) {
       throw new AppError(
         `A soma das metas passaria de 100% (ficaria em ${novaSoma.toFixed(2)}%)`,
         400,
@@ -52,8 +63,8 @@ export const goalsService = {
   },
 
   async batchUpsert(userId: string, input: BatchGoalsInput) {
-    const somaTotal = input.metas.reduce((soma, m) => soma + m.targetWeight, 0);
-    if (somaTotal > 100) {
+    const somaTotal = somarPesos(input.metas.map((m) => new Prisma.Decimal(m.targetWeight)));
+    if (somaTotal.greaterThan(CEM)) {
       throw new AppError(
         `A soma das metas passaria de 100% (ficaria em ${somaTotal.toFixed(2)}%)`,
         400,

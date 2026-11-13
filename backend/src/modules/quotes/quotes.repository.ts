@@ -13,7 +13,14 @@ export const quotesRepository = {
     currentPrice: number;
     cnpj: string | null;
   }) {
-    return prisma.asset.create({ data: { ...data, priceUpdatedAt: new Date() } });
+    // upsert sem update: duas contas cadastrando o mesmo ticker novo ao mesmo
+    // tempo davam P2002 (ticker é único) e um 500. Assim a segunda recebe a
+    // linha que a primeira gravou.
+    return prisma.asset.upsert({
+      where: { ticker: data.ticker },
+      create: { ...data, priceUpdatedAt: new Date() },
+      update: {},
+    });
   },
 
   /** Completa o CNPJ de ativo cadastrado antes da tabela existir. updateMany pelo mesmo motivo de updatePrice. */

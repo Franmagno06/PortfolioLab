@@ -158,12 +158,19 @@ function descreverErro(erro: unknown): string {
   return `${erro.name}${codigo}`;
 }
 
+const PRAZO_DAS_CREDENCIAIS_MS = 8000;
+
 async function obterCredenciaisYahoo(): Promise<CredenciaisYahoo | null> {
   let etapa: EtapaDoYahoo = "cookie";
   try {
     // fc.yahoo.com devolve 404 de propósito (não é uma página real) — o que
     // importa é o Set-Cookie da resposta, presente mesmo com esse status.
-    const resCookie = await fetch("https://fc.yahoo.com", { headers: CABECALHOS });
+    // Prazo nas duas etapas: sem ele, um Yahoo pendurado prendia o pedido no
+    // padrão do undici (~300 s), muito além dos 120 s do rewrite da Vercel.
+    const resCookie = await fetch("https://fc.yahoo.com", {
+      headers: CABECALHOS,
+      signal: AbortSignal.timeout(PRAZO_DAS_CREDENCIAIS_MS),
+    });
     const cookies = resCookie.headers.getSetCookie?.() ?? [];
     const cookie = cookies.map((c) => c.split(";")[0]).join("; ");
     if (!cookie) {
@@ -174,6 +181,7 @@ async function obterCredenciaisYahoo(): Promise<CredenciaisYahoo | null> {
     etapa = "crumb";
     const resCrumb = await fetch("https://query1.finance.yahoo.com/v1/test/getcrumb", {
       headers: { ...CABECALHOS, Cookie: cookie },
+      signal: AbortSignal.timeout(PRAZO_DAS_CREDENCIAIS_MS),
     });
     if (!resCrumb.ok) {
       avisarFalhaDoYahoo("crumb", `HTTP ${resCrumb.status}`);
@@ -330,6 +338,18 @@ export async function buscarIndicadoresFundamentalistas(
   return null;
 }
 
+// Os tetos das colunas de asset_indicators, como em indicators.cvm.ts: pl, pvp e
+// divida_ebitda são Decimal(10,2), roe, roa e margem_liquida Decimal(7,2). Lucro
+// perto de zero dá um P/L de bilhões, o upsert falhava sempre e o ativo era
+// reconsultado no Yahoo a cada leitura. Fora do teto, o valor vira null.
+const TETO_DO_MULTIPLO = 99_999_999.99;
+const TETO_DO_PERCENTUAL = 99_999.99;
+
+export function noTeto(valor: number | null, teto: number): number | null {
+  if (valor === null) return null;
+  return Math.abs(Math.round(valor * 100) / 100) > teto ? null : valor;
+}
+
 async function interpretarRespostaIndicadores(
   res: Response,
 ): Promise<IndicadoresDoProvedor | null> {
@@ -356,17 +376,23 @@ async function interpretarRespostaIndicadores(
   const sharesOutstanding = numeroOuNulo(defaultKeyStatistics?.["sharesOutstanding"]);
 
   return {
-    pl: calcularPL(precoAtual, netIncomeToCommon, sharesOutstanding),
-    pvp: numeroOuNulo(defaultKeyStatistics?.["priceToBook"]),
-    roe: percentualOuNulo(financialData?.["returnOnEquity"]),
-    roa: percentualOuNulo(financialData?.["returnOnAssets"]),
-    margemLiquida: percentualOuNulo(
-      financialData?.["profitMargins"] ?? defaultKeyStatistics?.["profitMargins"],
+    pl: noTeto(calcularPL(precoAtual, netIncomeToCommon, sharesOutstanding), TETO_DO_MULTIPLO),
+    pvp: noTeto(numeroOuNulo(defaultKeyStatistics?.["priceToBook"]), TETO_DO_MULTIPLO),
+    roe: noTeto(percentualOuNulo(financialData?.["returnOnEquity"]), TETO_DO_PERCENTUAL),
+    roa: noTeto(percentualOuNulo(financialData?.["returnOnAssets"]), TETO_DO_PERCENTUAL),
+    margemLiquida: noTeto(
+      percentualOuNulo(
+        financialData?.["profitMargins"] ?? defaultKeyStatistics?.["profitMargins"],
+      ),
+      TETO_DO_PERCENTUAL,
     ),
-    dividaEbitda: calcularDividaEbitda(
-      numeroOuNulo(financialData?.["totalDebt"]),
-      numeroOuNulo(financialData?.["totalCash"]),
-      numeroOuNulo(financialData?.["ebitda"]),
+    dividaEbitda: noTeto(
+      calcularDividaEbitda(
+        numeroOuNulo(financialData?.["totalDebt"]),
+        numeroOuNulo(financialData?.["totalCash"]),
+        numeroOuNulo(financialData?.["ebitda"]),
+      ),
+      TETO_DO_MULTIPLO,
     ),
     industria: assetProfile?.industry ?? null,
     precoAtual,

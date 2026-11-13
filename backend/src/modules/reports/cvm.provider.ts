@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import type { Mes, Trimestre } from "./periodo.js";
+import { lerCorpoComTeto } from "../../shared/ler-com-teto.js";
 import { emMemoriaCompartilhada, lerCsvsNoTrabalhador, patrimonioNoTrabalhador } from "./cvm.trabalhador.js";
 import { lerCsvsDoZip, patrimonioDasClasses, type PatrimonioDeClasse } from "./cvm.zip.js";
 
@@ -55,8 +56,9 @@ async function lerCorpo(res: Response, caminho: string): Promise<Uint8Array | nu
   // Com compressão no transporte, o content-length é do corpo comprimido: aí, o caminho simples.
   const comprimido = (res.headers.get("content-encoding") ?? "identity") !== "identity";
   if (!res.body || comprimido || !Number.isInteger(anunciado) || anunciado <= 0) {
-    const bytes = new Uint8Array(await res.arrayBuffer());
-    return bytes.byteLength > MAX_ZIP_BYTES ? null : emMemoriaCompartilhada(bytes);
+    // Sem tamanho confiável: lê em pedaços e desiste ao passar do teto, antes de tudo estar na memória.
+    const bytes = await lerCorpoComTeto(res, MAX_ZIP_BYTES);
+    return bytes ? emMemoriaCompartilhada(bytes) : null;
   }
   const destino = new Uint8Array(new SharedArrayBuffer(anunciado));
   let escritos = 0;
@@ -78,10 +80,13 @@ async function baixar(caminho: string): Promise<Uint8Array | null> {
     const res = await fetch(`${BASE}/${caminho}`, { signal: controller.signal });
     if (!res.ok) return null;
     if (Number(res.headers.get("content-length")) > MAX_ZIP_BYTES) {
+      await res.body?.cancel().catch(() => undefined);
       console.error(`[CVM] ${caminho} passa do teto de ${MAX_ZIP_BYTES} bytes; ignorado`);
       return null;
     }
-    return await lerCorpo(res, caminho);
+    const bytes = await lerCorpo(res, caminho);
+    if (!bytes) console.error(`[CVM] ${caminho} veio vazio, truncado ou acima do teto de ${MAX_ZIP_BYTES} bytes; ignorado`);
+    return bytes;
   } catch (err) {
     console.error(`[CVM] falha ao baixar ${caminho}:`, err instanceof Error ? err.message : err);
     return null;

@@ -10,7 +10,7 @@ import { IconeCheck, IconeMais } from "@/components/ui/icones";
 import { MensagemAviso, MensagemErro } from "@/components/ui/mensagem";
 import { PageHeader } from "@/components/ui/page-header";
 import { api, ApiError } from "@/lib/api";
-import { brl, coresClasse } from "@/lib/format";
+import { brl, coresClasse, percentual } from "@/lib/format";
 import { somarMetas } from "@/lib/goals";
 import {
   guardarSimulacao,
@@ -56,6 +56,14 @@ function Resumo({ rotulo, valor, nota, destaque }: {
 // query string depois de hidratar) — isolar quem a lê num componente próprio
 // deixa o resto da árvore livre pra ser pré-renderizado. Ver
 // node_modules/next/dist/docs/.../use-search-params.md#prerendering.
+
+// Sem casas quando a soma é redonda; com duas quando não é. Arredondar para
+// inteiro fazia 33,33 × 3 virar "Suas metas somam 100%, não 100%".
+function somaComCasas(valor: number): string {
+  const centesimos = Math.round(valor * 100) / 100;
+  return percentual(centesimos, Number.isInteger(centesimos) ? 0 : 2);
+}
+
 export default function SimulacaoPage() {
   return (
     <Suspense fallback={<div className="mx-auto max-w-6xl" />}>
@@ -428,10 +436,10 @@ function SimulacaoConteudo() {
 
               {resultado.somaMetas < 100 && (
                 <MensagemAviso
-                  titulo={`Suas metas somam ${resultado.somaMetas.toFixed(0)}%, não 100%`}
+                  titulo={`Suas metas somam ${somaComCasas(resultado.somaMetas)}, não 100%`}
                 >
                   O aporte só é distribuído até onde as metas alcançam. Os{" "}
-                  {(100 - resultado.somaMetas).toFixed(0)}% restantes não têm dono, e por isso
+                  {somaComCasas(100 - resultado.somaMetas)} restantes não têm dono, e por isso
                   parte do dinheiro pode sobrar mesmo havendo ativo abaixo da meta.
                 </MensagemAviso>
               )}
