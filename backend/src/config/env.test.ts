@@ -84,3 +84,18 @@ describe("validação do ambiente", () => {
     });
   });
 });
+
+describe("SEGREDO_DO_PROXY", () => {
+  it("vazio vale como desligado", () => {
+    expect(envSchema.parse({ ...base, SEGREDO_DO_PROXY: "  " }).SEGREDO_DO_PROXY).toBeUndefined();
+    expect(envSchema.parse({ ...base }).SEGREDO_DO_PROXY).toBeUndefined();
+  });
+
+  it("curto demais é recusado: a API nem sobe", () => {
+    expect(envSchema.safeParse({ ...base, SEGREDO_DO_PROXY: "curto" }).success).toBe(false);
+  });
+
+  it("com 32 caracteres ou mais, passa", () => {
+    expect(envSchema.parse({ ...base, SEGREDO_DO_PROXY: SEGREDO_FORTE }).SEGREDO_DO_PROXY).toBe(SEGREDO_FORTE);
+  });
+});

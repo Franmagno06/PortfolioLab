@@ -46,18 +46,23 @@ export function criarLimitador({
     // ipKeyGenerator normaliza o IPv6 para o /64 do assinante: sem ele, quem
     // tem um /64 inteiro trocaria de endereço a cada requisição e escaparia do
     // limite. A v8 recusa keyGenerator custom que toque req.ip sem passar por ele.
-    ...(chave
-      ? { keyGenerator: (req: Request) => chave(req) }
+    keyGenerator: chave
+      ? (req: Request) => chave(req)
       : porUsuario
-      ? {
-          keyGenerator: (req: { userId?: string; ip?: string }) =>
-            req.userId ?? ipKeyGenerator(req.ip ?? ""),
-        }
-      : {}),
+        ? (req: Request) => req.userId ?? ipDe(req)
+        : ipDe,
     handler: (_req, _res, next) => {
       next(new AppError(mensagem, 429));
     },
   });
+}
+
+/**
+ * O IP que conta: o de `ip-do-visitante.ts`, que só confia nos saltos da Vercel quando a requisição
+ * traz o segredo dela (sem o middleware, como nos apps descartáveis dos testes, o `req.ip` do Express).
+ */
+export function ipDe(req: Request): string {
+  return ipKeyGenerator(req.ipDoVisitante ?? req.ip ?? "");
 }
 
 /** Desliga o limitador na suíte — ver comentário no topo. */
@@ -77,6 +82,11 @@ export function ehLoginDaDemo(req: Request): boolean {
 export function chaveDaConta(req: Request): string {
   const email: unknown = (req.body as { email?: unknown } | undefined)?.email;
   return typeof email === "string" ? `conta:${email.trim().toLowerCase()}` : "conta:?";
+}
+
+/** A conta e o IP de quem tenta: errar a senha de alguém trava só a própria rede, não a dona da conta. */
+export function chaveDaContaEIp(req: Request): string {
+  return `${chaveDaConta(req)}|${ipDe(req)}`;
 }
 
 const MENSAGEM_AUTH = "Muitas tentativas de autenticação. Tente novamente em alguns minutos.";
@@ -109,19 +119,53 @@ export const limitadorLoginDaDemo = criarLimitador({
 });
 
 /**
- * Camada 1c — falhas de login por CONTA, não por IP. O teto por IP depende de o IP do visitante
- * ser verdadeiro, e quem chama a API direto no *.onrender.com (sem passar pela Vercel) consegue
- * forjar o X-Forwarded-For com TRUST_PROXY=3 (ver .env.example). Contado pelo e-mail, trocar de
- * IP não ajuda a adivinhar a senha de uma conta. Só falha conta: quem acerta não gasta nada, e o
- * custo é que alguém errando de propósito trava aquela conta por 15 minutos.
+ * Camada 1c — falhas de login por conta E IP. Errar a senha de uma conta trava aquela conta só para
+ * a rede que errou: quem tenta adivinhar a senha da Ana não tranca a Ana do lado de fora. Só falha
+ * conta (status >= 400); quem acerta não gasta nada.
+ */
+export const limitadorFalhasPorContaEIp = criarLimitador({
+  janelaMs: 15 * 60 * 1000,
+  max: 10,
+  mensagem: MENSAGEM_AUTH,
+  chave: chaveDaContaEIp,
+  contarSoFalhas: true,
+  pular: (req) => noTeste() || ehLoginDaDemo(req),
+});
+
+/**
+ * Camada 1d — falhas de login só por conta, bem mais folgado. Pega a força bruta distribuída (muitos
+ * IPs, ou IP forjado por quem chama o Render sem passar pela Vercel) contra uma conta só. Folgado de
+ * propósito: travar a dona da conta exige cem senhas erradas em 15 minutos, e não dez.
  */
 export const limitadorFalhasPorConta = criarLimitador({
   janelaMs: 15 * 60 * 1000,
-  max: 10,
+  max: 100,
   mensagem: MENSAGEM_AUTH,
   chave: chaveDaConta,
   contarSoFalhas: true,
   pular: (req) => noTeste() || ehLoginDaDemo(req),
+});
+
+/**
+ * Camada 1e — teto do site inteiro, sem IP, para login e cadastro: cada um custa um bcrypt (custo 12,
+ * perto de um segundo de CPU no Render gratuito). Não depende do IP, então nem forjar o IP nem usar
+ * mil endereços passa dele. O preço: uma enxurrada de tentativas atrasa o login de todos por alguns
+ * minutos, em vez de derrubar a API inteira por CPU.
+ */
+const TODOS = () => "todos";
+export const limitadorLoginsDoSite = criarLimitador({
+  janelaMs: 15 * 60 * 1000,
+  max: 300,
+  mensagem: "Muitas entradas no site agora. Tente de novo em alguns minutos.",
+  chave: TODOS,
+  pular: noTeste,
+});
+export const limitadorCadastrosDoSite = criarLimitador({
+  janelaMs: 60 * 60 * 1000,
+  max: 30,
+  mensagem: "Muitos cadastros no site agora. Tente de novo mais tarde.",
+  chave: TODOS,
+  pular: noTeste,
 });
 
 /**

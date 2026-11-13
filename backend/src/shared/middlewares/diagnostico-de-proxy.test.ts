@@ -2,6 +2,7 @@ import express from "express";
 import request from "supertest";
 import { describe, expect, it } from "vitest";
 import { criarDiagnosticoDeProxy } from "./diagnostico-de-proxy.js";
+import { CABECALHO_DO_SEGREDO } from "./ip-do-visitante.js";
 
 describe("diagnóstico do X-Forwarded-For", () => {
   function app(linhas: string[]) {
@@ -20,10 +21,14 @@ describe("diagnóstico do X-Forwarded-For", () => {
     await request(a).get("/").set("x-forwarded-for", "201.9.9.9, 76.76.21.9, 172.70.1.1");
     await request(a).get("/");
 
+    await request(a).get("/").set("x-forwarded-for", "1.1.1.1, 2.2.2.2, 3.3.3.3").set(CABECALHO_DO_SEGREDO, "segredo-que-nao-pode-ir-ao-log");
+
     expect(linhas).toEqual([
-      "[proxy] X-Forwarded-For com 3 endereço(s); TRUST_PROXY=3",
-      "[proxy] X-Forwarded-For com 0 endereço(s); TRUST_PROXY=3",
+      "[proxy] X-Forwarded-For com 3 endereço(s), sem o segredo do proxy; TRUST_PROXY=3",
+      "[proxy] X-Forwarded-For com 0 endereço(s), sem o segredo do proxy; TRUST_PROXY=3",
+      "[proxy] X-Forwarded-For com 3 endereço(s), com o segredo do proxy; TRUST_PROXY=3",
     ]);
+    expect(linhas.join(" ")).not.toContain("segredo-que-nao-pode");
     expect(linhas.join(" ")).not.toMatch(/\d+\.\d+\.\d+\.\d+/);
   });
 });

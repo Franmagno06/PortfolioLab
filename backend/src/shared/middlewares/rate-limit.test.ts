@@ -9,12 +9,16 @@ import { errorHandler } from "./error-handler.js";
 import { EMAIL_DA_DEMO } from "../conta-demo.js";
 import {
   chaveDaConta,
+  chaveDaContaEIp,
   criarLimitador,
   ehLoginDaDemo,
   limitadorAtivos,
   limitadorAuth,
+  limitadorCadastrosDoSite,
   limitadorFalhasPorConta,
+  limitadorFalhasPorContaEIp,
   limitadorLoginDaDemo,
+  limitadorLoginsDoSite,
   limitadorRelatorios,
   limitadorSyncDeProventos,
 } from "./rate-limit.js";
@@ -169,23 +173,54 @@ describe("login: a demo à parte e as falhas por conta", () => {
     expect(estourou.body.error).toBe("demo");
   });
 
-  it("falhas contam por conta: o mesmo e-mail é barrado ainda que cada tentativa venha de outro IP", async () => {
+  // O IP vem de ip-do-visitante.ts; aqui, com trust proxy 1, do X-Forwarded-For de cada chamada.
+  function appDeFalhas(porContaEIp: number, porConta: number) {
     const app = express();
+    app.set("trust proxy", 1);
     app.use(express.json());
     app.post(
       "/auth/login",
-      criarLimitador({ janelaMs: 60_000, max: 3, mensagem: "conta", chave: chaveDaConta, contarSoFalhas: true }),
+      criarLimitador({ janelaMs: 60_000, max: porContaEIp, mensagem: "conta e ip", chave: chaveDaContaEIp, contarSoFalhas: true }),
+      criarLimitador({ janelaMs: 60_000, max: porConta, mensagem: "conta", chave: chaveDaConta, contarSoFalhas: true }),
       (req, res) => {
         res.status((req.body as { password?: string }).password === "certa" ? 200 : 401).json({});
       },
     );
     app.use(errorHandler);
-    for (let i = 0; i < 3; i++) await entrar(app, "Ana@Exemplo.dev", "errada", `9.9.9.${i}`);
+    return app;
+  }
 
-    const estourou = await entrar(app, "ana@exemplo.dev", "certa", "8.8.8.8");
+  it("quem erra a senha da Ana trava só a própria rede: a Ana, de outro IP, continua entrando", async () => {
+    const app = appDeFalhas(3, 100);
+    for (let i = 0; i < 3; i++) await entrar(app, "Ana@Exemplo.dev", "errada", "6.6.6.6");
+
+    const atacante = await entrar(app, "ana@exemplo.dev", "certa", "6.6.6.6");
+    expect(atacante.status).toBe(429);
+    expect(atacante.body.error).toBe("conta e ip");
+    expect((await entrar(app, "ana@exemplo.dev", "certa", "200.1.2.3")).status).toBe(200);
+  });
+
+  it("força bruta distribuída (um IP por tentativa) esbarra no teto só por conta", async () => {
+    const app = appDeFalhas(3, 5);
+    for (let i = 0; i < 5; i++) await entrar(app, "ana@exemplo.dev", "errada", `9.9.9.${i}`);
+
+    const estourou = await entrar(app, "ana@exemplo.dev", "errada", "8.8.8.8");
     expect(estourou.status).toBe(429);
     expect(estourou.body.error).toBe("conta");
     expect((await entrar(app, "bia@exemplo.dev", "errada", "8.8.8.8")).status).toBe(401);
+  });
+
+  it("o teto do site inteiro não olha o IP: mil endereços não passam dele", async () => {
+    const app = express();
+    app.set("trust proxy", 1);
+    app.use(express.json());
+    app.post("/auth/login", criarLimitador({ janelaMs: 60_000, max: 3, mensagem: "site", chave: () => "todos" }), (_req, res) => {
+      res.json({});
+    });
+    app.use(errorHandler);
+    for (let i = 0; i < 3; i++) await entrar(app, `p${i}@exemplo.dev`, "certa", `7.7.7.${i}`);
+
+    expect((await entrar(app, "outra@exemplo.dev", "certa", "5.5.5.5")).status).toBe(429);
   });
 
   it("login certo não gasta o teto da conta", async () => {
@@ -219,6 +254,12 @@ describe("fiação dos limitadores nas rotas", () => {
     expect(pilha).toContain(limitadorAuth);
     expect(pilha).toContain(limitadorLoginDaDemo);
     expect(pilha).toContain(limitadorFalhasPorConta);
+    expect(pilha).toContain(limitadorFalhasPorContaEIp);
+    expect(pilha).toContain(limitadorLoginsDoSite);
+  });
+
+  it("POST /auth/register leva também o teto de cadastros do site inteiro", () => {
+    expect(middlewaresDa(authRoutes, "post", "/register")).toContain(limitadorCadastrosDoSite);
   });
 
   it("POST /auth/register passa pelo limitador de autenticação", () => {

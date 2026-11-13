@@ -165,7 +165,8 @@ postgresql://postgres.<ref>:<senha>@aws-<n>-sa-east-1.pooler.supabase.com:5432/p
 | `DATABASE_URL` | **você cola** no painel (`sync: false`) | Session pooler, com `?connection_limit=5` (ver acima) |
 | `JWT_SECRET` | **o Render sorteia** (`generateValue: true`, 256 bits em base64, 44 caracteres) | a API recusa subir em produção com menos de 32 caracteres ou com placeholder conhecido. Trocar depois desloga todo mundo |
 | `AQUECER_CATALOGO` | `false` (no `render.yaml`) | ver a seção de memória |
-| `TRUST_PROXY` | `3` (no `render.yaml`) | visitante → Vercel → Cloudflare → proxy do Render. Fontes e o risco que sobra em `backend/.env.example`. Serviço criado à mão, e não pelo Blueprint: cadastrar no painel |
+| `TRUST_PROXY` | `3` (no `render.yaml`) | visitante → Vercel → Cloudflare → proxy do Render. Só vale com o `SEGREDO_DO_PROXY`; fontes em `backend/.env.example`. Serviço criado à mão, e não pelo Blueprint: cadastrar no painel |
+| `SEGREDO_DO_PROXY` | **você gera e cola** (`sync: false`), `openssl rand -base64 32` | o **mesmo valor** na Vercel. Prova à API que a chamada passou pela Vercel; sem ele a API não confia nos 3 saltos (e avisa no log ao subir) |
 | `PORT` | o Render define | não colocar |
 
 **Site (Vercel):**
@@ -173,6 +174,7 @@ postgresql://postgres.<ref>:<senha>@aws-<n>-sa-east-1.pooler.supabase.com:5432/p
 | Variável | Valor |
 |---|---|
 | `API_URL` | endereço público da API, ex. `https://portfoliolab-api.onrender.com`, sem barra no fim |
+| `SEGREDO_DO_PROXY` | o mesmo do Render (Production). Variável de servidor: o `proxy.ts` a põe nas chamadas `/api/*`; nunca `NEXT_PUBLIC_` |
 
 O navegador nunca fala direto com a API: o Next reescreve `/api/*` para `API_URL`, então tudo fica na mesma
 origem, o cookie `SameSite=Strict` funciona e não há CORS a configurar. As páginas de ativos e índices também leem
@@ -289,7 +291,7 @@ linha que o script imprime é o banco de destino: tem de ser `SUPABASE (produç�
 | Prioridade | Item | Por quê / como |
 |---|---|---|
 | Feito | Memória da leitura da CVM | corrigida; conferir a memória nas métricas do Render no primeiro deploy (P4) |
-| Feito (conferir) | **IP do visitante nos limitadores.** `TRUST_PROXY=3` no `render.yaml`: a Vercel sobrescreve o `x-forwarded-for` com o IP do visitante, a Cloudflare acrescenta o da Vercel e o proxy do Render o da Cloudflare. Com o `1` de antes, o teto de login (10 por 15 min) era do site inteiro. O login da demo saiu desse teto e tem o dele (60 por 15 min por IP), e as falhas de login também contam por conta (e-mail). | No primeiro deploy com a mudança, o log da API mostra `[proxy] X-Forwarded-For com N endereço(s)`: pela Vercel tem de ser 3. Se vier outro número, ajuste o `TRUST_PROXY` para ele. Quem chama o `*.onrender.com` direto ainda forja o IP (os tetos por IP; o de falhas por conta não): fechar isso pede um segredo entre Vercel e Render, mudança própria |
+| Feito (conferir) | **IP do visitante nos limitadores.** `TRUST_PROXY=3` no `render.yaml`: a Vercel sobrescreve o `x-forwarded-for` com o IP do visitante, a Cloudflare acrescenta o da Vercel e o proxy do Render o da Cloudflare. Os 3 saltos só valem com o `SEGREDO_DO_PROXY` que o `proxy.ts` do site põe em `/api/*`; sem ele, um salto a menos (o IP que a Cloudflare viu, que o cliente não forja). O login da demo saiu do teto rígido e tem o dele (60 por 15 min por IP); falhas de login contam por conta e IP (10) e só por conta (100, folgado contra o bloqueio da dona da conta); login e cadastro têm um teto do site inteiro, sem IP (300 por 15 min e 30 por hora), por causa do bcrypt. | No primeiro deploy, o log da API mostra `[proxy] X-Forwarded-For com N endereço(s), com/sem o segredo do proxy`: pela Vercel tem de ser 3, com o segredo. Outro número: ajuste o `TRUST_PROXY`. "sem o segredo" nas chamadas do site: confira a variável na Vercel (e se a Vercel repassa o cabeçalho que o `proxy.ts` põe antes do rewrite externo, o que só dá para ver em produção) |
 | Alta | **Dependências do backend.** `npm audit` aponta altas que só saem com versão maior (`zod` 3 → 4, CLI do Prisma). | Tarefa própria, com a bateria completa de testes |
 | Média | **Aviso de "acordando o servidor"** no login, no cadastro e na demo | seção "Contra o sono" |
 | Média | **Dinheiro somado em `number`** no resumo da carteira (`portfolio.service.ts`) e em partes do dashboard | Contra a convenção do projeto. Revisar com `auditar-calculo-financeiro` |

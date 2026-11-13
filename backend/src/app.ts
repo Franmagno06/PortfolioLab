@@ -19,6 +19,7 @@ import { transactionsRoutes } from "./modules/transactions/transactions.routes.j
 import { authGuard } from "./shared/middlewares/auth-guard.js";
 import { criarDiagnosticoDeProxy } from "./shared/middlewares/diagnostico-de-proxy.js";
 import { errorHandler } from "./shared/middlewares/error-handler.js";
+import { criarIpDoVisitante } from "./shared/middlewares/ip-do-visitante.js";
 import { somenteLeituraNaDemo } from "./shared/middlewares/somente-leitura-na-demo.js";
 import { limitadorExemplo, limitadorGlobal } from "./shared/middlewares/rate-limit.js";
 
@@ -31,7 +32,17 @@ export const app = express();
 // de uma vez. O número é a quantidade de proxies confiáveis à frente da API: 1
 // no desenvolvimento, 3 em produção (Vercel → Cloudflare → Render; ver .env.example).
 app.set("trust proxy", env.TRUST_PROXY);
-if (env.NODE_ENV === "production") app.use(criarDiagnosticoDeProxy(env.TRUST_PROXY));
+// Os limitadores não usam o req.ip acima, e sim req.ipDoVisitante: os TRUST_PROXY saltos só valem para
+// quem traz o segredo do proxy da Vercel; quem chama o Render direto não forja o IP (ip-do-visitante.ts).
+if (env.NODE_ENV === "production") {
+  app.use(criarDiagnosticoDeProxy(env.TRUST_PROXY));
+  if (!env.SEGREDO_DO_PROXY) {
+    console.warn(
+      "[proxy] SEGREDO_DO_PROXY vazio: quem chamar a API direto, sem a Vercel, consegue forjar o IP nos limitadores",
+    );
+  }
+}
+app.use(criarIpDoVisitante({ saltos: env.TRUST_PROXY, segredo: env.SEGREDO_DO_PROXY }));
 
 // Cabeçalhos de segurança. Esta API só responde JSON, então o CSP que importa
 // é o do Next, que serve o HTML (frontend/src/proxy.ts) — aqui ele é desligado

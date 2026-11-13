@@ -50,7 +50,12 @@ services:
       #   X-Forwarded-For = "<visitante>, <saída da Vercel>, <borda da Cloudflare>", socket = proxy do Render.
       # A Vercel sobrescreve o X-Forwarded-For com o IP de quem a chamou (o visitante não forja), a
       # Cloudflare acrescenta o da Vercel e o proxy do Render o da Cloudflare. Com 3, req.ip é o
-      # visitante; com o padrão 1 era a borda da Cloudflare, a mesma para todo mundo. Fontes e o que
-      # sobra de risco (quem chama o *.onrender.com direto forja o IP): backend/.env.example.
+      # visitante; com o padrão 1 era a borda da Cloudflare, a mesma para todo mundo. Os 3 saltos só
+      # valem para quem traz o SEGREDO_DO_PROXY (abaixo): quem chama o *.onrender.com direto não forja o
+      # IP. Fontes: backend/.env.example.
       - key: TRUST_PROXY
         value: "3"
+      # O mesmo valor na Vercel (Settings > Environment Variables > SEGREDO_DO_PROXY, Production). O
+      # proxy.ts do site o põe em toda chamada /api/*. Gere com: openssl rand -base64 32
+      - key: SEGREDO_DO_PROXY
+        sync: false
