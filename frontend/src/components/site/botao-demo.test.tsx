@@ -16,7 +16,7 @@ vi.mock("@/lib/api", async (original) => ({
 }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
 
-const semSessao = () => Promise.reject(new ApiError("Não autenticado", 401));
+const semSessao = () => Promise.resolve({ sessao: "visitante" });
 
 /** Esvazia a fila de promessas e deixa o React aplicar os estados que elas mudaram. */
 const assentar = () => act(async () => {});
@@ -42,13 +42,13 @@ describe("BotaoDemo", () => {
     fireEvent.click(screen.getByRole("button", { name: "Ver a demonstração" }));
     await assentar();
 
-    expect(apiPublica).toHaveBeenCalledWith("/auth/me", { cache: "no-store" });
+    expect(apiPublica).toHaveBeenCalledWith("/auth/sessao", { cache: "no-store" });
     expect(api).toHaveBeenCalledWith("/auth/login", expect.objectContaining({ method: "POST" }));
     expect(push).toHaveBeenCalledWith("/dashboard");
   });
 
   it("logado na própria conta: vira 'Ir para minha carteira', um link, e nunca faz login", async () => {
-    apiPublica.mockResolvedValue({ id: "u1", demo: false });
+    apiPublica.mockResolvedValue({ sessao: "conta" });
     render(<BotaoDemo />);
     await assentar();
 
@@ -71,14 +71,14 @@ describe("BotaoDemo", () => {
     render(<BotaoDemo />);
 
     fireEvent.click(screen.getByRole("button", { name: "Ver a demonstração" }));
-    await act(async () => responder({ demo: false }));
+    await act(async () => responder({ sessao: "conta" }));
 
     expect(push).toHaveBeenCalledWith("/dashboard");
     expect(api).not.toHaveBeenCalled();
   });
 
   it("já na conta demo: o clique só abre a carteira, sem um login novo", async () => {
-    apiPublica.mockResolvedValue({ demo: true });
+    apiPublica.mockResolvedValue({ sessao: "demo" });
     render(<BotaoDemo />);
     await assentar();
 
@@ -95,7 +95,7 @@ describe("BotaoDemo", () => {
     render(<BotaoDemo />);
 
     fireEvent.click(screen.getByRole("button", { name: "Ver a demonstração" }));
-    await act(async () => responder({ demo: true }));
+    await act(async () => responder({ sessao: "demo" }));
 
     expect(push).toHaveBeenCalledWith("/dashboard");
     expect(api).not.toHaveBeenCalled();

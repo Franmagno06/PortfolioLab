@@ -206,7 +206,7 @@ type Acesso = "sair" | "entrar" | "nenhum";
 /**
  * "carteira": a área logada — sempre "Sair".
  * "site": as páginas públicas (início, ativos, aprender, índices), abertas com ou sem sessão. O
- * cabeçalho pergunta ao backend quem está vendo (GET /auth/me, ver lib/sessao-do-visitante.ts):
+ * cabeçalho pergunta ao backend quem está vendo (GET /auth/sessao, ver lib/sessao-do-visitante.ts):
  * conta ou demo mostram "Sair", visitante mostra "Entrar". Regra do dono: quem está numa conta
  * nunca é levado ao login; "Entrar" só reaparece depois do "Sair".
  *

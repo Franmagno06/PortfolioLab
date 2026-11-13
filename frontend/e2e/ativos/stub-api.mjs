@@ -268,6 +268,10 @@ createServer((req, res) => {
     return;
   }
 
+  // O cabeçalho do site pergunta quem está vendo (GET /api/auth/sessao, reescrito para cá). Aqui é
+  // sempre um visitante: as páginas públicas não dependem de sessão.
+  if (req.method === "GET" && url.pathname === "/auth/sessao") return responder(res, 200, { sessao: "visitante" });
+
   if (req.method === "GET" && url.pathname === "/indices/dados") {
     if (modo.indices === "erro") return responder(res, 503, { error: "Fora do ar" });
     return responder(res, 200, dadosDosIndices(modo.indices));

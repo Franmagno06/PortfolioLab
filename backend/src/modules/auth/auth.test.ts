@@ -116,6 +116,43 @@ describe("GET /auth/me", () => {
   });
 });
 
+describe("GET /auth/sessao", () => {
+  it("sem cookie: visitante, com 200 e sem cache", async () => {
+    const res = await request(app).get("/auth/sessao");
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ sessao: "visitante" });
+    expect(res.headers["cache-control"]).toBe("no-store");
+  });
+
+  it("token inválido ou vencido: visitante, e não 401", async () => {
+    const user = await prisma.user.findUniqueOrThrow({ where: { email } });
+    const vencido = jwt.sign({ sub: user.id }, env.JWT_SECRET, { expiresIn: "-1s" });
+
+    for (const token of ["lixo", vencido, jwt.sign({ sub: user.id }, "outro-segredo")]) {
+      const res = await request(app).get("/auth/sessao").set("Cookie", `token=${token}`);
+      expect(res.status).toBe(200);
+      expect(res.body.sessao).toBe("visitante");
+    }
+  });
+
+  it("logado numa conta: conta", async () => {
+    const login = await request(app).post("/auth/login").send({ email, password });
+    const res = await request(app)
+      .get("/auth/sessao")
+      .set("Cookie", login.headers["set-cookie"] as unknown as string[]);
+
+    expect(res.body.sessao).toBe("conta");
+  });
+
+  it("token de um usuário que não existe mais: visitante", async () => {
+    const orfao = jwt.sign({ sub: randomUUID() }, env.JWT_SECRET, { expiresIn: "1h" });
+    const res = await request(app).get("/auth/sessao").set("Cookie", `token=${orfao}`);
+
+    expect(res.body.sessao).toBe("visitante");
+  });
+});
+
 // ── Conta de demonstração ──────────────────────────────────────────────────
 // O banco de testes é o mesmo Docker do dia a dia, onde o seed-demo já criou a
 // conta carteira@portfoliolab.dev. Estes testes NÃO usam nem alteram essa conta:
@@ -175,6 +212,16 @@ describe("conta de demonstração", () => {
 
     expect(res.status).toBe(200);
     expect(res.body.demo).toBe(true);
+  });
+
+  it("/auth/sessao diz demo para a conta de demonstração", async () => {
+    const demo = await usuarioDoTesteComEmailDaDemo();
+    vi.spyOn(authRepository, "findById").mockResolvedValueOnce(demo);
+    const token = jwt.sign({ sub: demo.id, demo: true }, env.JWT_SECRET, { expiresIn: "1h" });
+
+    const res = await request(app).get("/auth/sessao").set("Cookie", `token=${token}`);
+
+    expect(res.body.sessao).toBe("demo");
   });
 
   it("/auth/me diz demo: false para as outras contas", async () => {

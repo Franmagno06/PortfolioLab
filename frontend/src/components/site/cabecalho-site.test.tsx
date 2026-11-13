@@ -28,9 +28,9 @@ async function abrirGaveta() {
 }
 
 const respostas = {
-  visitante: () => apiPublica.mockRejectedValue(new ApiError("Não autenticado", 401)),
-  demo: () => apiPublica.mockResolvedValue({ id: "d", demo: true }),
-  conta: () => apiPublica.mockResolvedValue({ id: "u1", demo: false }),
+  visitante: () => apiPublica.mockResolvedValue({ sessao: "visitante" }),
+  demo: () => apiPublica.mockResolvedValue({ sessao: "demo" }),
+  conta: () => apiPublica.mockResolvedValue({ sessao: "conta" }),
   desconhecida: () => apiPublica.mockRejectedValue(new ApiError("Erro inesperado", 503)),
 };
 

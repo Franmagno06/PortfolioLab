@@ -28,3 +28,5 @@ authRoutes.post(
 );
 authRoutes.post("/logout", authController.logout);
 authRoutes.get("/me", authGuard, authController.me);
+// Pública e só leitura: "visitante", "demo" ou "conta", sempre com 200 (ver o controller).
+authRoutes.get("/sessao", authController.sessao);

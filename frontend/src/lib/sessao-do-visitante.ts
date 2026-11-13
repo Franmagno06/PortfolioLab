@@ -2,8 +2,9 @@
 // verdade. Serve ao botão "Ver a demonstração", que não pode trocar a sessão de quem já entrou na
 // própria carteira (o login da demo sobrescreveria o cookie dela).
 //
-// A consulta é o GET /auth/me por `apiPublica`, e não por `api()`: um 401 aqui é a resposta normal
-// de quem não entrou, e `api()` o trataria como sessão morta, mandando o visitante para o login.
+// A consulta é o GET /auth/sessao por `apiPublica`, e não por `api()`. A rota é pública e responde
+// 200 também para visitante ({ sessao: "visitante" }): o cabeçalho pergunta em toda página do site, e
+// um 401 por visita seria um erro no console de todo visitante. Só falha de rede ou 5xx é "desconhecida".
 
 import { ApiError, apiPublica } from "./api";
 
@@ -27,6 +28,9 @@ function mudar(sessao: Sessao | null): void {
   ultima = sessao;
   ouvintes.forEach((avisar) => avisar());
 }
+
+const SESSOES: readonly unknown[] = ["visitante", "demo", "conta"] satisfies Sessao[];
+const ehSessao = (valor: unknown): valor is Sessao => SESSOES.includes(valor);
 
 export function ultimaSessaoConhecida(): Sessao | null {
   return ultima;
@@ -52,8 +56,9 @@ export function lembrarSessao(sessao: Sessao | null): void {
 /** Uma consulta por vez: os botões da página (são três na inicial) dividem a mesma. */
 export function consultarSessao(): Promise<ResultadoDaConsulta> {
   if (emVoo) return emVoo;
-  const consulta: Promise<ResultadoDaConsulta> = apiPublica<{ demo?: boolean }>("/auth/me", { cache: "no-store" })
-    .then((eu): Sessao => (eu?.demo === true ? "demo" : "conta"))
+  const consulta: Promise<ResultadoDaConsulta> = apiPublica<{ sessao?: unknown }>("/auth/sessao", { cache: "no-store" })
+    .then((r): ResultadoDaConsulta => (ehSessao(r?.sessao) ? r.sessao : "desconhecida"))
+    // 401 não vem desta rota; se vier (um proxy no meio, uma API antiga), é visitante, nunca login
     .catch((erro: unknown): ResultadoDaConsulta => (erro instanceof ApiError && erro.status === 401 ? "visitante" : "desconhecida"))
     .then((resultado) => {
       // descartada por lembrarSessao no meio do caminho: a resposta é de antes da troca de sessão
