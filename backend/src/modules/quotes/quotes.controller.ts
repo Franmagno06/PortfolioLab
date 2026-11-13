@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import { AppError } from "../../shared/errors/AppError.js";
+import { TICKER_REGEX } from "../../shared/ticker.js";
 import { buscarCotacao } from "./quotes.provider.js";
 
 export const quotesController = {
@@ -9,11 +10,13 @@ export const quotesController = {
    * antes de o usuário confirmar.
    */
   async lookup(req: Request, res: Response) {
-    const ticker = String(req.params["ticker"] ?? "").trim();
+    const ticker = String(req.params["ticker"] ?? "").trim().toUpperCase();
 
-    if (!/^[A-Za-z]{4}\d{1,2}$/.test(ticker)) {
+    // A mesma regra das outras rotas (shared/ticker.ts). A antiga, "4 letras e
+    // 1 ou 2 números", recusava B3SA3, que tem dígito no radical.
+    if (!TICKER_REGEX.test(ticker)) {
       throw new AppError(
-        "Ticker inválido. Use o formato da B3: 4 letras e 1 ou 2 números (ex: PETR4, MXRF11).",
+        "Ticker inválido. Use apenas letras e números, como PETR4, B3SA3 ou MXRF11.",
         400,
       );
     }
@@ -21,7 +24,7 @@ export const quotesController = {
     const cotacao = await buscarCotacao(ticker);
     if (!cotacao) {
       throw new AppError(
-        `Ticker ${ticker.toUpperCase()} não encontrado na B3. Confira a grafia.`,
+        `Ticker ${ticker} não encontrado na B3. Confira a grafia.`,
         404,
       );
     }

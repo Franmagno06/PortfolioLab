@@ -41,10 +41,10 @@ devolvem a linha do Prisma (`GET /assets`, `GET /transactions`, `GET /dividends`
 padrão 50) e `?cursor=` (uuid do último item da página anterior). Respondem
 `{ "itens": [...], "proximoCursor": "uuid" | null }`; `null` é a última página (`shared/paginacao.ts`).
 
-**Ticker.** Onde a entrada é um ticker (`transactions`, `dividends`, `goals`, `/ativos/*/:ticker`), vale o
+**Ticker.** Onde a entrada é um ticker (`transactions`, `dividends`, `goals`, `quotes`, `/ativos/*/:ticker`), vale o
 `tickerSchema` de `shared/ticker.ts`: só letras e dígitos, 4 a 12 caracteres, convertido para maiúsculas.
 Exceções, que têm regra própria: `POST /reports` (`^[A-Z0-9]{4,7}$`), `POST /rebalance/exemplo`
-(`^[A-Z0-9]{4,7}$`) e `GET /quotes/:ticker` (`^[A-Za-z]{4}\d{1,2}$`, que recusa `B3SA3`).
+(`^[A-Z0-9]{4,7}$`).
 
 ## Limitadores de requisição
 
@@ -97,12 +97,17 @@ Yahoo e não cadastra nada.
 ### `POST /transactions` (logado, bloqueado na demo)
 
 Corpo: `{ ticker, kind: "COMPRA" | "VENDA", quantity > 0, unitPrice > 0, fee ≥ 0 (padrão 0), executedAt }`.
-`executedAt` passa por `z.coerce.date()`: `"2026-10-01"` vira meia-noite UTC. Os números chegam como `number`.
+`executedAt` passa por `z.coerce.date()`: `"2026-10-01"` vira meia-noite UTC. Os números chegam como `number`,
+com teto igual ao da coluna (`quantity` ≤ 9.999.999.999, `unitPrice` ≤ 9.999.999.999,99, `fee` ≤ 999.999,99);
+acima disso, `400`.
 
 - Ticker que não está em `assets` é procurado no Yahoo e cadastrado (`quotesService.buscarOuCadastrar`);
   não achado, `404`.
 - `VENDA` maior que a posição de hoje: `400 "Quantidade insuficiente..."`. `VENDA` que deixaria a posição
   negativa em algum ponto da linha do tempo (datada antes da compra que a cobre): `400`.
+- A validação e a gravação rodam numa transação com trava do par usuário + ativo
+  (`pg_advisory_xact_lock`): duas vendas simultâneas da posição inteira dão uma `201` e uma `400`. O
+  `DELETE` usa a mesma trava.
 - Resposta `201 { id, userId, assetId, kind, quantity, unitPrice, fee, executedAt }`.
 
 ### `GET /transactions` (logado)
@@ -136,7 +141,8 @@ Cada mês fechado usa o fechamento mensal do Yahoo; o mês corrente, o preço de
 ### `GET /quotes/:ticker` (logado)
 
 Consulta o Yahoo sem cadastrar nada (o formulário de transação e o editor de metas usam). Formato aceito:
-4 letras e 1 ou 2 dígitos, senão `400`. Ticker que o Yahoo não conhece: `404`. Resposta:
+o do `tickerSchema` (aceita `B3SA3`), senão `400`. O front só consulta o que tem cara de código de
+negociação (`^[A-Z0-9]{3}[A-Z]\d{1,2}$`). Ticker que o Yahoo não conhece: `404`. Resposta:
 `{ ticker, nome, preco, tipo, fechamentoAnterior, negociadoEm }`.
 
 ### Proventos (`/dividends`)
@@ -159,7 +165,7 @@ nunca as `MANUAL`. Ativo cuja consulta falha ou volta vazia é pulado sem apagar
 |---|---|---|---|
 | `GET /goals` | — | — | `{ metas: [{ ticker, name, type, targetWeight }], somaTotal }` |
 | `PUT /goals` | bloqueado | `{ ticker, targetWeight }` (0 < peso ≤ 100) | o mesmo formato do `GET` |
-| `PUT /goals/batch` | bloqueado | `{ metas: [{ ticker, targetWeight }] }` (≥ 1, ticker sem repetir) | o mesmo formato do `GET` |
+| `PUT /goals/batch` | bloqueado | `{ metas: [{ ticker, targetWeight }] }` (1 a 50, ticker sem repetir) | o mesmo formato do `GET` |
 | `DELETE /goals/:ticker` | bloqueado | — | `204`; `404` se o ativo ou a meta não existe |
 
 A soma das metas não passa de 100% (`400`). O `batch` substitui o conjunto inteiro numa transação do banco

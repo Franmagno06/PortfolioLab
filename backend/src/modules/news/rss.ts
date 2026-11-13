@@ -1,4 +1,5 @@
 import { XMLParser } from "fast-xml-parser";
+import { lerCorpoComTeto } from "../../shared/ler-com-teto.js";
 
 // Leitura dos feeds RSS de notícias financeiras.
 // Sem chave de API: RSS é público e não exige autenticação.
@@ -140,6 +141,8 @@ export function interpretarDataDoFeed(bruto: string): string {
   return isNaN(data.getTime()) ? new Date().toISOString() : data.toISOString();
 }
 
+const MAX_FEED_BYTES = 5 * 1024 * 1024;
+
 async function lerFeed(fonte: FonteRss): Promise<ItemNoticia[]> {
   // timeout próprio: um feed lento não pode travar a resposta da API
   const controller = new AbortController();
@@ -152,7 +155,12 @@ async function lerFeed(fonte: FonteRss): Promise<ItemNoticia[]> {
     });
     if (!res.ok) return [];
 
-    const xml = parser.parse(await res.text()) as {
+    // Um feed de verdade tem dezenas de KB; o teto protege a memória de um
+    // portal que passe a responder algo enorme.
+    const corpo = await lerCorpoComTeto(res, MAX_FEED_BYTES);
+    if (!corpo) return [];
+
+    const xml = parser.parse(new TextDecoder().decode(corpo)) as {
       rss?: { channel?: { item?: ItemRss | ItemRss[] } };
     };
 

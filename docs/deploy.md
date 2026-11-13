@@ -207,10 +207,9 @@ manifesto de rotas que a CDN aplica, então o destino de `/api/*` fica fixo em c
 ou o login e a área logada continuam apontando para o endereço antigo (ou para `localhost:3333`). As páginas de
 ativos e índices leem a variável em tempo de execução e não têm esse problema.
 
-**Desenvolvimento local.** O `backend/.env.example` vem com `JWT_SECRET=""`. Vazio não é "ausente": o padrão
-`dev-secret` de `env.ts` só vale quando a variável não existe, e a string vazia reprova o `min(1)`. Copiado sem
-mexer, o `.env` faz a API recusar subir também em desenvolvimento. Preencha com `openssl rand -base64 32` ou
-apague a linha.
+**Desenvolvimento local.** O `backend/.env.example` vem com `JWT_SECRET=""`. Em desenvolvimento, vazio conta
+como ausente e cai no padrão `dev-secret`; em produção, vazio é recusado como o padrão. Para produção, gere com
+`openssl rand -base64 32`.
 
 **Cache da CDN da Vercel.** Projetos criados depois de 06/04/2026 respeitam o `Cache-Control` que a origem externa
 manda nos rewrites. A API só manda `public, max-age=60` em `/ativos` e `/indices`, que são públicas. As rotas com
@@ -339,9 +338,9 @@ linha que o script imprime é o banco de destino: tem de ser `SUPABASE (produç�
 |---|---|---|
 | Feito | Memória da leitura da CVM | corrigida; conferir a memória nas métricas do Render no primeiro deploy (P4) |
 | **Alta** | **IP do visitante nos limitadores.** A Vercel manda o IP do visitante em `x-forwarded-for` para a origem externa (documentado), e o proxy do Render acrescenta o IP da Vercel. Com `TRUST_PROXY=1` (padrão), a API enxerga o IP da Vercel, que é de todos, e o teto de login (10 por 15 min) vira do site inteiro. | No primeiro deploy, logar `req.ip` e `x-forwarded-for` (sem cookies) de duas redes diferentes. Se a cadeia for visitante → Vercel → Render, `TRUST_PROXY=2` dá o IP real. Atenção: com 2, quem chamar o `*.onrender.com` direto pode forjar o IP. Para fechar isso, a Vercel pode mandar um cabeçalho secreto no rewrite e a API recusar quem não o tiver: mudança própria, com a skill `security-and-hardening` |
-| Alta | **Dependências do backend.** Em 13/11/2026, `npm audit --omit=dev` aponta 5 (4 altas, 1 baixa): `zod` < 4.6.6 (só sai com a versão 4), `fast-xml-parser` ≤ 5.11.2 e `deepmerge-ts` via CLI do Prisma (saem com `npm audit fix`). O frontend não tem nenhuma. | Tarefa própria, com a bateria completa de testes |
+| Alta | **Dependências do backend.** Em 13/11/2026, `npm audit --omit=dev` aponta 5 (4 altas, 1 baixa): `zod` < 4.6.6 (só sai com a versão 4), `fast-xml-parser` ≤ 5.11.2 e `deepmerge-ts` via CLI do Prisma. O `fast-xml-parser` já foi para a 5.12.1. Faltam `zod` (exige a versão 4) e `deepmerge-ts` (exige o Prisma 7, versão maior; o `npm audit fix` também troca uns 40 pacotes do lockfile). O frontend não tem nenhuma. | Tarefa própria, com a bateria completa de testes |
 | Média | **Aviso de "acordando o servidor"** no login e no cadastro (a demo já tem) | seção "Contra o sono" |
-| Média | **Dinheiro somado em `number`** no resumo da carteira (`portfolio.service.ts:getSummary` soma valores já arredondados), na soma das metas (`goals.service.ts`) e em partes do dashboard | Contra a convenção do projeto. Revisar com `auditar-calculo-financeiro` |
+| Média | **Dinheiro somado em `number`** no resumo da carteira (`portfolio.service.ts:getSummary` soma valores já arredondados), e em partes do dashboard. A soma das metas já é em `Decimal` | Contra a convenção do projeto. Revisar com `auditar-calculo-financeiro` |
 | Média | **Rotas lentas no Render gratuito.** `GET /indicators` renova os indicadores vencidos ali mesmo, um ativo por vez; `POST /dividends/sync` consulta o Yahoo um ativo por vez (até 8 s cada); `POST /reports` espera a fila da CVM sem prazo. Com muitos ativos, as três podem passar dos 120 s do rewrite da Vercel e voltar 504 | O mesmo molde das fichas de Ativos: prazo curto na rota (`comLimiteDeTempo`), a busca segue em segundo plano e grava, e a resposta sai com o que já existe |
 | Baixa | Limitadores em memória | Corretos com uma instância, que é o único caso no plano gratuito |
 | Baixa | Job de indicadores (`npm run job:indicadores`) | Opcional: a atualização já é preguiçosa. o Cron Job do Render é cobrado (não entra no gratuito); se quiser, rode da sua máquina |

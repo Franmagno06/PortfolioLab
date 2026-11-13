@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { unzipSync } from "fflate";
 import type { Mes, Trimestre } from "./periodo.js";
+import { lerCorpoComTeto } from "../../shared/ler-com-teto.js";
 
 /**
  * Dados abertos da CVM (dados.cvm.gov.br).
@@ -41,12 +42,9 @@ async function baixar(caminho: string): Promise<Uint8Array | null> {
   try {
     const res = await fetch(`${BASE}/${caminho}`, { signal: controller.signal });
     if (!res.ok) return null;
-    if (Number(res.headers.get("content-length")) > MAX_ZIP_BYTES) {
-      console.error(`[CVM] ${caminho} passa do teto de ${MAX_ZIP_BYTES} bytes; ignorado`);
-      return null;
-    }
-    const bytes = new Uint8Array(await res.arrayBuffer());
-    return bytes.byteLength > MAX_ZIP_BYTES ? null : bytes;
+    const bytes = await lerCorpoComTeto(res, MAX_ZIP_BYTES);
+    if (!bytes) console.error(`[CVM] ${caminho} passa do teto de ${MAX_ZIP_BYTES} bytes; ignorado`);
+    return bytes;
   } catch (err) {
     console.error(`[CVM] falha ao baixar ${caminho}:`, err instanceof Error ? err.message : err);
     return null;

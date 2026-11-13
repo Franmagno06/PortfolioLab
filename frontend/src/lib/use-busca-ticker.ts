@@ -5,8 +5,10 @@ import { api, ApiError } from "./api";
 
 export type Cotacao = { ticker: string; nome: string; preco: number; tipo: string };
 
-// 4 letras + 1 ou 2 números — o padrão da B3 (PETR4, MXRF11)
-export const FORMATO_TICKER = /^[A-Z]{4}\d{1,2}$/;
+// O código de negociação da B3: 4 caracteres que terminam em letra, mais 1 ou 2
+// números (PETR4, MXRF11). O radical pode ter dígito: B3SA3 é a própria B3, e a
+// regra antiga de "4 letras" a recusava. A API aceita o mesmo e um pouco mais.
+export const FORMATO_TICKER = /^[A-Z0-9]{3}[A-Z]\d{1,2}$/;
 
 // atraso antes de consultar, para não disparar uma busca a cada tecla
 const ATRASO_MS = 500;

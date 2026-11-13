@@ -24,6 +24,7 @@ vi.mock("../quotes/quotes.provider.js", () => ({
 }));
 
 const TICKER = "TXDL1"; // exclusivo deste arquivo de teste
+const TICKER_CONCORRENTE = "TXDL2";
 const email = `vitest-transactions-${randomUUID()}@portfoliolab.dev`;
 const password = "senha123";
 let cookies: string[];
@@ -44,7 +45,7 @@ afterAll(async () => {
     await prisma.transaction.deleteMany({ where: { userId: user.id } });
     await prisma.user.delete({ where: { id: user.id } });
   }
-  await prisma.asset.deleteMany({ where: { ticker: TICKER } });
+  await prisma.asset.deleteMany({ where: { ticker: { in: [TICKER, TICKER_CONCORRENTE] } } });
   await prisma.$disconnect();
 });
 
@@ -273,5 +274,47 @@ describe("compra e venda no mesmo dia", () => {
       .send({ ticker: TICKER_DIA, kind: "VENDA", quantity: 60, unitPrice: 15, fee: 0, executedAt: "2026-06-01" });
 
     expect(res.status).toBe(201);
+  });
+});
+
+// Duas vendas ao mesmo tempo (duplo clique, duas abas) liam a mesma posição e
+// passavam as duas na validação. A trava por usuário + ativo serializa as duas.
+describe("POST /transactions — vendas simultâneas", () => {
+  const operacao = (kind: "COMPRA" | "VENDA") =>
+    request(app).post("/transactions").set("Cookie", cookies).send({
+      ticker: TICKER_CONCORRENTE,
+      kind,
+      quantity: 10,
+      unitPrice: 10,
+      fee: 0,
+      executedAt: "2026-02-01",
+    });
+
+  it("só uma de duas vendas da posição inteira é aceita", async () => {
+    expect((await operacao("COMPRA")).status).toBe(201);
+
+    const respostas = await Promise.all([operacao("VENDA"), operacao("VENDA")]);
+    const status = respostas.map((r) => r.status).sort();
+    expect(status).toEqual([201, 400]);
+
+    const user = await prisma.user.findUniqueOrThrow({ where: { email } });
+    const vendas = await prisma.transaction.count({
+      where: { userId: user.id, kind: "VENDA", asset: { ticker: TICKER_CONCORRENTE } },
+    });
+    expect(vendas).toBe(1);
+  });
+});
+
+describe("POST /transactions — valores acima do que a coluna guarda", () => {
+  it("responde 400, e não 500, para preço maior que Decimal(12,2)", async () => {
+    const res = await request(app).post("/transactions").set("Cookie", cookies).send({
+      ticker: TICKER,
+      kind: "COMPRA",
+      quantity: 1,
+      unitPrice: 1e12,
+      fee: 0,
+      executedAt: "2026-01-01",
+    });
+    expect(res.status).toBe(400);
   });
 });

@@ -92,7 +92,8 @@ export const quotesService = {
         const cotacao = await buscarCotacao(simbolo);
         if (cotacao) {
           const agora = new Date();
-          await quotesRepository.updatePrice(simbolo, cotacao.preco, agora);
+          // escrita oportunista: se falhar, segue com o preço novo só nesta resposta
+          await quotesRepository.updatePrice(simbolo, cotacao.preco, agora).catch(() => undefined);
           return { ...existente, currentPrice: emCentavos(cotacao.preco), priceUpdatedAt: agora };
         }
       }

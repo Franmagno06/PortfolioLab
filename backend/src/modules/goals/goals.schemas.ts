@@ -23,6 +23,8 @@ export const batchGoalsSchema = z.object({
       }),
     )
     .min(1, "Informe ao menos uma meta")
+    // cada ticker novo do lote vira uma consulta ao Yahoo, em paralelo
+    .max(50, "No máximo 50 metas por vez")
     .refine((metas) => new Set(metas.map((m) => m.ticker)).size === metas.length, {
       message: "Cada ticker só pode aparecer uma vez no lote",
     }),

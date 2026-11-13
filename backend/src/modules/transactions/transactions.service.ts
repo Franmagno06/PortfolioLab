@@ -22,58 +22,62 @@ export const transactionsService = {
       );
     }
 
-    // Regra de negócio: não se pode vender mais do que se possui.
-    // A quantidade sai de calcularPosicao, a mesma função que a carteira e o
-    // remove() usam — uma definição só de "quanto o usuário tem deste ativo".
-    if (input.kind === "VENDA") {
-      const doAtivo = await transactionsRepository.findManyByUserAndAsset(userId, asset.id);
-      const { quantidade } = calcularPosicao(doAtivo);
-      if (quantidade.lessThan(input.quantity)) {
-        throw new AppError(
-          `Quantidade insuficiente para venda: você possui ${quantidade.toNumber()} de ${asset.ticker}`,
-          400,
-        );
+    // Validação e gravação dentro da trava do par usuário + ativo: duas vendas
+    // simultâneas não podem ler a mesma posição e passar as duas.
+    return transactionsRepository.naTravaDoAtivo(userId, asset.id, async (ops) => {
+      // Regra de negócio: não se pode vender mais do que se possui.
+      // A quantidade sai de calcularPosicao, a mesma função que a carteira e o
+      // remove() usam — uma definição só de "quanto o usuário tem deste ativo".
+      if (input.kind === "VENDA") {
+        const doAtivo = await ops.findManyByUserAndAsset(userId, asset.id);
+        const { quantidade } = calcularPosicao(doAtivo);
+        if (quantidade.lessThan(input.quantity)) {
+          throw new AppError(
+            `Quantidade insuficiente para venda: você possui ${quantidade.toNumber()} de ${asset.ticker}`,
+            400,
+          );
+        }
+
+        // A posição de hoje pode bastar e a venda ainda assim ficar descoberta:
+        // basta datá-la antes da compra que a cobre. Conferir só o total ignora a
+        // ordem cronológica que o preço médio respeita — e o histórico entraria
+        // negativo no meio da sequência, empurrando o PM para cima.
+        const { quantidadeMinima } = calcularPosicao([
+          ...doAtivo,
+          {
+            // Ainda não existe no banco, logo ainda não tem seq. Ela vai receber
+            // o próximo autoincrement, que é maior que o de qualquer linha já
+            // gravada — então validar com o máximo do BIGINT reproduz exatamente
+            // a posição que ela terá depois de persistida. É por isso que o que a
+            // API aprova aqui é o que calcularPosicao lê depois.
+            seq: SEQ_MAXIMO,
+            kind: input.kind,
+            quantity: new Prisma.Decimal(input.quantity),
+            unitPrice: new Prisma.Decimal(input.unitPrice),
+            fee: new Prisma.Decimal(input.fee),
+            executedAt: input.executedAt,
+          },
+        ]);
+
+        if (quantidadeMinima.lessThan(0)) {
+          const data = input.executedAt.toISOString().slice(0, 10);
+          throw new AppError(
+            `Em ${data} você ainda não possuía ${input.quantity} de ${asset.ticker}: a venda ficaria ` +
+              "descoberta até a compra seguinte. Confira a data da operação.",
+            400,
+          );
+        }
       }
 
-      // A posição de hoje pode bastar e a venda ainda assim ficar descoberta:
-      // basta datá-la antes da compra que a cobre. Conferir só o total ignora a
-      // ordem cronológica que o preço médio respeita — e o histórico entraria
-      // negativo no meio da sequência, empurrando o PM para cima.
-      const { quantidadeMinima } = calcularPosicao([
-        ...doAtivo,
-        {
-          // Ainda não existe no banco, logo ainda não tem seq. Ela vai receber
-          // o próximo autoincrement, que é maior que o de qualquer linha já
-          // gravada — então validar com o máximo do BIGINT reproduz exatamente
-          // a posição que ela terá depois de persistida. É por isso que o que a
-          // API aprova aqui é o que calcularPosicao lê depois.
-          seq: SEQ_MAXIMO,
-          kind: input.kind,
-          quantity: new Prisma.Decimal(input.quantity),
-          unitPrice: new Prisma.Decimal(input.unitPrice),
-          fee: new Prisma.Decimal(input.fee),
-          executedAt: input.executedAt,
-        },
-      ]);
-
-      if (quantidadeMinima.lessThan(0)) {
-        const data = input.executedAt.toISOString().slice(0, 10);
-        throw new AppError(
-          `Em ${data} você ainda não possuía ${input.quantity} de ${asset.ticker}: a venda ficaria ` +
-            "descoberta até a compra seguinte. Confira a data da operação.",
-          400,
-        );
-      }
-    }
-
-    return transactionsRepository.create({
-      userId,
-      assetId: asset.id,
-      kind: input.kind,
-      quantity: input.quantity,
-      unitPrice: input.unitPrice,
-      fee: input.fee,
-      executedAt: input.executedAt,
+      return ops.create({
+        userId,
+        assetId: asset.id,
+        kind: input.kind,
+        quantity: input.quantity,
+        unitPrice: input.unitPrice,
+        fee: input.fee,
+        executedAt: input.executedAt,
+      });
     });
   },
 
@@ -99,22 +103,25 @@ export const transactionsService = {
     // venda. Apagar a compra que a cobria deixava a posição negativa e
     // invisível: a carteira esconde quantidade <= 0, mas toda venda futura
     // daquele ativo passava a ser recusada. Por isso o histórico inteiro do
-    // ativo é reavaliado antes de remover.
-    const doAtivo = await transactionsRepository.findManyByUserAndAsset(
-      userId,
-      transacao.assetId,
-    );
-    const { quantidadeMinima } = calcularPosicao(doAtivo.filter((t) => t.id !== id));
+    // ativo é reavaliado antes de remover, dentro da mesma trava da criação.
+    await transactionsRepository.naTravaDoAtivo(userId, transacao.assetId, async (ops) => {
+      const doAtivo = await ops.findManyByUserAndAsset(userId, transacao.assetId);
+      // apagada por outra requisição enquanto esta esperava a trava
+      if (!doAtivo.some((t) => t.id === id)) {
+        throw new AppError("Transação não encontrada", 404);
+      }
 
-    if (quantidadeMinima.lessThan(0)) {
-      throw new AppError(
-        `Não é possível apagar: a posição de ${transacao.asset.ticker} ficaria em ` +
-          `${quantidadeMinima.toNumber()} porque existe venda posterior que depende ` +
-          "desta transação. Apague a venda primeiro.",
-        409,
-      );
-    }
+      const { quantidadeMinima } = calcularPosicao(doAtivo.filter((t) => t.id !== id));
+      if (quantidadeMinima.lessThan(0)) {
+        throw new AppError(
+          `Não é possível apagar: a posição de ${transacao.asset.ticker} ficaria em ` +
+            `${quantidadeMinima.toNumber()} porque existe venda posterior que depende ` +
+            "desta transação. Apague a venda primeiro.",
+          409,
+        );
+      }
 
-    await transactionsRepository.delete(id);
+      await ops.delete(id);
+    });
   },
 };

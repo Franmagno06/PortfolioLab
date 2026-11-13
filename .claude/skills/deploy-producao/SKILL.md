@@ -72,7 +72,7 @@ em todas as tabelas).
 - Mudou o DTO de `/ativos` ou `/indices`? O front lê direto de `API_URL`; publique a API antes do front.
 - **Memória (512 MB).** Mexeu em `cvm.provider.ts`, nas filas da CVM, no aquecimento ou em algo que lê arquivo
   grande? Meça o pico de RSS (`process.resourceUsage().maxRSS`) com os zips reais antes de subir. A leitura
-  inteira de um CSV da CVM em string chegou a 1,6 GB por ficha (`docs/deploy.md`, seção ⛔).
+  inteira de um CSV da CVM em string chegou a 1,6 GB por ficha (`docs/deploy.md`, seção "Memória da leitura da CVM", já corrigido).
 - Rota com login **nunca** manda `Cache-Control: public`: a CDN da Vercel respeita esse cabeçalho nos
   rewrites e serviria a resposta de uma pessoa para outra.
 

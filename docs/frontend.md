@@ -96,7 +96,7 @@ Outros módulos de `lib/` que valem conhecer:
 | `carteira-exemplo.ts` | a carteira do desafio do aporte da página inicial |
 | `goals.ts`, `alocacao.ts`, `relatorios.ts` | contas de tela da área logada (desvio de meta, maiores posições, agrupamento de relatórios) |
 | `simulacao-guardada.ts` | a última simulação, no `sessionStorage` da aba, para voltar à tela |
-| `use-busca-ticker.ts` | a busca de ticker com atraso que o formulário de transação e o editor de metas usam (aceita só 4 letras + 1 ou 2 dígitos) |
+| `use-busca-ticker.ts` | a busca de ticker com atraso que o formulário de transação e o editor de metas usam (só consulta o que tem cara de código de negociação: `^[A-Z0-9]{3}[A-Z]\d{1,2}$`, o que inclui `B3SA3`) |
 | `aprender/` | leitura dos `.mdx` e do frontmatter, tempo de leitura, e os exemplos numéricos conferidos em teste |
 
 ## Kit de movimento

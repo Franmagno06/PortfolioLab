@@ -9,7 +9,7 @@
  *    catálogo é aquecido sem rajada: o Yahoo bloqueia IP que faz muitas
  *    consultas de uma vez.
  *
- * O cache em memória nunca cresce além do catálogo (30 tickers): as chaves
+ * O cache em memória nunca cresce além do catálogo (40 tickers): as chaves
  * vêm sempre de ticker já validado contra ativos.catalogo.ts. Não é para
  * guardar chave que o usuário escolhe.
  */

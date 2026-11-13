@@ -303,3 +303,16 @@ describe("buscarIndicadoresFundamentalistas: diagnóstico das falhas no log", ()
     expect(avisos()[0]).not.toContain(CRUMB_VALIDO);
   });
 });
+
+// Lucro perto de zero dá um P/L de bilhões. Gravado em Decimal(10,2), o upsert
+// falhava sempre e o ativo era reconsultado no Yahoo a cada leitura.
+describe("noTeto", () => {
+  it("anula o valor que não cabe na coluna e mantém o que cabe", async () => {
+    const { noTeto } = await import("./quotes.provider.js");
+
+    expect(noTeto(4_000_000_000, 99_999_999.99)).toBeNull();
+    expect(noTeto(-4_000_000_000, 99_999_999.99)).toBeNull();
+    expect(noTeto(9.12, 99_999_999.99)).toBe(9.12);
+    expect(noTeto(null, 99_999.99)).toBeNull();
+  });
+});

@@ -8,6 +8,20 @@ const base = { DATABASE_URL: "postgresql://localhost:5432/portfoliolab" };
 const SEGREDO_FORTE = "u7Kq2zP9rT4xW1bN6vY8sL3dH5gJ0mC2";
 
 describe("validação do ambiente", () => {
+  // O .env.example traz JWT_SECRET="". Copiado sem mexer, a API não subia.
+  it("trata JWT_SECRET vazio como ausente em desenvolvimento", () => {
+    const r = envSchema.safeParse({ ...base, NODE_ENV: "development", JWT_SECRET: "" });
+
+    expect(r.success).toBe(true);
+    expect(r.data?.JWT_SECRET).toBe("dev-secret");
+  });
+
+  it("continua recusando JWT_SECRET vazio em produção", () => {
+    const r = envSchema.safeParse({ ...base, NODE_ENV: "production", JWT_SECRET: "" });
+
+    expect(r.success).toBe(false);
+  });
+
   it("aceita o segredo padrão em desenvolvimento", () => {
     const r = envSchema.safeParse({ ...base, NODE_ENV: "development" });
 

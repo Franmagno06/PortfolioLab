@@ -112,7 +112,7 @@ comportamento na falha está no `CLAUDE.md`. Aqui, o que cada uma tem de prazo, 
 | Fonte | Arquivo | Prazo por chamada | Cache | Fila |
 |---|---|---|---|---|
 | Yahoo `v8/chart` (cotação, histórico mensal, proventos, séries de índice) | `quotes/quotes.provider.ts` | 8 s | preço em `assets.current_price` (15 min); nas fichas, memória (`ativos.fontes.ts`: cotação 15 min, histórico e proventos 6 h, falha 2 min); índices 1 min | não |
-| Yahoo `quoteSummary` (indicadores) | idem | 8 s na consulta; **sem prazo** no cookie e no crumb (`obterCredenciaisYahoo`) | `asset_indicators` (24 h); cookie e crumb em memória | sequencial dentro de `GET /indicators` |
+| Yahoo `quoteSummary` (indicadores) | idem | 8 s na consulta, no cookie e no crumb | `asset_indicators` (24 h); cookie e crumb em memória | sequencial dentro de `GET /indicators` |
 | CVM: ITR, DFP, Informe Mensal de FII, cadastro de classes | `reports/cvm.provider.ts` | 90 s por download, zip até 128 MB | zip compactado em memória 6 h; análise em `cvm_summaries` (por versão); fotografias em `asset_snapshots` | `naFilaDaCvm` (relatórios) e a fila pesada de `ativos.snapshots.ts` |
 | Banco Central SGS (432, 433, 4391, 4389) | `indices/indices.fontes.ts` | 15 s por janela de 5 anos, uma nova tentativa | série em memória 6 h (falha 2 min), última série boa em memória, reserva mensal em `index_points` (`sgs-*`) | `filaSgs`: nunca duas chamadas ao mesmo tempo |
 | B3, estatísticas de índices (IFIX, SMLL, IDIV) | idem | 15 s por ano, uma nova tentativa | `index_points`; busca refeita depois de 6 h (falha 2 min) | uma busca por índice em voo |
