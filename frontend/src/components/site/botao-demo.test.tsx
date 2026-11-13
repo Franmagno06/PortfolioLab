@@ -77,16 +77,28 @@ describe("BotaoDemo", () => {
     expect(api).not.toHaveBeenCalled();
   });
 
-  it("já na conta demo: comportamento de antes, entra de novo na demo", async () => {
+  it("já na conta demo: o clique só abre a carteira, sem um login novo", async () => {
     apiPublica.mockResolvedValue({ demo: true });
-    api.mockResolvedValue({ user: {} });
     render(<BotaoDemo />);
     await assentar();
 
     fireEvent.click(screen.getByRole("button", { name: "Ver a demonstração" }));
     await assentar();
 
-    expect(api).toHaveBeenCalledWith("/auth/login", expect.anything());
+    expect(push).toHaveBeenCalledWith("/dashboard");
+    expect(api).not.toHaveBeenCalled();
+  });
+
+  it("clique antes da resposta, e a sessão era a demo: só navega, sem login por cima", async () => {
+    let responder!: (v: unknown) => void;
+    apiPublica.mockReturnValue(new Promise((r) => (responder = r)));
+    render(<BotaoDemo />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Ver a demonstração" }));
+    await act(async () => responder({ demo: true }));
+
+    expect(push).toHaveBeenCalledWith("/dashboard");
+    expect(api).not.toHaveBeenCalled();
   });
 
   it("não deu para saber se há sessão (servidor com erro): não faz login e explica", async () => {

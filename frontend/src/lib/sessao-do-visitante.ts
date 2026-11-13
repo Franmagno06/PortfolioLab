@@ -18,8 +18,26 @@ export type ResultadoDaConsulta = Sessao | "desconhecida";
 let ultima: Sessao | null = null;
 let emVoo: Promise<ResultadoDaConsulta> | null = null;
 
+// Quem mostra a sessão na tela (o cabeçalho do site) fica sabendo quando ela muda: um login pela
+// demo ou o "Sair" trocam o que o cabeçalho, já montado, precisa mostrar.
+const ouvintes = new Set<() => void>();
+
+function mudar(sessao: Sessao | null): void {
+  if (ultima === sessao) return;
+  ultima = sessao;
+  ouvintes.forEach((avisar) => avisar());
+}
+
 export function ultimaSessaoConhecida(): Sessao | null {
   return ultima;
+}
+
+/** Para `useSyncExternalStore`: devolve a função que para de observar. */
+export function observarSessao(aoMudar: () => void): () => void {
+  ouvintes.add(aoMudar);
+  return () => {
+    ouvintes.delete(aoMudar);
+  };
 }
 
 /**
@@ -27,8 +45,8 @@ export function ultimaSessaoConhecida(): Sessao | null {
  * descarta a consulta em voo, que perguntou antes da troca de sessão.
  */
 export function lembrarSessao(sessao: Sessao | null): void {
-  ultima = sessao;
   emVoo = null;
+  mudar(sessao);
 }
 
 /** Uma consulta por vez: os botões da página (são três na inicial) dividem a mesma. */
@@ -41,7 +59,7 @@ export function consultarSessao(): Promise<ResultadoDaConsulta> {
       // descartada por lembrarSessao no meio do caminho: a resposta é de antes da troca de sessão
       if (emVoo === consulta) {
         emVoo = null;
-        if (resultado !== "desconhecida") ultima = resultado;
+        if (resultado !== "desconhecida") mudar(resultado);
       }
       return resultado;
     });
