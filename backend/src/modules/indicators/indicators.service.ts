@@ -1,5 +1,13 @@
 import { Prisma, type AssetIndicator } from "@prisma/client";
-import { buscarIndicadoresFundamentalistas, buscarProventosOuNulo } from "../quotes/quotes.provider.js";
+import { acharAcao } from "../ativos/ativos.catalogo.js";
+import type { ResultadoTrimestralGuardado } from "../ativos/ativos.tipos.js";
+import {
+  buscarCotacao,
+  buscarIndicadoresFundamentalistas,
+  buscarProventosOuNulo,
+  type IndicadoresDoProvedor,
+} from "../quotes/quotes.provider.js";
+import { calcularIndicadoresPelaCvm } from "./indicators.cvm.js";
 import { indicatorsRepository } from "./indicators.repository.js";
 
 function numeroOuNulo(d: Prisma.Decimal | null | undefined): number | null {
@@ -61,8 +69,44 @@ export function estaDesatualizado(indicator: Pick<AssetIndicator, "updatedAt"> |
   return Date.now() - indicator.updatedAt.getTime() > VALIDADE_MS;
 }
 
+/** O que a renovação grava. Os campos opcionais ficam como estão no banco quando ausentes. */
+type Fundamentos = Pick<IndicadoresDoProvedor, "pl" | "pvp" | "roe" | "roa" | "precoAtual"> &
+  Partial<Pick<IndicadoresDoProvedor, "margemLiquida" | "dividaEbitda" | "industria">>;
+
 /**
- * Busca os fundamentos de UM ativo no Yahoo, calcula o Dividend Yield a
+ * P/L, P/VP, ROE e ROA pela CVM (indicators.cvm.ts), para quando o quoteSummary do Yahoo não
+ * responde. Lê a fotografia CVM_RESULTS já guardada, nunca um zip: pode rodar no caminho de uma
+ * requisição. Só ação do catálogo de Ativos tem essa fotografia. Margem, dívida/EBITDA e setor não
+ * saem daqui e ficam como estão no banco. Null se não há como calcular nada; nunca lança.
+ */
+export async function indicadoresPelaCvm(asset: { id: string; ticker: string }): Promise<Fundamentos | null> {
+  try {
+    const item = acharAcao(asset.ticker);
+    if (!item) return null;
+    const trimestres = await indicatorsRepository.resultadosDaCvm(asset.id);
+    if (!Array.isArray(trimestres) || trimestres.length === 0) return null;
+
+    // Mesma fonte de preço da ficha (Yahoo v8/chart), que responde no servidor de produção.
+    const cotacao = await buscarCotacao(asset.ticker);
+    const precoAtual = cotacao?.preco ?? null;
+    const calculados = calcularIndicadoresPelaCvm({
+      preco: precoAtual,
+      trimestres: trimestres as ResultadoTrimestralGuardado[],
+      acoesPorUnidade: item.especie === "Unit" ? (item.acoesPorUnit ?? null) : 1,
+    });
+    return calculados ? { ...calculados, precoAtual } : null;
+  } catch (erro) {
+    console.error(
+      `[indicadores] falha no cálculo pela CVM de ${asset.ticker}:`,
+      erro instanceof Error ? erro.message : erro,
+    );
+    return null;
+  }
+}
+
+/**
+ * Busca os fundamentos de UM ativo no Yahoo (ou, se ele não responder, calcula
+ * pela CVM: indicadoresPelaCvm), calcula o Dividend Yield a
  * partir dos proventos dos últimos 12 meses do próprio ativo (também do Yahoo)
  * e grava no cache. Devolve null sem gravar nada se o provedor estiver fora do
  * ar — mantém o cache anterior, do jeito que existir, em vez de apagar um dado
@@ -79,7 +123,8 @@ export async function atualizarIndicador(asset: {
   id: string;
   ticker: string;
 }): Promise<AssetIndicator | null> {
-  const indicadores = await buscarIndicadoresFundamentalistas(asset.ticker);
+  const indicadores: Fundamentos | null =
+    (await buscarIndicadoresFundamentalistas(asset.ticker)) ?? (await indicadoresPelaCvm(asset));
   if (!indicadores) return null;
 
   const proventos = await buscarProventosOuNulo(asset.ticker, new Date(Date.now() - DOZE_MESES_MS));

@@ -1,7 +1,7 @@
 import { Prisma } from "@prisma/client";
 import type { DadosAcao, DadosFii, InformeFii } from "../reports/cvm.provider.js";
 import { lucro, patrimonioLiquido } from "../reports/resumo-cvm.js";
-import type { ComposicaoDoFundo, InformeDoFii, ResultadoTrimestral } from "./ativos.tipos.js";
+import type { ComposicaoDoFundo, InformeDoFii, ResultadoTrimestralGuardado } from "./ativos.tipos.js";
 
 // Regras puras que transformam dado bruto da CVM no que as páginas mostram. Sem rede e sem
 // banco: recebem os objetos que cvm.provider.ts já monta e devolvem números. É aqui que mora a
@@ -46,6 +46,7 @@ export function montarInformeDoFii(d: DadosFii): InformeDoFii {
     patrimonioLiquido: n(d.mes.patrimonioLiquido),
     cotistas: n(d.mes.cotistas),
     valorPatrimonialCota: n(d.mes.valorPatrimonialCota),
+    cotasEmitidas: n(d.mes.cotasEmitidas),
     taxaAdministracaoMes: n(d.mes.taxaAdministracaoMes),
     tipoGestao: d.tipoGestao,
     composicao: calcularComposicao(d.mes),
@@ -126,7 +127,7 @@ export function resultadoDoTrimestre(
   periodo: TrimestreDeCalendario,
   documento: DadosAcao,
   itrsDoAno: Partial<Record<1 | 2 | 3, DadosAcao | null>> = {},
-): ResultadoTrimestral | null {
+): ResultadoTrimestralGuardado | null {
   const patrimonio = patrimonioLiquido(documento)?.atual;
   let lucroDoPeriodo = lucro(documento)?.atual ?? null;
   if (!lucroDoPeriodo || !patrimonio) return null;
@@ -140,10 +141,24 @@ export function resultadoDoTrimestre(
     }
   }
 
+  const inteiro = (d: Prisma.Decimal) => d.toDecimalPlaces(0).toNumber();
+  // Sem a linha dos não controladores no documento (montado antes de o campo existir), não se sabe a
+  // parte dos controladores: fica null, e não o PL consolidado no lugar dela.
+  const naoControladores = documento.patrimonioNaoControladores;
+  const ativo = ativoTotal(documento);
   return {
     periodo: `${periodo.trimestre}T${String(periodo.ano).slice(2)}`,
     dataReferencia: documento.dataReferencia,
-    lucroLiquido: lucroDoPeriodo.toDecimalPlaces(0).toNumber(),
-    patrimonioLiquido: patrimonio.toDecimalPlaces(0).toNumber(),
+    lucroLiquido: inteiro(lucroDoPeriodo),
+    patrimonioLiquido: inteiro(patrimonio),
+    patrimonioDosControladores: naoControladores ? inteiro(patrimonio.minus(naoControladores)) : null,
+    ativoTotal: ativo ? inteiro(ativo) : null,
+    acoesTotal: documento.capital ? inteiro(documento.capital.total) : null,
+    acoesEmTesouraria: documento.capital ? inteiro(documento.capital.tesouraria) : null,
   };
+}
+
+function ativoTotal(d: DadosAcao): Prisma.Decimal | null {
+  const conta = d.balanco.find((c) => c.codigo === "1")?.atual;
+  return conta && conta.gt(0) ? conta : null;
 }

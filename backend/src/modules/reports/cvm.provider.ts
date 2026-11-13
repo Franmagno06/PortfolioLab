@@ -181,6 +181,8 @@ function decimalOuNull(valor: string | undefined): Prisma.Decimal | null {
 
 const doisDigitos = (n: number) => String(n).padStart(2, "0");
 
+const ZERO = new Prisma.Decimal(0);
+
 // ---------------------------------------------------------------------------
 // Companhias abertas: ITR (1º a 3º trimestre) e DFP (exercício)
 // ---------------------------------------------------------------------------
@@ -206,6 +208,28 @@ export type DadosAcao = {
   balanco: ContaCvm[];
   /** Link para o documento no sistema da CVM. */
   link: string | null;
+  /**
+   * Participação dos acionistas não controladores no patrimônio líquido consolidado, na data-base
+   * (a conta de nível 3 abaixo do PL: 2.03.09 na indústria, 2.08.09 no Itaú, 2.07.02 no Bradesco).
+   * Zero quando a companhia não informa a linha (o documento individual não tem não controladores).
+   * Opcional porque documentos montados antes deste campo existir não o trazem.
+   */
+  patrimonioNaoControladores?: Prisma.Decimal | null;
+  /** Composição do capital na data-base, do arquivo composicao_capital do mesmo zip. Null se não veio. */
+  capital?: CapitalSocial | null;
+};
+
+/**
+ * Quantidade de ações como a companhia declarou no formulário, SEM escala: o arquivo da CVM não tem
+ * coluna de escala, e cada companhia escolhe a sua. No ITR de 2026, Petrobras e WEG informam em
+ * unidades (12.888.732.761 ações), enquanto Vale, Itaú, Ambev, Cemig e Taesa informam em milhares
+ * (Vale: 4.262.534). Quem usa a quantidade resolve a escala (indicators.cvm.ts).
+ */
+export type CapitalSocial = {
+  /** QT_ACAO_TOTAL_CAP_INTEGR: ordinárias + preferenciais do capital integralizado. */
+  total: Prisma.Decimal;
+  /** QT_ACAO_TOTAL_TESOURO: as que a própria companhia recomprou e mantém em tesouraria. */
+  tesouraria: Prisma.Decimal;
 };
 
 // Nível 1 e 2 do plano de contas (3.01, 3.11...), mais o lucro atribuído aos
@@ -262,7 +286,7 @@ function pareadas(
  * do mesmo tipo — consolidado ou individual.
  */
 export function montarDadosAcao(
-  csvs: { indice: string; dre: string; bpa: string; bpp: string },
+  csvs: { indice: string; dre: string; bpa: string; bpp: string; composicao?: string },
   cnpj: string,
   periodo: Trimestre,
   consolidado: boolean,
@@ -289,13 +313,26 @@ export function montarDadosAcao(
     (l) => l["ORDEM_EXERC"] === "PENÚLTIMO" && l["DT_INI_EXERC"] === inicio(periodo.ano - 1),
   );
 
+  const linhasDoBpp = doDocumento(csvs.bpp);
   const balanco = pareadas(
-    [...doDocumento(csvs.bpa), ...doDocumento(csvs.bpp)].filter(ehContaDoBalanco),
+    [...doDocumento(csvs.bpa), ...linhasDoBpp].filter(ehContaDoBalanco),
     (l) => l["ORDEM_EXERC"] === "ÚLTIMO",
     (l) => l["ORDEM_EXERC"] === "PENÚLTIMO",
   );
 
   if (resultado.length === 0 && balanco.length === 0) return null;
+
+  // Só filha direta da conta do PL: um passivo como "dividendos a pagar a não controladores" não entra.
+  const contaDoPl = balanco.find((c) => /^2\.\d{2}$/.test(c.codigo) && /patrim[oô]nio l[ií]quido/i.test(c.conta))?.codigo;
+  const naoControladores = contaDoPl
+    ? linhasDoBpp.find(
+        (l) =>
+          l["ORDEM_EXERC"] === "ÚLTIMO" &&
+          (l["CD_CONTA"] ?? "").startsWith(`${contaDoPl}.`) &&
+          /^2\.\d{2}\.\d{2}$/.test(l["CD_CONTA"] ?? "") &&
+          ehDosNaoControladores(l),
+      )
+    : undefined;
 
   return {
     tipo: "ACAO",
@@ -306,7 +343,31 @@ export function montarDadosAcao(
     resultado,
     balanco,
     link: entrega?.["LINK_DOC"] || null,
+    patrimonioNaoControladores: naoControladores ? (emReais(naoControladores) ?? ZERO) : ZERO,
+    capital: csvs.composicao === undefined ? null : capitalDoDocumento(csvs.composicao, cnpj, dataReferencia, versao),
   };
+}
+
+/** "Participação dos Acionistas Não Controladores", "Patrimônio Líquido Atribuído aos Não Controladores". */
+const ehDosNaoControladores = (l: LinhaCsv) => /n[ãa]o[\s-]+controlador/i.test(l["DS_CONTA"] ?? "");
+
+/**
+ * A composição do capital do mesmo documento (mesma data-base e mesma versão da entrega). Null se a
+ * linha não existe ou se a quantidade não é um número positivo.
+ */
+export function capitalDoDocumento(
+  csv: string,
+  cnpj: string,
+  dataReferencia: string,
+  versao: string | undefined,
+): CapitalSocial | null {
+  const linha = linhasComCnpj(csv, cnpj).find((l) => l["DT_REFER"] === dataReferencia && l["VERSAO"] === versao);
+  if (!linha) return null;
+  const total = decimalOuNull(linha["QT_ACAO_TOTAL_CAP_INTEGR"]);
+  if (!total || !total.gt(0)) return null;
+  const tesouraria = decimalOuNull(linha["QT_ACAO_TOTAL_TESOURO"]) ?? ZERO;
+  if (tesouraria.isNegative() || tesouraria.gte(total)) return null;
+  return { total, tesouraria };
 }
 
 /** ITR ou DFP de uma companhia no trimestre. Null se a CVM não tem o documento. */
@@ -327,6 +388,8 @@ export async function buscarDadosAcao(cnpj: string, periodo: Trimestre): Promise
         dre: `${prefixo}_DRE_${sufixo}_${periodo.ano}.csv`,
         bpa: `${prefixo}_BPA_${sufixo}_${periodo.ano}.csv`,
         bpp: `${prefixo}_BPP_${sufixo}_${periodo.ano}.csv`,
+        // Um arquivo só para consolidado e individual, e pequeno (130 KB no ITR de 2026).
+        composicao: `${prefixo}_composicao_capital_${periodo.ano}.csv`,
       };
       const csvs = lerCsvsDoZip(zip, Object.values(nomes), cnpj);
       const dados = montarDadosAcao(
@@ -335,6 +398,7 @@ export async function buscarDadosAcao(cnpj: string, periodo: Trimestre): Promise
           dre: csvs.get(nomes.dre) ?? "",
           bpa: csvs.get(nomes.bpa) ?? "",
           bpp: csvs.get(nomes.bpp) ?? "",
+          composicao: csvs.get(nomes.composicao) ?? "",
         },
         cnpj,
         periodo,

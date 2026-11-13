@@ -208,6 +208,31 @@ describe("resultadoDoTrimestre", () => {
       dataReferencia: "2026-06-30",
       lucroLiquido: 7_400_000_000,
       patrimonioLiquido: 190_000_000_000,
+      // documento sem os campos que o cálculo pela CVM usa (montado antes deles): null, nunca um chute
+      patrimonioDosControladores: null,
+      ativoTotal: null,
+      acoesTotal: null,
+      acoesEmTesouraria: null,
+    });
+  });
+
+  it("guarda o que o cálculo de P/L e P/VP pela CVM precisa: PL dos controladores, ativo total e ações", () => {
+    const d: DadosAcao = {
+      ...documento("ITR", "2026-06-30", 7_400_000_000, 190_000_000_000),
+      balanco: [
+        conta("1", "Ativo Total", 900_000_000_000),
+        conta("2.03", "Patrimônio Líquido Consolidado", 190_000_000_000),
+      ],
+      patrimonioNaoControladores: D(10_000_000_000),
+      capital: { total: D(4_262_534), tesouraria: D(174_626) },
+    };
+
+    expect(resultadoDoTrimestre({ ano: 2026, trimestre: 2 }, d)).toMatchObject({
+      patrimonioLiquido: 190_000_000_000,
+      patrimonioDosControladores: 180_000_000_000, // 190 bi − 10 bi dos não controladores
+      ativoTotal: 900_000_000_000,
+      acoesTotal: 4_262_534, // como declarado, sem escala
+      acoesEmTesouraria: 174_626,
     });
   });
 

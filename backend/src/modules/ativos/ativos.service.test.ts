@@ -25,7 +25,7 @@ vi.mock("./ativos.repository.js", () => ({
     saveSnapshot: vi.fn(),
   },
 }));
-vi.mock("../indicators/indicators.repository.js", () => ({ indicatorsRepository: { upsert: vi.fn() } }));
+vi.mock("../indicators/indicators.repository.js", () => ({ indicatorsRepository: { upsert: vi.fn(), resultadosDaCvm: vi.fn() } }));
 vi.mock("../quotes/quotes.provider.js", () => ({
   buscarCotacao: vi.fn(),
   buscarHistoricoMensal: vi.fn(),
@@ -188,6 +188,7 @@ beforeEach(() => {
   vi.mocked(buscarHistoricoMensal).mockResolvedValue(new Map());
   vi.mocked(buscarProventosOuNulo).mockResolvedValue(null);
   vi.mocked(buscarIndicadoresFundamentalistas).mockResolvedValue(null);
+  vi.mocked(indicatorsRepository.resultadosDaCvm).mockResolvedValue(null);
   vi.mocked(buscarDadosAcao).mockResolvedValue(null);
   vi.mocked(buscarDadosFii).mockResolvedValue(null);
   vi.mocked(atualizarHistorico).mockResolvedValue();
@@ -441,6 +442,60 @@ describe("ativosService.fichaDaAcao", () => {
     expect(ficha?.resultados.atualizadoEm).toBe(AGORA.toISOString());
   });
 
+  it("Yahoo sem indicadores: P/L, P/VP, ROE e ROA saem da fotografia da CVM e do preço do Yahoo", async () => {
+    vi.mocked(buscarCotacao).mockResolvedValue(cotacao("VALE3", 30));
+    vi.mocked(ativosRepository.findAssetWithIndicator).mockResolvedValue(asset("VALE3"));
+    // lucro 12m 4 bi, PL dos controladores 20 bi, ativo 80 bi, 1 bi de ações (declaradas em milhares)
+    const trimestre = (periodo: string, lucro: number) => ({
+      periodo,
+      dataReferencia: "2026-06-30",
+      lucroLiquido: lucro,
+      patrimonioLiquido: 21_000_000_000,
+      patrimonioDosControladores: 20_000_000_000,
+      ativoTotal: 80_000_000_000,
+      acoesTotal: 1_000_000,
+      acoesEmTesouraria: 0,
+    });
+    vi.mocked(indicatorsRepository.resultadosDaCvm).mockResolvedValue([
+      trimestre("3T25", 1_000_000_000),
+      trimestre("4T25", 1_000_000_000),
+      trimestre("1T26", 1_000_000_000),
+      trimestre("2T26", 1_000_000_000),
+    ]);
+
+    const ficha = await ativosService.fichaDaAcao("VALE3");
+
+    expect(ficha?.indicadores.estado).toBe("ok");
+    // P/L = 30 ÷ (4 bi ÷ 1 bi) = 7,5; P/VP = 30 ÷ 20 = 1,5; ROE = 4 ÷ 20 = 20%; ROA = 4 ÷ 80 = 5%
+    expect(ficha?.indicadores.dados).toMatchObject({ pl: 7.5, pvp: 1.5, roe: 20, roa: 5 });
+  });
+
+  it("a fotografia guarda ações e PL dos controladores, mas a resposta leva só os campos do DTO", async () => {
+    vi.mocked(buscarCotacao).mockResolvedValue(cotacao("VALE3", 62.48));
+    vi.mocked(ativosRepository.findAssetWithIndicator).mockResolvedValue(asset("VALE3"));
+    fotografias.set("id-VALE3:CVM_RESULTS", {
+      dados: [
+        {
+          periodo: "2T26",
+          dataReferencia: "2026-06-30",
+          lucroLiquido: 7,
+          patrimonioLiquido: 200,
+          patrimonioDosControladores: 190,
+          ativoTotal: 900,
+          acoesTotal: 10,
+          acoesEmTesouraria: 1,
+        },
+      ],
+      atualizadoEm: HORAS(1),
+    });
+
+    const ficha = await ativosService.fichaDaAcao("VALE3");
+
+    expect(ficha?.resultados.dados).toEqual([
+      { periodo: "2T26", dataReferencia: "2026-06-30", lucroLiquido: 7, patrimonioLiquido: 200 },
+    ]);
+  });
+
   const documentosDe = (existentes: string[]) => async (_cnpj: string, p: { ano: number; trimestre: number }) => {
     const docs: Record<string, DadosAcao> = {
       "2026-2": documento("ITR", "2026-06-30", 7_000_000_000, 200_000_000_000),
@@ -586,6 +641,30 @@ describe("ativosService.fichaDoFii", () => {
 
     expect(ficha?.indicadores.pvp).toBe(1.05); // 9,45 ÷ 9,00
     expect(ficha?.pvp).toBe(1.05);
+  });
+
+  it("informe sem o valor patrimonial da cota: sai do patrimônio ÷ cotas emitidas do mesmo informe", async () => {
+    vi.mocked(buscarCotacao).mockResolvedValue({ ...cotacao("MXRF11", 9.69, 9.4), tipo: "FII" as never });
+    vi.mocked(buscarDadosFii).mockImplementation(async (_cnpj, p) =>
+      p.ano === 2026 && p.mes === 8
+        ? dadosFii(informeFii({ valorPatrimonialCota: null, patrimonioLiquido: D(950_000_000), cotasEmitidas: D(100_000_000) }))
+        : null,
+    );
+
+    const ficha = await ativosService.fichaDoFii("MXRF11");
+
+    expect(ficha?.indicadores.pvp).toBe(1.02); // 9,69 ÷ (950 mi ÷ 100 mi = 9,50)
+  });
+
+  it("informe sem valor patrimonial nem cotas: P/VP null, e não zero", async () => {
+    vi.mocked(buscarCotacao).mockResolvedValue({ ...cotacao("MXRF11", 9.69, 9.4), tipo: "FII" as never });
+    vi.mocked(buscarDadosFii).mockImplementation(async (_cnpj, p) =>
+      p.ano === 2026 && p.mes === 8 ? dadosFii(informeFii({ valorPatrimonialCota: null, cotasEmitidas: null })) : null,
+    );
+
+    const ficha = await ativosService.fichaDoFii("MXRF11");
+
+    expect(ficha?.indicadores.pvp).toBeNull();
   });
 
   it("DY de 12 meses: soma dos proventos do fundo ÷ preço; DY mensal: o último pagamento ÷ preço", async () => {
@@ -754,6 +833,25 @@ describe("ativosService.listarFiis", () => {
 
     expect(mxrf?.pvp).toBe(1.05);
     expect(buscarDadosFii).not.toHaveBeenCalledWith(expect.any(String), expect.anything());
+  });
+});
+
+describe("ativosService.listarFiis: P/VP pela alternativa do informe", () => {
+  it("informe guardado sem valor patrimonial da cota: usa patrimônio ÷ cotas emitidas", async () => {
+    vi.mocked(buscarCotacao).mockImplementation(async (t) => (t === "MXRF11" ? cotacao("MXRF11", 9.45) : null));
+    vi.mocked(ativosRepository.findAssetsWithIndicator).mockResolvedValue([asset("MXRF11", { type: "FII" })]);
+    vi.mocked(ativosRepository.findSnapshotsByType).mockResolvedValue([
+      {
+        assetId: "id-MXRF11",
+        type: "CVM_FUND_REPORT",
+        data: { valorPatrimonialCota: null, patrimonioLiquido: 900_000_000, cotasEmitidas: 100_000_000 },
+        updatedAt: HORAS(1),
+      } as never,
+    ]);
+
+    const lista = await ativosService.listarFiis();
+
+    expect(lista.find((f) => f.ticker === "MXRF11")?.pvp).toBe(1.05); // 9,45 ÷ 9,00
   });
 });
 

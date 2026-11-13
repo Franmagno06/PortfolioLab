@@ -244,3 +244,62 @@ describe("buscarIndicadoresFundamentalistas", () => {
     expect(await buscarIndicadoresFundamentalistas("PETR4")).toBeNull();
   });
 });
+
+describe("buscarIndicadoresFundamentalistas: diagnóstico das falhas no log", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  const avisos = () => vi.mocked(console.warn).mock.calls.map((args) => String(args[0]));
+
+  it("crumb recusado: um aviso com a etapa e o status, sem cookie nem crumb, e no máximo um a cada 10 min", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-11-12T22:00:00.000Z"));
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url.includes("fc.yahoo.com")) return respostaComCookie(COOKIE_VALIDO);
+      return respostaDeCrumb("", false); // 401 no getcrumb: o que o Yahoo faz com IP de datacenter
+    });
+    const { buscarIndicadoresFundamentalistas } = await carregarProviderComFetch(fetchMock);
+
+    await buscarIndicadoresFundamentalistas("PETR4");
+    await buscarIndicadoresFundamentalistas("VALE3");
+
+    expect(avisos()).toHaveLength(1);
+    expect(avisos()[0]).toContain("etapa crumb");
+    expect(avisos()[0]).toContain("HTTP 401");
+    expect(avisos()[0]).not.toContain("sessao-teste");
+
+    vi.setSystemTime(new Date("2026-11-12T22:11:00.000Z"));
+    await buscarIndicadoresFundamentalistas("PETR4");
+    expect(avisos()).toHaveLength(2);
+  });
+
+  it("quoteSummary com erro HTTP: avisa a etapa, o status e o ticker, nunca o crumb", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url.includes("fc.yahoo.com")) return respostaComCookie(COOKIE_VALIDO);
+      if (url.includes("getcrumb")) return respostaDeCrumb(CRUMB_VALIDO);
+      return respostaDeQuoteSummary(429, {});
+    });
+    const { buscarIndicadoresFundamentalistas } = await carregarProviderComFetch(fetchMock);
+
+    await buscarIndicadoresFundamentalistas("PETR4");
+
+    expect(avisos()).toHaveLength(1);
+    expect(avisos()[0]).toContain("etapa quoteSummary (HTTP 429 em PETR4)");
+    expect(avisos()[0]).not.toContain(CRUMB_VALIDO);
+  });
+
+  it("erro de rede: registra só o tipo do erro, não a mensagem (que pode trazer a URL com o crumb)", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const fetchMock = vi.fn().mockRejectedValue(new TypeError(`fetch failed https://x/?crumb=${CRUMB_VALIDO}`));
+    const { buscarIndicadoresFundamentalistas } = await carregarProviderComFetch(fetchMock);
+
+    await buscarIndicadoresFundamentalistas("PETR4");
+
+    expect(avisos()[0]).toContain("etapa cookie (TypeError)");
+    expect(avisos()[0]).not.toContain(CRUMB_VALIDO);
+  });
+});

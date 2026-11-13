@@ -34,6 +34,22 @@ export type ResultadoTrimestral = {
   patrimonioLiquido: number;
 };
 
+/**
+ * O que a fotografia CVM_RESULTS guarda de cada trimestre: o que a ficha mostra mais o que o cálculo
+ * de P/L, P/VP, ROE e ROA pela CVM precisa (indicators.cvm.ts). Os campos extras são opcionais porque
+ * as fotografias gravadas antes deles não os têm; o service os tira antes de responder, então o DTO
+ * de /ativos não muda.
+ */
+export type ResultadoTrimestralGuardado = ResultadoTrimestral & {
+  /** Patrimônio líquido consolidado menos a parte dos não controladores. */
+  patrimonioDosControladores?: number | null;
+  ativoTotal?: number | null;
+  /** Quantidade de ações do capital, como a companhia declarou: unidades OU milhares (ver CapitalSocial). */
+  acoesTotal?: number | null;
+  /** Ações em tesouraria, na mesma escala de acoesTotal. */
+  acoesEmTesouraria?: number | null;
+};
+
 /** Em % do ativo total do fundo. As cinco partes somam 100, a menos do arredondamento. */
 export type ComposicaoDoFundo = {
   imoveis: number;
@@ -50,6 +66,8 @@ export type InformeDoFii = {
   patrimonioLiquido: number | null;
   cotistas: number | null;
   valorPatrimonialCota: number | null;
+  /** Cotas emitidas. Serve de alternativa para o valor patrimonial da cota (PL ÷ cotas). Ausente em fotografia antiga. */
+  cotasEmitidas?: number | null;
   /** Fração, como a CVM publica: 0.00075 = 0,075% do patrimônio no mês. */
   taxaAdministracaoMes: number | null;
   tipoGestao: string | null;

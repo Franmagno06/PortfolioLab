@@ -32,6 +32,12 @@ export type AcaoDoCatalogo = {
   nome: string;
   setor: string;
   especie: EspecieAcao;
+  /**
+   * Só para unit: quantas ações cada unit representa. O preço da unit é o de várias ações juntas, e o
+   * P/L e o P/VP calculados pela CVM (lucro e patrimônio por ação) precisam da mesma base. Unit sem
+   * este número fica sem P/L e P/VP da CVM, em vez de um número três vezes menor.
+   */
+  acoesPorUnit?: number;
 };
 
 export type FiiDoCatalogo = {
@@ -58,7 +64,7 @@ export const ACOES: readonly AcaoDoCatalogo[] = [
   { ticker: "CMIG4", nome: "Cemig PN", setor: "Energia elétrica", especie: "PN" },
   { ticker: "RADL3", nome: "RaiaDrogasil ON", setor: "Farmácias", especie: "ON" },
   { ticker: "EQTL3", nome: "Equatorial ON", setor: "Energia elétrica", especie: "ON" },
-  { ticker: "TAEE11", nome: "Taesa Unit", setor: "Transmissão de energia", especie: "Unit" },
+  { ticker: "TAEE11", nome: "Taesa Unit", setor: "Transmissão de energia", especie: "Unit", acoesPorUnit: 3 }, // 1 ON + 2 PN
 ];
 
 export const FIIS: readonly FiiDoCatalogo[] = [
