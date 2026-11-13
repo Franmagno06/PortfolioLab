@@ -165,7 +165,7 @@ postgresql://postgres.<ref>:<senha>@aws-<n>-sa-east-1.pooler.supabase.com:5432/p
 | `DATABASE_URL` | **você cola** no painel (`sync: false`) | Session pooler, com `?connection_limit=5` (ver acima) |
 | `JWT_SECRET` | **o Render sorteia** (`generateValue: true`, 256 bits em base64, 44 caracteres) | a API recusa subir em produção com menos de 32 caracteres ou com placeholder conhecido. Trocar depois desloga todo mundo |
 | `AQUECER_CATALOGO` | `false` (no `render.yaml`) | ver a seção de memória |
-| `TRUST_PROXY` | não definir no começo (padrão `1`) | ver "IP do visitante" nas pendências |
+| `TRUST_PROXY` | `3` (no `render.yaml`) | visitante → Vercel → Cloudflare → proxy do Render. Fontes e o risco que sobra em `backend/.env.example`. Serviço criado à mão, e não pelo Blueprint: cadastrar no painel |
 | `PORT` | o Render define | não colocar |
 
 **Site (Vercel):**
@@ -289,7 +289,7 @@ linha que o script imprime é o banco de destino: tem de ser `SUPABASE (produç�
 | Prioridade | Item | Por quê / como |
 |---|---|---|
 | Feito | Memória da leitura da CVM | corrigida; conferir a memória nas métricas do Render no primeiro deploy (P4) |
-| **Alta** | **IP do visitante nos limitadores.** A Vercel manda o IP do visitante em `x-forwarded-for` para a origem externa (documentado), e o proxy do Render acrescenta o IP da Vercel. Com `TRUST_PROXY=1` (padrão), a API enxerga o IP da Vercel, que é de todos, e o teto de login (10 por 15 min) vira do site inteiro. | No primeiro deploy, logar `req.ip` e `x-forwarded-for` (sem cookies) de duas redes diferentes. Se a cadeia for visitante → Vercel → Render, `TRUST_PROXY=2` dá o IP real. Atenção: com 2, quem chamar o `*.onrender.com` direto pode forjar o IP. Para fechar isso, a Vercel pode mandar um cabeçalho secreto no rewrite e a API recusar quem não o tiver: mudança própria, com a skill `security-and-hardening` |
+| Feito (conferir) | **IP do visitante nos limitadores.** `TRUST_PROXY=3` no `render.yaml`: a Vercel sobrescreve o `x-forwarded-for` com o IP do visitante, a Cloudflare acrescenta o da Vercel e o proxy do Render o da Cloudflare. Com o `1` de antes, o teto de login (10 por 15 min) era do site inteiro. O login da demo saiu desse teto e tem o dele (60 por 15 min por IP), e as falhas de login também contam por conta (e-mail). | No primeiro deploy com a mudança, o log da API mostra `[proxy] X-Forwarded-For com N endereço(s)`: pela Vercel tem de ser 3. Se vier outro número, ajuste o `TRUST_PROXY` para ele. Quem chama o `*.onrender.com` direto ainda forja o IP (os tetos por IP; o de falhas por conta não): fechar isso pede um segredo entre Vercel e Render, mudança própria |
 | Alta | **Dependências do backend.** `npm audit` aponta altas que só saem com versão maior (`zod` 3 → 4, CLI do Prisma). | Tarefa própria, com a bateria completa de testes |
 | Média | **Aviso de "acordando o servidor"** no login, no cadastro e na demo | seção "Contra o sono" |
 | Média | **Dinheiro somado em `number`** no resumo da carteira (`portfolio.service.ts`) e em partes do dashboard | Contra a convenção do projeto. Revisar com `auditar-calculo-financeiro` |

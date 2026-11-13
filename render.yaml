@@ -45,3 +45,12 @@ services:
       # processador ocupado a cada acordar. Desligado aqui; as fichas continuam se renovando por visita.
       - key: AQUECER_CATALOGO
         value: "false"
+      # IP do visitante nos limitadores. O caminho em produção é visitante → Vercel (rewrite /api/*) →
+      # Cloudflare (na frente do Render) → proxy do Render → API, e cada um deixa um endereço:
+      #   X-Forwarded-For = "<visitante>, <saída da Vercel>, <borda da Cloudflare>", socket = proxy do Render.
+      # A Vercel sobrescreve o X-Forwarded-For com o IP de quem a chamou (o visitante não forja), a
+      # Cloudflare acrescenta o da Vercel e o proxy do Render o da Cloudflare. Com 3, req.ip é o
+      # visitante; com o padrão 1 era a borda da Cloudflare, a mesma para todo mundo. Fontes e o que
+      # sobra de risco (quem chama o *.onrender.com direto forja o IP): backend/.env.example.
+      - key: TRUST_PROXY
+        value: "3"

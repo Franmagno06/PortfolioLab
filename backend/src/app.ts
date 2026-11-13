@@ -17,6 +17,7 @@ import { rebalanceExemploRoutes, rebalanceRoutes } from "./modules/rebalance/reb
 import { reportsRoutes } from "./modules/reports/reports.routes.js";
 import { transactionsRoutes } from "./modules/transactions/transactions.routes.js";
 import { authGuard } from "./shared/middlewares/auth-guard.js";
+import { criarDiagnosticoDeProxy } from "./shared/middlewares/diagnostico-de-proxy.js";
 import { errorHandler } from "./shared/middlewares/error-handler.js";
 import { somenteLeituraNaDemo } from "./shared/middlewares/somente-leitura-na-demo.js";
 import { limitadorExemplo, limitadorGlobal } from "./shared/middlewares/rate-limit.js";
@@ -27,8 +28,10 @@ export const app = express();
 
 // Achado 8: atrás do Render/Vercel, sem isto todos os IPs viram o do proxy e o
 // limite que deveria ser por visitante passa a valer para a aplicação inteira
-// de uma vez. O 1 é a quantidade de proxies confiáveis à frente da API.
+// de uma vez. O número é a quantidade de proxies confiáveis à frente da API: 1
+// no desenvolvimento, 3 em produção (Vercel → Cloudflare → Render; ver .env.example).
 app.set("trust proxy", env.TRUST_PROXY);
+if (env.NODE_ENV === "production") app.use(criarDiagnosticoDeProxy(env.TRUST_PROXY));
 
 // Cabeçalhos de segurança. Esta API só responde JSON, então o CSP que importa
 // é o do Next, que serve o HTML (frontend/src/proxy.ts) — aqui ele é desligado

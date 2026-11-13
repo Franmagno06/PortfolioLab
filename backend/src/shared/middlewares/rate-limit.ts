@@ -1,5 +1,7 @@
+import type { Request } from "express";
 import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import { env } from "../../config/env.js";
+import { ehEmailDaDemo } from "../conta-demo.js";
 import { AppError } from "../errors/AppError.js";
 
 // Achado 8: teto de requisições em três camadas.
@@ -18,7 +20,11 @@ type OpcoesLimitador = {
   mensagem: string;
   /** Por chave: sem isto o teto seria por IP, e um NAT puniria a rede inteira. */
   porUsuario?: boolean;
-  pular?: () => boolean;
+  /** Chave própria (sem IP), como o e-mail do login. Tem precedência sobre `porUsuario`. */
+  chave?: (req: Request) => string;
+  /** Só respostas de erro (status >= 400) gastam o teto: login certo não conta. */
+  contarSoFalhas?: boolean;
+  pular?: (req: Request) => boolean;
 };
 
 export function criarLimitador({
@@ -26,6 +32,8 @@ export function criarLimitador({
   max,
   mensagem,
   porUsuario,
+  chave,
+  contarSoFalhas,
   pular,
 }: OpcoesLimitador) {
   return rateLimit({
@@ -33,11 +41,14 @@ export function criarLimitador({
     limit: max,
     standardHeaders: true,
     legacyHeaders: false,
-    ...(pular ? { skip: pular } : {}),
+    ...(pular ? { skip: (req: Request) => pular(req) } : {}),
+    ...(contarSoFalhas ? { skipSuccessfulRequests: true } : {}),
     // ipKeyGenerator normaliza o IPv6 para o /64 do assinante: sem ele, quem
     // tem um /64 inteiro trocaria de endereço a cada requisição e escaparia do
     // limite. A v8 recusa keyGenerator custom que toque req.ip sem passar por ele.
-    ...(porUsuario
+    ...(chave
+      ? { keyGenerator: (req: Request) => chave(req) }
+      : porUsuario
       ? {
           keyGenerator: (req: { userId?: string; ip?: string }) =>
             req.userId ?? ipKeyGenerator(req.ip ?? ""),
@@ -53,14 +64,64 @@ export function criarLimitador({
 const noTeste = () => env.NODE_ENV === "test";
 
 /**
+ * POST /auth/login da conta de demonstração (senha pública, README). Só o login: um cadastro com o
+ * e-mail da demo continua no teto rígido.
+ */
+export function ehLoginDaDemo(req: Request): boolean {
+  if (req.method !== "POST" || req.path !== "/login") return false;
+  const email: unknown = (req.body as { email?: unknown } | undefined)?.email;
+  return typeof email === "string" && ehEmailDaDemo(email);
+}
+
+/** E-mail do corpo, normalizado: a mesma conta com outra caixa ou espaços cai no mesmo contador. */
+export function chaveDaConta(req: Request): string {
+  const email: unknown = (req.body as { email?: unknown } | undefined)?.email;
+  return typeof email === "string" ? `conta:${email.trim().toLowerCase()}` : "conta:?";
+}
+
+const MENSAGEM_AUTH = "Muitas tentativas de autenticação. Tente novamente em alguns minutos.";
+
+/**
  * Camada 1 — força bruta em credenciais. Rígida e por IP: um punhado de
  * tentativas por janela é mais do que qualquer pessoa legítima precisa.
+ *
+ * O login da conta demo fica de fora e tem o teto dele (`limitadorLoginDaDemo`): a senha dela é
+ * pública, não há o que adivinhar, e cada clique em "Ver a demonstração" é um login. Contado aqui,
+ * dez visitantes atrás do mesmo IP (uma rede de escritório, ou todos, se o IP real não chegar)
+ * travariam o login de todo mundo por 15 minutos.
  */
 export const limitadorAuth = criarLimitador({
   janelaMs: 15 * 60 * 1000,
   max: 10,
-  mensagem: "Muitas tentativas de autenticação. Tente novamente em alguns minutos.",
-  pular: noTeste,
+  mensagem: MENSAGEM_AUTH,
+  pular: (req) => noTeste() || ehLoginDaDemo(req),
+});
+
+/**
+ * Camada 1b — o login da demo, à parte e por IP. Folgado (cada visita à demonstração é um login),
+ * mas limitado: cada login custa um bcrypt, que no Render gratuito (0,1 CPU) é caro.
+ */
+export const limitadorLoginDaDemo = criarLimitador({
+  janelaMs: 15 * 60 * 1000,
+  max: 60,
+  mensagem: "Muitas entradas na demonstração a partir da sua rede. Tente de novo em alguns minutos.",
+  pular: (req) => noTeste() || !ehLoginDaDemo(req),
+});
+
+/**
+ * Camada 1c — falhas de login por CONTA, não por IP. O teto por IP depende de o IP do visitante
+ * ser verdadeiro, e quem chama a API direto no *.onrender.com (sem passar pela Vercel) consegue
+ * forjar o X-Forwarded-For com TRUST_PROXY=3 (ver .env.example). Contado pelo e-mail, trocar de
+ * IP não ajuda a adivinhar a senha de uma conta. Só falha conta: quem acerta não gasta nada, e o
+ * custo é que alguém errando de propósito trava aquela conta por 15 minutos.
+ */
+export const limitadorFalhasPorConta = criarLimitador({
+  janelaMs: 15 * 60 * 1000,
+  max: 10,
+  mensagem: MENSAGEM_AUTH,
+  chave: chaveDaConta,
+  contarSoFalhas: true,
+  pular: (req) => noTeste() || ehLoginDaDemo(req),
 });
 
 /**

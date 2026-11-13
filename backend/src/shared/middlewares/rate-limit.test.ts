@@ -6,10 +6,15 @@ import { authRoutes } from "../../modules/auth/auth.routes.js";
 import { dividendsRoutes } from "../../modules/dividends/dividends.routes.js";
 import { reportsRoutes } from "../../modules/reports/reports.routes.js";
 import { errorHandler } from "./error-handler.js";
+import { EMAIL_DA_DEMO } from "../conta-demo.js";
 import {
+  chaveDaConta,
   criarLimitador,
+  ehLoginDaDemo,
   limitadorAtivos,
   limitadorAuth,
+  limitadorFalhasPorConta,
+  limitadorLoginDaDemo,
   limitadorRelatorios,
   limitadorSyncDeProventos,
 } from "./rate-limit.js";
@@ -109,9 +114,111 @@ describe("limitador por usuário", () => {
   });
 });
 
+describe("login: a demo à parte e as falhas por conta", () => {
+  // As mesmas regras dos limitadores exportados (que nascem desligados sob NODE_ENV=test), num app
+  // descartável: senha certa só para "certa", como um login de verdade.
+  function appDeLogin() {
+    const app = express();
+    app.use(express.json());
+    const login = express.Router();
+    login.post(
+      "/login",
+      criarLimitador({ janelaMs: 60_000, max: 2, mensagem: "ip", pular: ehLoginDaDemo }),
+      criarLimitador({ janelaMs: 60_000, max: 4, mensagem: "demo", pular: (req) => !ehLoginDaDemo(req) }),
+      criarLimitador({
+        janelaMs: 60_000,
+        max: 3,
+        mensagem: "conta",
+        chave: chaveDaConta,
+        contarSoFalhas: true,
+        pular: ehLoginDaDemo,
+      }),
+      (req, res) => {
+        const corpo = req.body as { password?: string };
+        res.status(corpo.password === "certa" ? 200 : 401).json({});
+      },
+    );
+    login.post(
+      "/register",
+      criarLimitador({ janelaMs: 60_000, max: 2, mensagem: "ip", pular: ehLoginDaDemo }),
+      (_req, res) => {
+        res.status(201).json({});
+      },
+    );
+    app.use("/auth", login);
+    app.use(errorHandler);
+    return app;
+  }
+  const entrar = (app: express.Express, email: string, password = "certa", ip = "1.1.1.1") =>
+    request(app).post("/auth/login").set("x-forwarded-for", ip).send({ email, password });
+
+  it("logins da demo não gastam o teto por IP das contas de verdade", async () => {
+    const app = appDeLogin();
+    for (let i = 0; i < 4; i++) expect((await entrar(app, EMAIL_DA_DEMO, "demo123456")).status).toBe(401);
+
+    expect((await entrar(app, "ana@exemplo.dev")).status).toBe(200);
+    expect((await entrar(app, "ana@exemplo.dev")).status).toBe(200);
+  });
+
+  it("a demo tem o teto dela, por IP", async () => {
+    const app = appDeLogin();
+    for (let i = 0; i < 4; i++) await entrar(app, EMAIL_DA_DEMO);
+    const estourou = await entrar(app, ` ${EMAIL_DA_DEMO.toUpperCase()} `);
+
+    expect(estourou.status).toBe(429);
+    expect(estourou.body.error).toBe("demo");
+  });
+
+  it("falhas contam por conta: o mesmo e-mail é barrado ainda que cada tentativa venha de outro IP", async () => {
+    const app = express();
+    app.use(express.json());
+    app.post(
+      "/auth/login",
+      criarLimitador({ janelaMs: 60_000, max: 3, mensagem: "conta", chave: chaveDaConta, contarSoFalhas: true }),
+      (req, res) => {
+        res.status((req.body as { password?: string }).password === "certa" ? 200 : 401).json({});
+      },
+    );
+    app.use(errorHandler);
+    for (let i = 0; i < 3; i++) await entrar(app, "Ana@Exemplo.dev", "errada", `9.9.9.${i}`);
+
+    const estourou = await entrar(app, "ana@exemplo.dev", "certa", "8.8.8.8");
+    expect(estourou.status).toBe(429);
+    expect(estourou.body.error).toBe("conta");
+    expect((await entrar(app, "bia@exemplo.dev", "errada", "8.8.8.8")).status).toBe(401);
+  });
+
+  it("login certo não gasta o teto da conta", async () => {
+    const app = express();
+    app.use(express.json());
+    app.post(
+      "/auth/login",
+      criarLimitador({ janelaMs: 60_000, max: 2, mensagem: "conta", chave: chaveDaConta, contarSoFalhas: true }),
+      (_req, res) => {
+        res.json({});
+      },
+    );
+    app.use(errorHandler);
+    for (let i = 0; i < 5; i++) expect((await entrar(app, "ana@exemplo.dev")).status).toBe(200);
+  });
+
+  it("cadastro com o e-mail da demo continua no teto rígido", async () => {
+    const app = appDeLogin();
+    const cadastrar = () =>
+      request(app).post("/auth/register").send({ email: EMAIL_DA_DEMO, name: "x", password: "123456" });
+    await cadastrar();
+    await cadastrar();
+
+    expect((await cadastrar()).status).toBe(429);
+  });
+});
+
 describe("fiação dos limitadores nas rotas", () => {
-  it("POST /auth/login passa pelo limitador de autenticação", () => {
-    expect(middlewaresDa(authRoutes, "post", "/login")).toContain(limitadorAuth);
+  it("POST /auth/login passa pelo limitador de autenticação, pelo da demo e pelo de falhas por conta", () => {
+    const pilha = middlewaresDa(authRoutes, "post", "/login");
+    expect(pilha).toContain(limitadorAuth);
+    expect(pilha).toContain(limitadorLoginDaDemo);
+    expect(pilha).toContain(limitadorFalhasPorConta);
   });
 
   it("POST /auth/register passa pelo limitador de autenticação", () => {
