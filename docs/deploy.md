@@ -85,7 +85,7 @@ Conferido em 12/11/2026 em [render.com/docs/free](https://render.com/docs/free) 
 
 | Limite | Valor | O que isso faz com o PortfolioLab |
 |---|---|---|
-| CPU e RAM | 0,1 CPU, 512 MB | ver a seção da memória acima; leitura da CVM é CPU síncrona e fica ~10 vezes mais lenta |
+| CPU e RAM | 0,1 CPU, 512 MB | ver a seção da memória acima; leitura da CVM fica ~10 vezes mais lenta; roda num worker_thread (`cvm.trabalhador.ts`), então o `/health` responde enquanto ela trabalha |
 | Sono | dorme depois de **15 min** sem tráfego de entrada; acordar leva "cerca de um minuto" | primeira requisição depois do sono espera; ver "Contra o sono" |
 | Horas | **750 h/mês por workspace**; acabou, o serviço é suspenso até o mês seguinte | um serviço acordado o mês inteiro gasta até 744 h: cabe, se for o **único** serviço gratuito acordado no workspace |
 | Reinício | "o Render pode reiniciar um serviço gratuito a qualquer momento" | caches em memória (Yahoo, zips da CVM, séries do SGS) se perdem; o que importa está no banco (`asset_snapshots`, `index_points`) |

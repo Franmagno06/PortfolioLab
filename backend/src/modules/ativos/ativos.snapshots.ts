@@ -32,9 +32,9 @@ export type Fotografia<T> = {
 type Resultado<T> = { dados: T; atualizadoEm: Date };
 
 /**
- * As renovações pesadas (CVM) passam por esta fila, uma de cada vez. Interpretar o zip da CVM é
- * CPU síncrona, e duas ao mesmo tempo seguram o Node o dobro do tempo: nada mais é atendido, e os
- * limites de espera da ficha vencem antes de as respostas das outras fontes serem processadas.
+ * As renovações pesadas (CVM) passam por esta fila, uma de cada vez. Interpretar o zip da CVM roda no
+ * worker de reports/cvm.trabalhador.ts, fora do laço de eventos, mas é um worker só e um zip por vez:
+ * a fila evita que uma renovação espere atrás de várias, e a memória fica com um zip descompactado.
  */
 const filaPesada = criarFila((chave, erro) =>
   console.error(`[ativos] falha na renovação pesada ${chave}:`, erro instanceof Error ? erro.message : erro),

@@ -31,8 +31,8 @@ export const COTA_RELATORIOS = 50;
 const PERIODOS_PARA_TRAS = 4;
 
 /**
- * Ler o zip da CVM é CPU síncrona (o mesmo cuidado de ativos.snapshots.ts). Uma leitura de cada vez:
- * duas consultas simultâneas não descompactam dois arquivos ao mesmo tempo no laço de eventos.
+ * Ler o zip da CVM é CPU pesada; ela roda no worker de cvm.trabalhador.ts, que já faz uma tarefa por vez.
+ * Esta fila mantém uma consulta inteira (con e ind, um período atrás do outro) de cada vez.
  */
 let filaDaCvm: Promise<unknown> = Promise.resolve();
 function naFilaDaCvm<T>(tarefa: () => Promise<T>): Promise<T> {
