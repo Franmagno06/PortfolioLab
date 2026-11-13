@@ -41,10 +41,10 @@ devolvem a linha do Prisma (`GET /assets`, `GET /transactions`, `GET /dividends`
 padrão 50) e `?cursor=` (uuid do último item da página anterior). Respondem
 `{ "itens": [...], "proximoCursor": "uuid" | null }`; `null` é a última página (`shared/paginacao.ts`).
 
-**Ticker.** Onde a entrada é um ticker (`transactions`, `dividends`, `goals`, `quotes`, `/ativos/*/:ticker`), vale o
+**Ticker.** Onde a entrada é um ticker (`transactions`, `dividends`, `goals`, `/ativos/*/:ticker`), vale o
 `tickerSchema` de `shared/ticker.ts`: só letras e dígitos, 4 a 12 caracteres, convertido para maiúsculas.
 Exceções, que têm regra própria: `POST /reports` (`^[A-Z0-9]{4,7}$`), `POST /rebalance/exemplo`
-(`^[A-Z0-9]{4,7}$`).
+(`^[A-Z0-9]{4,7}$`) e `GET /quotes/:ticker` (código de negociação, `^[A-Z0-9]{3}[A-Z]\d{1,2}$`, que aceita `B3SA3`).
 
 ## Limitadores de requisição
 
@@ -141,8 +141,8 @@ Cada mês fechado usa o fechamento mensal do Yahoo; o mês corrente, o preço de
 ### `GET /quotes/:ticker` (logado)
 
 Consulta o Yahoo sem cadastrar nada (o formulário de transação e o editor de metas usam). Formato aceito:
-o do `tickerSchema` (aceita `B3SA3`), senão `400`. O front só consulta o que tem cara de código de
-negociação (`^[A-Z0-9]{3}[A-Z]\d{1,2}$`). Ticker que o Yahoo não conhece: `404`. Resposta:
+o código de negociação da B3 (`CODIGO_DE_NEGOCIACAO_B3` em `shared/ticker.ts`, aceita `B3SA3`), senão
+`400`, antes de chamar o Yahoo. O front usa a mesma regra. Ticker que o Yahoo não conhece: `404`. Resposta:
 `{ ticker, nome, preco, tipo, fechamentoAnterior, negociadoEm }`.
 
 ### Proventos (`/dividends`)

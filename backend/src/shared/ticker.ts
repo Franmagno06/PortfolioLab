@@ -18,6 +18,14 @@ import { z } from "zod";
  */
 export const TICKER_REGEX = /^[A-Z0-9]{4,12}$/;
 
+/**
+ * Código de negociação da B3: 4 caracteres que terminam em letra, mais 1 ou 2
+ * números (PETR4, MXRF11, B3SA3). Só para a consulta ao Yahoo em GET /quotes,
+ * que recusa antes da chamada externa o que não tem cara de ticker negociado
+ * ("PETR", "PETR456"). O front usa a mesma regra em use-busca-ticker.ts.
+ */
+export const CODIGO_DE_NEGOCIACAO_B3 = /^[A-Z0-9]{3}[A-Z]\d{1,2}$/;
+
 export const tickerSchema = z
   .string()
   .trim()

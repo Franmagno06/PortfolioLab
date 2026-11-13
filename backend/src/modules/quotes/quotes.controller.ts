@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import { AppError } from "../../shared/errors/AppError.js";
-import { TICKER_REGEX } from "../../shared/ticker.js";
+import { CODIGO_DE_NEGOCIACAO_B3 } from "../../shared/ticker.js";
 import { buscarCotacao } from "./quotes.provider.js";
 
 export const quotesController = {
@@ -12,11 +12,11 @@ export const quotesController = {
   async lookup(req: Request, res: Response) {
     const ticker = String(req.params["ticker"] ?? "").trim().toUpperCase();
 
-    // A mesma regra das outras rotas (shared/ticker.ts). A antiga, "4 letras e
-    // 1 ou 2 números", recusava B3SA3, que tem dígito no radical.
-    if (!TICKER_REGEX.test(ticker)) {
+    // A antiga, "4 letras e 1 ou 2 números", recusava B3SA3, que tem dígito
+    // no radical. Esta aceita, e ainda barra "PETR" antes de chamar o Yahoo.
+    if (!CODIGO_DE_NEGOCIACAO_B3.test(ticker)) {
       throw new AppError(
-        "Ticker inválido. Use apenas letras e números, como PETR4, B3SA3 ou MXRF11.",
+        "Ticker inválido. Use o código de negociação da B3, como PETR4, B3SA3 ou MXRF11.",
         400,
       );
     }
