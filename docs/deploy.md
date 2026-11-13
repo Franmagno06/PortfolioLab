@@ -18,6 +18,23 @@ põe para dormir. Nada aqui é serverless.
 O serviço do Render está descrito em [`render.yaml`](../render.yaml) (Blueprint), com os nomes das variáveis e
 nenhum valor secreto. O arquivo não cria nada sozinho: vale quando alguém cria o Blueprint no painel.
 
+A tabela acima é a última leitura das contas (12/11/2026). A revisão de 13/11/2026 não abriu nenhuma conta nem
+chamou serviço externo: o que segue sobre o código foi conferido no repositório.
+
+## O que ainda falta para o primeiro deploy
+
+Nada no código impede o deploy. A memória da CVM, que era o bloqueio, está corrigida (seção seguinte). O que
+falta são passos do dono e duas pendências que convém decidir antes de abrir o site ao público:
+
+1. **Passos do dono, com OK explícito** (P1 a P8, mais abaixo): migration pendente no Supabase, criar o serviço
+   no Render e o projeto na Vercel, conta demo, histórico dos índices e o monitor do `/health`.
+2. **Teto de login compartilhado** (pendência "IP do visitante"): com a cadeia Vercel → Render e
+   `TRUST_PROXY=1`, os limitadores podem enxergar um IP só para todo mundo. Dez tentativas erradas de login em
+   15 min, de qualquer pessoa, travariam o login (e o botão da demo) do site inteiro. Conferir no primeiro deploy,
+   antes de divulgar o endereço.
+3. **CI verde na `main`** (item 0 abaixo). O CI roda typecheck, testes e build; esta revisão rodou só o que não
+   escreve em banco (tsc, `prisma validate`, lint e typecheck do front, todos limpos).
+
 ## Memória da leitura da CVM: corrigido (era o bloqueio do plano gratuito)
 
 O Render gratuito (e o Starter pago) tem **512 MB**. Antes da correção, a primeira ficha de ação com dado vencido
@@ -75,8 +92,10 @@ desliga o aquecimento do catálogo ao subir. O `render.yaml` a põe em `false`, 
 - As fichas continuam se renovando por visita, uma de cada vez, e a fotografia fica 24 h no banco
   (`asset_snapshots`). Sem o aquecimento, só o primeiro visitante de cada ficha espera a CVM, e no máximo 8 s.
 
-O aquecimento das séries de índices (`indicesService.aquecer`) continua ligado: é rede (Banco Central, Yahoo e
-B3), sem zip.
+`AQUECER_CATALOGO=false` desliga também o aquecimento das séries de índices (`indicesService.aquecer`, em
+`server.ts`): mesmo sendo só rede (Banco Central, Yahoo e B3), com 0,1 CPU ele estourava os 5 s do health check
+logo depois da subida, e o Render reiniciava o serviço. As séries continuam preguiçosas: o primeiro
+`GET /indices/dados` monta e guarda cada uma, e o histórico da B3 entra em segundo plano.
 
 ## Limites do Render gratuito
 
@@ -121,12 +140,11 @@ um ping a cada 10 min gasta 1,5 disso.
 - Fichas de `/ativos` e páginas de índices: o servidor do Next espera 20 s (`ativos-api.ts`, `indices-api.ts`) e
   mostra "não conseguimos buscar agora". A próxima visita, com a API acordada, vem normal.
 - Login, cadastro e área logada: `api()` (`lib/api.ts`) não tem prazo próprio. A requisição espera o Render
-  acordar (cerca de 1 min), dentro dos 120 s do rewrite da Vercel. Funciona, mas com o botão parado por até um
-  minuto e sem explicação.
-- **Proposta, não implementada:** no login, no cadastro e no botão "Ver a demonstração", trocar o texto do
-  botão depois de ~5 s de espera para algo como "Acordando o servidor, pode levar até um minuto". É mudança de
-  tela (skills `frontend-design` e `web-design-guidelines`), fica para uma tarefa própria. Com o ping ligado, quase
-  nunca aparece.
+  acordar (cerca de 1 min), dentro dos 120 s do rewrite da Vercel.
+- **O botão "Ver a demonstração" já avisa**: depois de 4 s sem resposta, mostra "Acordando o servidor gratuito.
+  Na primeira visita do dia isso leva até um minuto." (`components/site/botao-demo.tsx`). **O login e o cadastro
+  ainda não**: o botão fica parado, sem explicação. Levar o mesmo aviso para eles é mudança de tela (skills
+  `frontend-design` e `web-design-guidelines`). Com o ping ligado, quase nunca aparece.
 
 O `proxyTimeout: 120_000` do `next.config.ts` só vale no `next start`/`next dev`. Na Vercel, o rewrite externo é
 feito pela CDN, com o mesmo limite de 120 s. Os dois números batem, e nenhuma mudança é necessária. Uma consulta
@@ -165,18 +183,34 @@ postgresql://postgres.<ref>:<senha>@aws-<n>-sa-east-1.pooler.supabase.com:5432/p
 | `DATABASE_URL` | **você cola** no painel (`sync: false`) | Session pooler, com `?connection_limit=5` (ver acima) |
 | `JWT_SECRET` | **o Render sorteia** (`generateValue: true`, 256 bits em base64, 44 caracteres) | a API recusa subir em produção com menos de 32 caracteres ou com placeholder conhecido. Trocar depois desloga todo mundo |
 | `AQUECER_CATALOGO` | `false` (no `render.yaml`) | ver a seção de memória |
-| `TRUST_PROXY` | não definir no começo (padrão `1`) | ver "IP do visitante" nas pendências |
+| `TRUST_PROXY` | não definir no começo (padrão `1`) | ver "IP do visitante" nas pendências. Precisa ser número: texto derruba o boot |
 | `PORT` | o Render define | não colocar |
+
+Não há outra variável que a API leia (`config/env.ts`). Segredo de IA, de Yahoo ou de CVM não existe: as fontes
+são públicas.
 
 **Site (Vercel):**
 
 | Variável | Valor |
 |---|---|
-| `API_URL` | endereço público da API, ex. `https://portfoliolab-api.onrender.com`, sem barra no fim |
+| `API_URL` | endereço público da API, ex. `https://portfoliolab-api.onrender.com`, sem barra no fim. Em Production (e Preview, se for usar) |
+| `ATIVOS_REVALIDAR_S` | não definir (padrão 120 s de cache das leituras feitas no servidor). Só o E2E põe `0` |
+
+`NEXT_DIST_DIR` também é só do E2E. O `NODE_ENV` a Vercel define sozinha.
 
 O navegador nunca fala direto com a API: o Next reescreve `/api/*` para `API_URL`, então tudo fica na mesma
 origem, o cookie `SameSite=Strict` funciona e não há CORS a configurar. As páginas de ativos e índices também leem
 `API_URL` no servidor do Next. Sem `API_URL`, o front tenta `localhost:3333` e essas páginas ficam sem dado.
+
+**`API_URL` entra no build.** Na Vercel, o `rewrites()` do `next.config.ts` é avaliado no build e vai para o
+manifesto de rotas que a CDN aplica, então o destino de `/api/*` fica fixo em cada deploy. Definiu ou trocou `API_URL` depois do primeiro build? Faça um redeploy na Vercel,
+ou o login e a área logada continuam apontando para o endereço antigo (ou para `localhost:3333`). As páginas de
+ativos e índices leem a variável em tempo de execução e não têm esse problema.
+
+**Desenvolvimento local.** O `backend/.env.example` vem com `JWT_SECRET=""`. Vazio não é "ausente": o padrão
+`dev-secret` de `env.ts` só vale quando a variável não existe, e a string vazia reprova o `min(1)`. Copiado sem
+mexer, o `.env` faz a API recusar subir também em desenvolvimento. Preencha com `openssl rand -base64 32` ou
+apague a linha.
 
 **Cache da CDN da Vercel.** Projetos criados depois de 06/04/2026 respeitam o `Cache-Control` que a origem externa
 manda nos rewrites. A API só manda `public, max-age=60` em `/ativos` e `/indices`, que são públicas. As rotas com
@@ -283,6 +317,21 @@ linha que o script imprime é o banco de destino: tem de ser `SUPABASE (produç�
 - [ ] Relatórios: numa conta comum, buscar `BBAS3` traz o último ITR, e a memória do Render continua abaixo de 512 MB.
 - [ ] Cabeçalhos de segurança no site (CSP, HSTS, X-Frame-Options) e na API (helmet).
 - [ ] IP do visitante nos limitadores (pendência abaixo).
+- [ ] As páginas públicas respondem `Cache-Control: public, max-age=60` (`curl -sI https://<site>/api/indices/dados`)
+      e uma rota logada não traz `Cache-Control: public` (`curl -sI https://<site>/api/auth/me` volta 401 sem ele).
+- [ ] Uma transação numa conta comum: compra, venda e exclusão, e a posição da carteira bate.
+
+### Como verificar depois, sem escrever nada
+
+| O quê | Como |
+|---|---|
+| API no ar e banco respondendo | `curl -s https://<api>.onrender.com/health` |
+| Qual banco a API usa | log de subida do Render: `🗄️  Banco: SUPABASE (produção) — …pooler.supabase.com:5432/postgres` |
+| Migration aplicada | ausência de `P2021`/`P2022` no log; `migrate status` da sua máquina (leitura) |
+| Memória | métricas do Render: pico abaixo de 512 MB depois de abrir uma ficha de ação com dado vencido e um relatório |
+| Rewrite do site | `curl -s https://<site>/api/health` devolve o mesmo JSON do `/health` da API |
+| Índices | `curl -s https://<site>/api/indices/dados` com `selicMensal` e `pontos.ibovespa` não vazios |
+| Sono | o monitor do `/health` registra 200 a cada 10 a 14 min |
 
 ## Pendências técnicas
 
@@ -290,9 +339,10 @@ linha que o script imprime é o banco de destino: tem de ser `SUPABASE (produç�
 |---|---|---|
 | Feito | Memória da leitura da CVM | corrigida; conferir a memória nas métricas do Render no primeiro deploy (P4) |
 | **Alta** | **IP do visitante nos limitadores.** A Vercel manda o IP do visitante em `x-forwarded-for` para a origem externa (documentado), e o proxy do Render acrescenta o IP da Vercel. Com `TRUST_PROXY=1` (padrão), a API enxerga o IP da Vercel, que é de todos, e o teto de login (10 por 15 min) vira do site inteiro. | No primeiro deploy, logar `req.ip` e `x-forwarded-for` (sem cookies) de duas redes diferentes. Se a cadeia for visitante → Vercel → Render, `TRUST_PROXY=2` dá o IP real. Atenção: com 2, quem chamar o `*.onrender.com` direto pode forjar o IP. Para fechar isso, a Vercel pode mandar um cabeçalho secreto no rewrite e a API recusar quem não o tiver: mudança própria, com a skill `security-and-hardening` |
-| Alta | **Dependências do backend.** `npm audit` aponta altas que só saem com versão maior (`zod` 3 → 4, CLI do Prisma). | Tarefa própria, com a bateria completa de testes |
-| Média | **Aviso de "acordando o servidor"** no login, no cadastro e na demo | seção "Contra o sono" |
-| Média | **Dinheiro somado em `number`** no resumo da carteira (`portfolio.service.ts`) e em partes do dashboard | Contra a convenção do projeto. Revisar com `auditar-calculo-financeiro` |
+| Alta | **Dependências do backend.** Em 13/11/2026, `npm audit --omit=dev` aponta 5 (4 altas, 1 baixa): `zod` < 4.6.6 (só sai com a versão 4), `fast-xml-parser` ≤ 5.11.2 e `deepmerge-ts` via CLI do Prisma (saem com `npm audit fix`). O frontend não tem nenhuma. | Tarefa própria, com a bateria completa de testes |
+| Média | **Aviso de "acordando o servidor"** no login e no cadastro (a demo já tem) | seção "Contra o sono" |
+| Média | **Dinheiro somado em `number`** no resumo da carteira (`portfolio.service.ts:getSummary` soma valores já arredondados), na soma das metas (`goals.service.ts`) e em partes do dashboard | Contra a convenção do projeto. Revisar com `auditar-calculo-financeiro` |
+| Média | **Rotas lentas no Render gratuito.** `GET /indicators` renova os indicadores vencidos ali mesmo, um ativo por vez; `POST /dividends/sync` consulta o Yahoo um ativo por vez (até 8 s cada); `POST /reports` espera a fila da CVM sem prazo. Com muitos ativos, as três podem passar dos 120 s do rewrite da Vercel e voltar 504 | O mesmo molde das fichas de Ativos: prazo curto na rota (`comLimiteDeTempo`), a busca segue em segundo plano e grava, e a resposta sai com o que já existe |
 | Baixa | Limitadores em memória | Corretos com uma instância, que é o único caso no plano gratuito |
 | Baixa | Job de indicadores (`npm run job:indicadores`) | Opcional: a atualização já é preguiçosa. o Cron Job do Render é cobrado (não entra no gratuito); se quiser, rode da sua máquina |
 
